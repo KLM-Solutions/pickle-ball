@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.vscode
+.gemini
+__pycache__
+*.pyc
+venv
+.env.local
+output
+tmp

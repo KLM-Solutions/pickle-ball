@@ -1,0 +1,21 @@
+# Core Dependencies
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Tracking
+boxmot>=10.0.0
+lapx>=0.5.5
+loguru>=0.7.0
+pandas>=2.0.0
+tqdm>=4.65.0
+
+# ReID Dependencies
+ftfy>=6.1.0
+regex>=2023.0.0
+yacs>=0.1.8
+
+# Utilities
+Pillow>=10.0.0
+mediapipe>=0.10.0
