@@ -2,8 +2,48 @@
 
 import { Upload, Loader2, Tag, Zap, Play, Pause, SkipBack, SkipForward, CheckCircle, Settings, Volume2, VolumeX, Maximize, AlertTriangle } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
-import { extractFrame3 } from "../../lib/extractFrame";
 import { AnalyzeResponse } from "../types";
+
+// Extract a frame from video file for tagging UI
+async function extractFrameFromVideo(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        const url = URL.createObjectURL(file);
+        video.src = url;
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'auto';
+
+        video.onloadedmetadata = () => {
+            // Seek to frame ~0.1s or middle if very short
+            video.currentTime = Math.min(0.1, video.duration / 2);
+        };
+
+        video.onseeked = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    URL.revokeObjectURL(url);
+                    resolve(dataUrl);
+                } else {
+                    reject(new Error('Failed to get canvas context'));
+                }
+            } catch (e) {
+                reject(e);
+            }
+        };
+
+        video.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load video'));
+        };
+    });
+}
 
 interface VideoPanelProps {
     videoFile: File | null;
@@ -104,7 +144,7 @@ export default function VideoPanel({
         if (videoFile) {
             setIsExtractingFrame(true);
             setUploadState('uploading');
-            extractFrame3(videoFile).then(url => {
+            extractFrameFromVideo(videoFile).then(url => {
                 setFirstFrameUrl(url);
                 setUploadState('uploaded');
 
