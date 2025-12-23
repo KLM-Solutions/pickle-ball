@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { runAnalysisSync, startAnalysis, waitForCompletion } from "@/lib/runpod";
 
 export const runtime = "edge"; // Use edge runtime for faster cold starts
+export const maxDuration = 300; // This function can run for a maximum of 5 seconds
 
 type StrokeType =
   | "serve"
