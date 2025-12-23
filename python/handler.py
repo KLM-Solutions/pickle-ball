@@ -153,6 +153,7 @@ def run_tracking(
             cmd.extend(['--video_path', video_path])
         
         print(f"Running track.py with stroke_type={stroke_type}, step={step}")
+        print(f"Command: {' '.join(cmd)}")
         
         result = subprocess.run(
             cmd,
@@ -162,10 +163,17 @@ def run_tracking(
             timeout=1800  # 30 min max
         )
         
+        # Always print output for debugging
+        if result.stdout:
+            print(f"track.py stdout:\n{result.stdout[-2000:]}")
+        if result.stderr:
+            print(f"track.py stderr:\n{result.stderr[-2000:]}")
+        
         if result.returncode != 0:
+            print(f"ERROR: track.py failed with code {result.returncode}")
             return {
                 "error": f"Tracking failed with code {result.returncode}",
-                "stderr": result.stderr[-1000:] if result.stderr else ""
+                "stderr": result.stderr[-2000:] if result.stderr else "No stderr output"
             }
         
         if os.path.exists(results_json):
@@ -353,4 +361,43 @@ if __name__ == "__main__":
     print(f"Supabase URL: {os.environ.get('SUPABASE_URL', 'NOT SET')}")
     print(f"Supabase Key: {'SET' if os.environ.get('SUPABASE_SERVICE_KEY') else 'NOT SET'}")
     print("=" * 60)
+    
+    # Startup diagnostics
+    print("\n--- Startup Diagnostics ---")
+    print(f"Working directory: {os.getcwd()}")
+    print(f"Python executable: {sys.executable}")
+    print(f"PYTHONPATH: {os.environ.get('PYTHONPATH', 'NOT SET')}")
+    
+    # Check models folder
+    models_dir = os.path.join(os.path.dirname(__file__), 'models')
+    if os.path.exists(models_dir):
+        print(f"Models directory: {models_dir}")
+        print(f"Models found: {os.listdir(models_dir)}")
+    else:
+        print(f"WARNING: Models directory not found at {models_dir}")
+    
+    # Test track.py imports
+    print("\n--- Testing track.py imports ---")
+    try:
+        import track
+        print("✓ track.py imported successfully")
+    except Exception as e:
+        print(f"✗ track.py import failed: {e}")
+    
+    try:
+        from ultralytics import YOLO
+        print("✓ ultralytics (YOLO) imported successfully")
+    except Exception as e:
+        print(f"✗ ultralytics import failed: {e}")
+    
+    try:
+        import mediapipe as mp
+        print("✓ mediapipe imported successfully")
+    except Exception as e:
+        print(f"✗ mediapipe import failed: {e}")
+    
+    print("=" * 60)
+    print("Starting RunPod Serverless Worker...")
+    print("=" * 60 + "\n")
+    
     runpod.serverless.start({"handler": handler})
