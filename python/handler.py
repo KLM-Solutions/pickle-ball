@@ -1,25 +1,28 @@
 """
 RunPod Serverless Handler for Pickleball Video Analysis
 
-This handler receives video analysis jobs and runs the track.py processing pipeline.
+This handler receives video analysis jobs, processes them, and uploads results to Supabase.
 
 Expected input:
 {
-    "video_url": "https://example.com/video.mp4",  # URL to download video from
+    "video_url": "https://supabase.../storage/v1/object/public/videos/video.mp4",
     "stroke_type": "serve",                         # serve, groundstroke, dink, overhead, footwork, overall
     "crop_region": "0.2,0.3,0.8,0.9",              # Optional: x1,y1,x2,y2 normalized coords
     "target_point": "0.5,0.6",                      # Optional: x,y normalized coords
-    "step": 3                                       # Optional: process every Nth frame (default: 3)
+    "step": 3,                                      # Optional: process every Nth frame (default: 3)
+    "job_id": "uuid-optional"                       # Optional: for tracking in database
 }
 
 Returns:
 {
-    "frames": [...],           # Per-frame analysis data
-    "strokes": [...],          # Detected stroke segments
-    "summary": {...},          # Session summary stats
-    "injury_risk_summary": {}, # Injury risk analysis
-    "annotated_video_base64": "...",  # Optional: base64 encoded video (if small)
-    "status": "success"
+    "status": "success",
+    "video_url": "https://supabase.../analysis-results/job123/annotated.mp4",
+    "frames": [
+        {"filename": "frame_0001.png", "url": "https://...", "timestampSec": 0.1, "metrics": {...}}
+    ],
+    "strokes": [...],
+    "summary": {...},
+    "injury_risk_summary": {...}
 }
 """
 
@@ -30,15 +33,17 @@ import json
 import tempfile
 import shutil
 import subprocess
-import base64
-import requests
+import time
+import uuid
 from pathlib import Path
+
+import requests
 
 # Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Import the NumpyEncoder from track.py for JSON serialization
 from track import NumpyEncoder
+from supabase_client import get_uploader
 
 
 def download_video(url: str, dest_path: str) -> bool:
@@ -52,7 +57,8 @@ def download_video(url: str, dest_path: str) -> bool:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
         
-        print(f"Video downloaded to: {dest_path}")
+        file_size = os.path.getsize(dest_path) / (1024 * 1024)
+        print(f"Video downloaded: {dest_path} ({file_size:.1f} MB)")
         return True
     except Exception as e:
         print(f"Failed to download video: {e}")
@@ -68,11 +74,11 @@ def extract_frames(video_path: str, frames_dir: str, fps: int = 30) -> bool:
             'ffmpeg', '-i', video_path,
             '-vf', f'fps={fps}',
             os.path.join(frames_dir, 'frame_%04d.png'),
-            '-y'  # Overwrite
+            '-y', '-loglevel', 'error'
         ]
         
-        print(f"Extracting frames with: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        print(f"Extracting frames at {fps} FPS...")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         
         if result.returncode != 0:
             print(f"FFmpeg error: {result.stderr}")
@@ -86,6 +92,38 @@ def extract_frames(video_path: str, frames_dir: str, fps: int = 30) -> bool:
         return False
 
 
+def encode_video_from_frames(frames_dir: str, output_path: str, fps: int = 10) -> bool:
+    """Encode annotated frames back to video."""
+    try:
+        cmd = [
+            'ffmpeg',
+            '-framerate', str(fps),
+            '-i', os.path.join(frames_dir, 'frame_%04d.png'),
+            '-start_number', '1',
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            '-crf', '23',
+            '-preset', 'fast',
+            output_path,
+            '-y', '-loglevel', 'error'
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        
+        if result.returncode != 0:
+            print(f"FFmpeg encode error: {result.stderr}")
+            return False
+        
+        if os.path.exists(output_path):
+            size_mb = os.path.getsize(output_path) / (1024 * 1024)
+            print(f"Video encoded: {output_path} ({size_mb:.1f} MB)")
+            return True
+        return False
+    except Exception as e:
+        print(f"Video encoding failed: {e}")
+        return False
+
+
 def run_tracking(
     input_dir: str,
     output_dir: str,
@@ -96,9 +134,8 @@ def run_tracking(
     step: int = 3,
     video_path: str = None
 ) -> dict:
-    """Run the tracking pipeline by calling track.py as a subprocess."""
+    """Run the tracking pipeline."""
     try:
-        # Build command
         cmd = [
             sys.executable, 'track.py',
             '--input_dir', input_dir,
@@ -115,58 +152,41 @@ def run_tracking(
         if video_path:
             cmd.extend(['--video_path', video_path])
         
-        print(f"Running tracking: {' '.join(cmd)}")
+        print(f"Running track.py with stroke_type={stroke_type}, step={step}")
         
-        # Run track.py
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            cwd=os.path.dirname(os.path.abspath(__file__))
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            timeout=1800  # 30 min max
         )
         
-        print(f"track.py stdout: {result.stdout[-2000:]}")  # Last 2000 chars
-        if result.stderr:
-            print(f"track.py stderr: {result.stderr[-1000:]}")
-        
         if result.returncode != 0:
-            return {"error": f"Tracking failed with code {result.returncode}", "stderr": result.stderr[-500:]}
+            return {
+                "error": f"Tracking failed with code {result.returncode}",
+                "stderr": result.stderr[-1000:] if result.stderr else ""
+            }
         
-        # Read results
         if os.path.exists(results_json):
             with open(results_json, 'r') as f:
                 return json.load(f)
         else:
             return {"error": "Results JSON not created"}
     
+    except subprocess.TimeoutExpired:
+        return {"error": "Processing timeout (exceeded 30 minutes)"}
     except Exception as e:
         return {"error": f"Tracking exception: {str(e)}"}
-
-
-def encode_video_base64(video_path: str, max_size_mb: int = 10) -> str:
-    """Encode video to base64 if it's small enough."""
-    try:
-        if not os.path.exists(video_path):
-            return None
-        
-        size_mb = os.path.getsize(video_path) / (1024 * 1024)
-        if size_mb > max_size_mb:
-            print(f"Video too large for base64 ({size_mb:.1f}MB > {max_size_mb}MB)")
-            return None
-        
-        with open(video_path, 'rb') as f:
-            return base64.b64encode(f.read()).decode('utf-8')
-    except Exception as e:
-        print(f"Failed to encode video: {e}")
-        return None
 
 
 def handler(job):
     """
     RunPod serverless handler function.
     
-    Receives job input, processes video, returns analysis results.
+    Processes video and uploads results to Supabase.
     """
+    start_time = time.time()
     job_input = job.get("input", {})
     
     # Validate required input
@@ -174,38 +194,50 @@ def handler(job):
     if not video_url:
         return {"error": "Missing required field: video_url"}
     
-    # Get optional parameters
+    # Get parameters
     stroke_type = job_input.get("stroke_type", "serve")
     crop_region = job_input.get("crop_region")
     target_point = job_input.get("target_point")
     step = int(job_input.get("step", 3))
-    include_video = job_input.get("include_video", False)  # Whether to return base64 video
+    job_id = job_input.get("job_id") or str(uuid.uuid4())
+    
+    # Get Supabase uploader
+    uploader = get_uploader()
+    
+    # Update job status to processing
+    uploader.update_job_status(job_id, "processing")
     
     # Create temp working directory
     work_dir = tempfile.mkdtemp(prefix="runpod_analysis_")
     
     try:
-        print(f"Starting analysis job in: {work_dir}")
+        print(f"=== Starting Analysis Job: {job_id} ===")
+        print(f"Video URL: {video_url}")
         print(f"Parameters: stroke_type={stroke_type}, step={step}")
         
         # 1. Download video
         video_path = os.path.join(work_dir, "input.mp4")
         if not download_video(video_url, video_path):
-            return {"error": "Failed to download video from URL"}
+            error_msg = "Failed to download video from URL"
+            uploader.update_job_status(job_id, "failed", error_message=error_msg)
+            return {"error": error_msg}
         
         # 2. Extract frames
         frames_dir = os.path.join(work_dir, "frames")
         if not extract_frames(video_path, frames_dir):
-            return {"error": "Failed to extract frames from video"}
+            error_msg = "Failed to extract frames from video"
+            uploader.update_job_status(job_id, "failed", error_message=error_msg)
+            return {"error": error_msg}
         
         # 3. Run tracking analysis
         output_dir = os.path.join(work_dir, "output")
-        results_json = os.path.join(work_dir, "results.json")
+        os.makedirs(output_dir, exist_ok=True)
+        results_json_path = os.path.join(work_dir, "results.json")
         
         results = run_tracking(
             input_dir=frames_dir,
             output_dir=output_dir,
-            results_json=results_json,
+            results_json=results_json_path,
             stroke_type=stroke_type,
             crop_region=crop_region,
             target_point=target_point,
@@ -214,36 +246,95 @@ def handler(job):
         )
         
         if "error" in results:
+            uploader.update_job_status(job_id, "failed", error_message=results["error"])
             return results
         
-        # 4. Optionally encode annotated video
-        annotated_video_b64 = None
-        if include_video:
-            skeleton_video = os.path.join(output_dir, "skeleton_output.mp4")
-            annotated_video_b64 = encode_video_base64(skeleton_video)
+        # 4. Encode annotated video
+        annotated_video_path = os.path.join(output_dir, "annotated.mp4")
+        output_fps = max(1, 30 // step)
+        video_encoded = encode_video_from_frames(output_dir, annotated_video_path, fps=output_fps)
         
-        # 5. Build response
+        # 5. Upload to Supabase
+        result_video_url = None
+        frames_data = []
+        
+        # Upload annotated video
+        if video_encoded and os.path.exists(annotated_video_path):
+            result_video_url = uploader.upload_file(
+                bucket="analysis-results",
+                file_path=annotated_video_path,
+                destination_path=f"{job_id}/annotated.mp4",
+                content_type="video/mp4"
+            )
+        
+        # Upload frames
+        frame_files = sorted(Path(output_dir).glob("frame_*.png"))
+        print(f"Uploading {len(frame_files)} frames to Supabase...")
+        
+        uploaded_frames = uploader.upload_directory(
+            bucket="analysis-results",
+            local_dir=output_dir,
+            destination_prefix=f"{job_id}/frames/",
+            file_pattern="frame_*.png"
+        )
+        
+        # Build frames response with URLs
+        raw_frames = results.get("frames", [])
+        for i, frame_data in enumerate(raw_frames):
+            # Find matching uploaded frame
+            filename = frame_data.get("frameFilename", f"frame_{i+1:04d}.png")
+            matching_upload = next(
+                (u for u in uploaded_frames if u["filename"] == filename),
+                None
+            )
+            
+            frames_data.append({
+                "frameIndex": i,
+                "timestampSec": frame_data.get("timestampSec", i * step / 30.0),
+                "url": matching_upload["url"] if matching_upload else None,
+                "bbox": frame_data.get("bbox", [0, 0, 0, 0]),
+                "confidence": frame_data.get("confidence", 0),
+                "metrics": frame_data.get("metrics", {})
+            })
+        
+        # 6. Calculate processing time
+        processing_time = time.time() - start_time
+        
+        # 7. Build response
         response = {
             "status": "success",
-            "frames": results.get("frames", []),
+            "job_id": job_id,
+            "video_url": result_video_url,
+            "frames": frames_data,
             "strokes": results.get("strokes", []),
             "summary": results.get("summary", {}),
             "injury_risk_summary": results.get("injury_risk_summary", {}),
+            "total_frames_processed": len(frames_data),
+            "processing_time_sec": round(processing_time, 2)
         }
         
-        if annotated_video_b64:
-            response["annotated_video_base64"] = annotated_video_b64
+        # 8. Update job in database
+        uploader.update_job_status(
+            job_id=job_id,
+            status="completed",
+            result_video_url=result_video_url,
+            result_json=response,
+            frames_folder=f"{job_id}/frames/",
+            processing_time_sec=processing_time,
+            total_frames=len(frames_data)
+        )
         
-        # Add frame count for reference
-        response["total_frames_processed"] = len(response["frames"])
+        print(f"=== Analysis Complete: {job_id} ===")
+        print(f"Total time: {processing_time:.1f}s, Frames: {len(frames_data)}")
         
-        print(f"Analysis complete. Processed {response['total_frames_processed']} frames.")
         return response
     
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return {"error": f"Handler exception: {str(e)}"}
+        error_msg = f"Handler exception: {str(e)}"
+        uploader.update_job_status(job_id, "failed", error_message=error_msg)
+        return {"error": error_msg}
     
     finally:
         # Cleanup temp directory
@@ -256,6 +347,10 @@ def handler(job):
 
 # Start the RunPod serverless worker
 if __name__ == "__main__":
-    print("Starting RunPod Serverless Worker...")
+    print("=" * 60)
+    print("StrikeSense Video Analysis Worker")
+    print("=" * 60)
+    print(f"Supabase URL: {os.environ.get('SUPABASE_URL', 'NOT SET')}")
+    print(f"Supabase Key: {'SET' if os.environ.get('SUPABASE_SERVICE_KEY') else 'NOT SET'}")
+    print("=" * 60)
     runpod.serverless.start({"handler": handler})
-

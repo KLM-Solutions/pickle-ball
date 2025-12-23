@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, User, Grid3x3, Play, Maximize2, ZoomIn, ZoomOut, RotateCcw, Upload } from 'lucide-react';
-import { getVideoFile } from "../../../lib/videoStorage";
 
 // Specialized Crop Content Component
 function CropContent() {
@@ -27,25 +26,11 @@ function CropContent() {
   const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
-    let url: string | null = null;
-
-    async function loadVideo() {
-      try {
-        const file = await getVideoFile();
-        if (file) {
-          url = URL.createObjectURL(file);
-          setVideoUrl(url);
-        }
-      } catch (err) {
-        console.error("Failed to load video from IndexedDB:", err);
-      }
+    // Get video URL from session storage (uploaded to Supabase)
+    const storedUrl = sessionStorage.getItem('videoUrl');
+    if (storedUrl) {
+      setVideoUrl(storedUrl);
     }
-
-    loadVideo();
-
-    return () => {
-      if (url) URL.revokeObjectURL(url);
-    };
   }, []);
 
   const handleVideoLoad = () => {
@@ -181,7 +166,7 @@ function CropContent() {
     const x2 = (cropBox.x + cropBox.width) / 100;
     const y2 = (cropBox.y + cropBox.height) / 100;
 
-    // Use the legacy key and JSON format expected by processing/page.tsx
+    // Store crop coords in session
     const coords = { x1, y1, x2, y2 };
     sessionStorage.setItem('cropCoords', JSON.stringify(coords));
 
@@ -193,7 +178,7 @@ function CropContent() {
       {/* Header - Navy Consistent with Home Page */}
       <header className="h-14 bg-secondary text-white flex items-center justify-between px-4 flex-shrink-0 shadow-md z-50">
         <button
-          onClick={() => router.push(`/strikesense/guide?stroke=${strokeType}`)}
+          onClick={() => router.push(`/strikesense/upload?stroke=${strokeType}`)}
           className="flex items-center gap-2 hover:opacity-80 transition touch-target"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -216,13 +201,28 @@ function CropContent() {
             style={{ transform: `scale(${zoom})`, transition: activeAction ? 'none' : 'transform 0.2s ease-out' }}>
 
             {videoUrl ? (
-              <video ref={videoRef} src={videoUrl} className="max-w-full max-h-full object-contain pointer-events-none" onLoadedMetadata={handleVideoLoad} preload="metadata" playsInline muted />
+              <video
+                ref={videoRef}
+                src={videoUrl}
+                className="max-w-full max-h-full object-contain pointer-events-none"
+                onLoadedMetadata={handleVideoLoad}
+                preload="metadata"
+                playsInline
+                muted
+                crossOrigin="anonymous"
+              />
             ) : (
               <div className="text-center p-8 bg-white border border-border rounded-3xl shadow-sm">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-50 flex items-center justify-center">
                   <Upload className="w-8 h-8 text-gray-400" />
                 </div>
                 <p className="text-sm font-bold text-secondary uppercase tracking-tight">NO VIDEO LOADED</p>
+                <button
+                  onClick={() => router.push(`/strikesense/upload?stroke=${strokeType}`)}
+                  className="mt-4 text-sm text-primary hover:underline"
+                >
+                  Upload a video
+                </button>
               </div>
             )}
 
@@ -234,7 +234,7 @@ function CropContent() {
                   onTouchStart={(e) => handleInteractionStart(e, 'moving')}
                   style={{ left: `${cropBox.x}%`, top: `${cropBox.y}%`, width: `${cropBox.width}%`, height: `${cropBox.height}%` }}>
 
-                  {/* Resizing Handles - Light Tech Style */}
+                  {/* Resizing Handles */}
                   {[
                     { id: 'top-left', class: 'top-0 left-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize' },
                     { id: 'top-right', class: 'top-0 right-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize' },
@@ -272,7 +272,7 @@ function CropContent() {
             )}
           </div>
 
-          {/* Floating Zoom Controls - Light Theme */}
+          {/* Floating Zoom Controls */}
           <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-20">
             <button onClick={() => setZoom(Math.min(2, zoom + 0.25))} className="w-10 h-10 bg-white border border-border text-secondary rounded-xl flex items-center justify-center shadow-md active:scale-95 transition-all"><ZoomIn className="w-5 h-5" /></button>
             <button onClick={() => setZoom(Math.max(0.5, zoom - 0.25))} className="w-10 h-10 bg-white border border-border text-secondary rounded-xl flex items-center justify-center shadow-md active:scale-95 transition-all"><ZoomOut className="w-5 h-5" /></button>
@@ -280,7 +280,7 @@ function CropContent() {
           </div>
         </div>
 
-        {/* Bottom Control Panel - Light Mode */}
+        {/* Bottom Control Panel */}
         <div className="bg-white border-t border-border px-4 py-4 flex-shrink-0 z-50">
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-4">
 
@@ -313,7 +313,7 @@ function CropContent() {
               <button onClick={handleStartAnalysis} disabled={!videoUrl || !cropBox}
                 className="w-full bg-primary hover:bg-primary-dark disabled:opacity-30 text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
                 <Play className="w-4 h-4 fill-white" />
-                ANALYSIS
+                ANALYZE
               </button>
               {!cropBox && <p className="text-[9px] text-center text-text-secondary font-bold uppercase tracking-tight animate-pulse">Select player to continue</p>}
             </div>

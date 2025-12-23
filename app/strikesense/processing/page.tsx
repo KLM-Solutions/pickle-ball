@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, CheckCircle, Circle, AlertCircle, RefreshCw } from "lucide-react";
-
-import { getVideoFile } from "../../../lib/videoStorage";
+import { Loader2, CheckCircle, Circle, AlertCircle, RefreshCw, Cloud } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,124 +13,104 @@ type ProcessingStage = {
   status: 'pending' | 'active' | 'complete';
 };
 
-// Separate component that uses search params
 function ProcessingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const strokeType = searchParams.get('stroke') || 'serve';
 
-  // Use refs to track completion status without triggering re-renders inside the loop
-  const apiCompleteRef = useRef(false);
-  const analysisResultRef = useRef<any>(null);
-  const apiErrorRef = useRef<string | null>(null);
-
   const [stages, setStages] = useState<ProcessingStage[]>([
-    { id: 'loading', label: 'Loading video', icon: '📹', status: 'pending' },
+    { id: 'upload', label: 'Sending to cloud', icon: '☁️', status: 'pending' },
     { id: 'pose', label: 'Detecting pose', icon: '🤖', status: 'pending' },
     { id: 'strokes', label: 'Classifying strokes', icon: '🎾', status: 'pending' },
     { id: 'biomechanics', label: 'Calculating biomechanics', icon: '📊', status: 'pending' },
     { id: 'insights', label: 'Generating insights', icon: '✨', status: 'pending' }
   ]);
   const [overallProgress, setOverallProgress] = useState(0);
-  const [isLongWait, setIsLongWait] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentStage, setCurrentStage] = useState(0);
 
-  // Helper to update a specific stage
   const setStageStatus = (index: number, status: 'pending' | 'active' | 'complete') => {
     setStages(prev => prev.map((s, i) => i === index ? { ...s, status } : s));
   };
 
   useEffect(() => {
-    const runSequence = async () => {
-      // 1. Trigger API in background
-      const apiPromise = (async () => {
-        try {
-          const videoFile = await getVideoFile();
-          const cropCoords = sessionStorage.getItem('cropCoords');
+    const runAnalysis = async () => {
+      try {
+        // Get video URL from session storage
+        const videoUrl = sessionStorage.getItem('videoUrl');
+        const cropCoords = sessionStorage.getItem('cropCoords');
 
-          if (!videoFile || !cropCoords) throw new Error("Missing inputs. Please re-upload video.");
+        if (!videoUrl) {
+          throw new Error("No video URL found. Please re-upload your video.");
+        }
 
+        // Parse crop coordinates
+        let cropRegion: string | undefined;
+        if (cropCoords) {
           const coords = JSON.parse(cropCoords);
-          const formData = new FormData();
-          formData.append('video', videoFile);
-          formData.append('strokeType', strokeType);
-          formData.append('targetPoint', `${(coords.x1 + coords.x2) / 2},${(coords.y1 + coords.y2) / 2}`);
-          // Send x1,y1,x2,y2 to Python
-          formData.append('cropRegion', `${coords.x1},${coords.y1},${coords.x2},${coords.y2}`);
-          formData.append('trackBall', 'false');
-
-          const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-          if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`Analysis failed: ${res.statusText} (${errText.substring(0, 50)}...)`);
-          }
-
-          const json = await res.json();
-          analysisResultRef.current = json;
-          apiCompleteRef.current = true;
-        } catch (err: any) {
-          console.error("API Error", err);
-          apiErrorRef.current = err.message || "Unknown error occurred";
-          apiCompleteRef.current = true; // Set complete so loop can exit and show error
-        }
-      })();
-
-      // 2. Run Visual Sequence (5 seconds per step)
-      const STEP_DELAY = 5000;
-
-      for (let i = 0; i < stages.length; i++) {
-        // If error occurred previously, stop
-        if (apiErrorRef.current) break;
-
-        // Activate current stage
-        setStageStatus(i, 'active');
-
-        // Update progress bar smoothly during the wait
-        const startProgress = (i / stages.length) * 100;
-        const endProgress = ((i + 1) / stages.length) * 100;
-        setOverallProgress(startProgress);
-
-        // Wait...
-        await new Promise(resolve => setTimeout(resolve, STEP_DELAY));
-
-        // If this is the last stage (Insights), we MUST ensure API is done
-        if (i === stages.length - 1) {
-          let waitTime = 0;
-          // Wait until API finishes if it hasn't yet
-          while (!apiCompleteRef.current) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            waitTime += 500;
-            // If waiting more than 15s at this stage (total > 35s), show "Long Wait" message
-            if (waitTime > 15000) {
-              setIsLongWait(true);
-            }
-          }
+          cropRegion = `${coords.x1},${coords.y1},${coords.x2},${coords.y2}`;
         }
 
-        // Check error again after wait
-        if (apiErrorRef.current) break;
+        // Stage 1: Sending to cloud
+        setStageStatus(0, 'active');
+        setOverallProgress(10);
 
-        // Complete stage
-        setStageStatus(i, 'complete');
-        setOverallProgress(endProgress);
-      }
+        // Call the API
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            videoUrl,
+            strokeType,
+            cropRegion,
+            step: 3,
+          }),
+        });
 
-      // 3. Final Check
-      if (apiErrorRef.current) {
-        setError(apiErrorRef.current);
-        setOverallProgress(100); // Visual completion of fail
-      } else if (analysisResultRef.current) {
-        // FIXED: Store analysis result and redirect to analysis page instead of player
-        sessionStorage.setItem('analysisResult', JSON.stringify(analysisResultRef.current));
-        console.log('Analysis complete, stored result:', analysisResultRef.current);
-        // Redirect to player page which shows the video and real-time metrics
-        setTimeout(() => {
-          router.push(`/strikesense/player?stroke=${strokeType}`);
-        }, 500);
+        // Update progress during API call
+        setStageStatus(0, 'complete');
+        setCurrentStage(1);
+
+        // Simulate stages while waiting for response
+        // (The actual processing happens on RunPod)
+        for (let i = 1; i < stages.length - 1; i++) {
+          setStageStatus(i, 'active');
+          setOverallProgress(20 + (i * 15));
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          setStageStatus(i, 'complete');
+          setCurrentStage(i + 1);
+        }
+
+        // Final stage
+        setStageStatus(stages.length - 1, 'active');
+        setOverallProgress(85);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Analysis failed: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+
+        // Complete final stage
+        setStageStatus(stages.length - 1, 'complete');
+        setOverallProgress(100);
+
+        // Store result and navigate
+        sessionStorage.setItem('analysisResult', JSON.stringify(result));
+        console.log('Analysis complete:', result);
+
+        // Short delay to show completion
+        await new Promise(resolve => setTimeout(resolve, 500));
+        router.push(`/strikesense/player?stroke=${strokeType}`);
+
+      } catch (err: any) {
+        console.error('Analysis error:', err);
+        setError(err.message || 'Analysis failed. Please try again.');
       }
     };
 
-    runSequence();
+    runAnalysis();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -143,9 +121,6 @@ function ProcessingContent() {
           <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
           <h1 className="text-2xl font-bold mb-2 text-gray-900">Analysis Failed</h1>
           <p className="text-gray-500 mb-6 text-sm">{error}</p>
-          <div className="text-xs bg-gray-100 p-3 rounded mb-6 text-left font-mono overflow-auto max-h-32">
-            Tip: If this is the first run, dependencies might be installing. Try running 'python track.py' manually in terminal to see detailed logs.
-          </div>
           <button
             onClick={() => window.location.reload()}
             className="flex items-center justify-center gap-2 w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition"
@@ -166,16 +141,13 @@ function ProcessingContent() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 font-sans">
       <div className="max-w-2xl w-full text-center">
-        <Loader2 className="w-16 h-16 mx-auto mb-6 animate-spin text-[#00BFA5]" />
+        <div className="relative">
+          <Loader2 className="w-16 h-16 mx-auto mb-2 animate-spin text-[#00BFA5]" />
+          <Cloud className="w-6 h-6 absolute top-0 right-1/2 translate-x-12 text-[#1A237E] animate-pulse" />
+        </div>
         <h1 className="text-3xl font-bold mb-2 text-[#1A237E]">Analyzing Your Performance</h1>
-        <p className="text-gray-500 mb-8">Detailed analysis in progress...</p>
-
-        {isLongWait && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm flex items-center justify-center gap-2 animate-pulse">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Setting up AI models (First run may take 1-2 mins)...
-          </div>
-        )}
+        <p className="text-gray-500 mb-2">GPU-powered cloud analysis in progress...</p>
+        <p className="text-xs text-gray-400 mb-8">Processing on RunPod Serverless</p>
 
         {/* Progress Bar */}
         <div className="mb-8">

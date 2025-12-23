@@ -1,21 +1,19 @@
 # =============================================================================
-# RunPod Serverless Dockerfile for Pickleball Video Analysis
+# RunPod Serverless Dockerfile - Python Video Analysis Worker
 # =============================================================================
-# Deploys ONLY the Python analysis worker to RunPod Serverless GPU endpoint
+# This deploys ONLY the Python analysis service to RunPod Serverless
+# No Next.js, no frontend - just the AI/ML video processing pipeline
 #
-# Build command (from project root):
-#   docker build -f Dockerfile.runpod -t your-dockerhub/pickle-ball-worker:latest .
+# Build:
+#   docker build -f Dockerfile.runpod -t yourusername/strikesense-worker:latest .
 #
-# Push to Docker Hub:
-#   docker push your-dockerhub/pickle-ball-worker:latest
-#
-# Then use this image URL in RunPod Serverless endpoint configuration
+# Push:
+#   docker push yourusername/strikesense-worker:latest
 # =============================================================================
 
-# Base image with CUDA + PyTorch (RunPod recommended for GPU workloads)
+# Base: PyTorch with CUDA for GPU acceleration
 FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
 
-# Set working directory
 WORKDIR /app
 
 # Install system dependencies
@@ -26,31 +24,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsm6 \
     libxext6 \
     libxrender-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Copy and install Python requirements (better Docker layer caching)
+# Copy Python requirements and install
 COPY python/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Pre-download YOLO model weights for faster cold starts
-RUN python -c "from ultralytics import YOLO; model = YOLO('yolov8n.pt'); print('YOLO model cached')"
+# Install additional packages for Supabase upload
+RUN pip install --no-cache-dir supabase httpx
 
-# Copy the Python application code
+# Pre-download YOLO model for faster cold starts
+RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt'); print('YOLO model cached')"
+
+# Copy Python application code
 COPY python/ ./
 
-# Copy models directory (YOLO weights, ReID weights if present)
+# Copy models directory
 COPY models/ ./models/
 
-# Environment variables
+# Environment
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-# Health check (optional, for debugging)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import runpod; print('OK')" || exit 1
-
 # RunPod serverless entrypoint
 CMD ["python", "-u", "handler.py"]
-
