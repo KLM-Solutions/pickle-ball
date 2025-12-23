@@ -1,0 +1,56 @@
+# =============================================================================
+# RunPod Serverless Dockerfile for Pickleball Video Analysis
+# =============================================================================
+# Deploys ONLY the Python analysis worker to RunPod Serverless GPU endpoint
+#
+# Build command (from project root):
+#   docker build -f Dockerfile.runpod -t your-dockerhub/pickle-ball-worker:latest .
+#
+# Push to Docker Hub:
+#   docker push your-dockerhub/pickle-ball-worker:latest
+#
+# Then use this image URL in RunPod Serverless endpoint configuration
+# =============================================================================
+
+# Base image with CUDA + PyTorch (RunPod recommended for GPU workloads)
+FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy and install Python requirements (better Docker layer caching)
+COPY python/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Pre-download YOLO model weights for faster cold starts
+RUN python -c "from ultralytics import YOLO; model = YOLO('yolov8n.pt'); print('YOLO model cached')"
+
+# Copy the Python application code
+COPY python/ ./
+
+# Copy models directory (YOLO weights, ReID weights if present)
+COPY models/ ./models/
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# Health check (optional, for debugging)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import runpod; print('OK')" || exit 1
+
+# RunPod serverless entrypoint
+CMD ["python", "-u", "handler.py"]
+
