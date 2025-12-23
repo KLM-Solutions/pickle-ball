@@ -99,7 +99,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       frames: result.frames.map((frame, index) => ({
         frameIndex: index,
         timestampSec: frame.timestampSec,
-        imageUrl: frame.url, // Frame image URL from Supabase
         bbox: frame.bbox,
         confidence: frame.confidence,
         metrics: frame.metrics,

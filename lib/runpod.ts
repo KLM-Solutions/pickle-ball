@@ -25,7 +25,6 @@ export interface AnalysisInput {
 export interface FrameResult {
   frameIndex: number;
   timestampSec: number;
-  url: string | null;
   bbox: [number, number, number, number];
   confidence: number;
   metrics: {

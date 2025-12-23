@@ -122,38 +122,30 @@ export default function Home() {
         // For the demo purpose, playing the annotated video is the key experience.
         frames: (data.frames || []).map((r: any, i: number) => {
           // SYNTHETIC DEMO RISKS: Inject fake risks to demonstrate the UI
-          let fakeMetrics = { ...(r.metrics || {}) };
-          let demoImg = "/placeholder_frame.png"; // Default placeholder
+          const fakeMetrics = { ...(r.metrics || {}) };
           if (i === 15) {
             fakeMetrics.injury_risk = 'high';
             fakeMetrics.feedback = ['Contact point too high (Above waist)'];
-            demoImg = "/demo/risk_15.png";
           } else if (i === 45) {
             fakeMetrics.injury_risk = 'high';
             fakeMetrics.feedback = ['Deep flexion instability'];
-            demoImg = "/demo/risk_45.png";
           } else if (i === 80) {
             fakeMetrics.injury_risk = 'medium';
             fakeMetrics.feedback = ['Unstable landing mechanics'];
-            demoImg = "/demo/risk_80.png";
           } else if (i === 105) {
             fakeMetrics.injury_risk = 'medium';
             fakeMetrics.feedback = ['Hip alignment deviation'];
-            demoImg = "/demo/risk_105.png";
           } else if (i === 130) {
             fakeMetrics.injury_risk = 'high';
             fakeMetrics.feedback = ['Rapid trunk rotation risk'];
-            demoImg = "/demo/risk_130.png";
           } else if (i === 142) {
             fakeMetrics.injury_risk = 'medium';
             fakeMetrics.feedback = ['Shoulder over-extension'];
-            demoImg = "/demo/risk_142.png";
           }
 
           return {
             ...r,
             metrics: fakeMetrics,
-            imageUrl: demoImg,
             timestampSec: r.timestampSec || r.metrics?.time_sec || 0
           };
         })

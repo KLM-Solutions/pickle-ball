@@ -275,31 +275,14 @@ def handler(job):
                 content_type="video/mp4"
             )
         
-        # Upload frames
-        frame_files = sorted(Path(output_dir).glob("frame_*.png"))
-        print(f"Uploading {len(frame_files)} frames to Supabase...")
-        
-        uploaded_frames = uploader.upload_directory(
-            bucket="analysis-results",
-            local_dir=output_dir,
-            destination_prefix=f"{job_id}/frames/",
-            file_pattern="frame_*.png"
-        )
-        
-        # Build frames response with URLs
+        # Build frames response with metrics only (no image upload - not used by UI)
         raw_frames = results.get("frames", [])
+        print(f"Processing {len(raw_frames)} frames (no image upload)")
+        
         for i, frame_data in enumerate(raw_frames):
-            # Find matching uploaded frame
-            filename = frame_data.get("frameFilename", f"frame_{i+1:04d}.png")
-            matching_upload = next(
-                (u for u in uploaded_frames if u["filename"] == filename),
-                None
-            )
-            
             frames_data.append({
                 "frameIndex": i,
                 "timestampSec": frame_data.get("timestampSec", i * step / 30.0),
-                "url": matching_upload["url"] if matching_upload else None,
                 "bbox": frame_data.get("bbox", [0, 0, 0, 0]),
                 "confidence": frame_data.get("confidence", 0),
                 "metrics": frame_data.get("metrics", {})
@@ -327,7 +310,6 @@ def handler(job):
             status="completed",
             result_video_url=result_video_url,
             result_json=response,
-            frames_folder=f"{job_id}/frames/",
             processing_time_sec=processing_time,
             total_frames=len(frames_data)
         )

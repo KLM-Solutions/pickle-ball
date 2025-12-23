@@ -9,7 +9,6 @@ export type StrokeType =
 export type ApiFrame = {
     frameIndex: number;
     timestampSec: number;
-    imageUrl: string;
     bbox: [number, number, number, number];
     confidence: number;
     ball?: {
