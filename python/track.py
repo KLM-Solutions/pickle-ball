@@ -477,16 +477,24 @@ def main():
                         dx1, dy1, dx2, dy2, dconf, dcls = det[:6]
                         dtcx, dtcy = (dx1 + dx2) / 2, (dy1 + dy2) / 2
                         
+                        # STRICT: Must be inside crop region if one was provided
+                        is_in_crop = True
+                        if crop_region_norm is not None:
+                            rx1, ry1, rx2, ry2 = crop_region_norm
+                            crop_x1, crop_y1 = rx1 * width, ry1 * height
+                            crop_x2, crop_y2 = rx2 * width, ry2 * height
+                            is_in_crop = (crop_x1 <= dtcx <= crop_x2 and crop_y1 <= dtcy <= crop_y2)
+                        
+                        if not is_in_crop:
+                            continue  # Skip detections outside crop
+                        
                         # Strict Distance Check (prev_center must exist if we are falling back)
                         if prev_center is not None:
                             dist = np.sqrt((dtcx - prev_center[0])**2 + (dtcy - prev_center[1])**2)
-                            if dist < 50: # STRICT LIMIT (50px)
+                            if dist < 40:  # STRICT LIMIT (40px)
                                 if dist < best_fallback_dist:
                                     best_fallback_dist = dist
                                     best_fallback_det = det
-                        else:
-                            # Initial acquire case (won't happen here usually as target_track_id is set)
-                            pass
 
                     if best_fallback_det is not None:
                         # Apply best fallback
@@ -494,7 +502,7 @@ def main():
                         best_box = [dx1, dy1, dx2, dy2]
                         best_conf = dconf
                         found = True
-                        log_debug(f"  RE-LOCK FALLBACK (YOLO) on frame {i} (Dist: {best_fallback_dist:.1f}px)")
+                        log_debug(f"  RE-LOCK FALLBACK (YOLO) on frame {i} (Dist: {best_fallback_dist:.1f}px, IN CROP)")
                 
                 # Update Persistence Logic
                 if found:
@@ -502,16 +510,15 @@ def main():
                     prev_center = ((best_box[0] + best_box[2])/2, (best_box[1] + best_box[3])/2)
                 else:
                     lost_frames += 1
-                    # TIMEOUT: Increase (was 10) to 90 frames (~3s) to allow re-entry persistence
-                    if lost_frames > 90 and target_track_id is not None:
-                        log_debug(f"Target ID {target_track_id} lost for {lost_frames} frames (TIMEOUT). Resetting tracker.")
-                        target_track_id = None
-                        prev_center = None
+                    # TIMEOUT: Keep tracking for 60 frames (~2s at 30fps) - prevents long drift
+                    if lost_frames > 60 and target_track_id is not None:
+                        log_debug(f"Target ID {target_track_id} lost for {lost_frames} frames (TIMEOUT). Keeping last known position.")
+                        # DON'T reset target_track_id - keep trying to find the same person
+                        # Only reset prev_center to force strict crop-based re-lock
                         lost_frames = 0
 
                 if not found and target_track_id is not None and prev_center is not None:
-                    # FIX: Check if target was lost near the frame edge (assume exit)
-                    # BUT allow re-lock if they come back near the same spot
+                    # FIX: STRICT RE-LOCK - Only re-lock if candidate is INSIDE crop region
                     margin = 50  # pixels
                     px, py = prev_center
                     is_near_edge = (px < margin or px > width - margin or 
@@ -520,14 +527,13 @@ def main():
                     # Initialize variables before conditional
                     new_id = None
                     best_candidate = None
-                    min_dist = 50 # INCREASED: Allow slightly wider search (was 30) for re-entry
+                    min_dist = 30  # STRICT: Max 30px distance for re-lock
                     
                     if is_near_edge:
-                        # Don't force fail. Just log it.
                         if i % 30 == 0:
                             log_debug(f"Target ID {target_track_id} waiting near edge ({int(px)},{int(py)})...")
                     
-                    # Check candidates even if near edge (to catch re-entry)
+                    # STRICT RE-LOCK: Only consider candidates INSIDE the crop region
                     for t in tracks:
                         x1, y1, x2, y2, tid, conf, cls = t[:7]
                         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
@@ -536,14 +542,22 @@ def main():
                         bbox_size = (x2 - x1) * (y2 - y1)
                         confidence = float(conf)
                         
-                        # Only consider high-confidence, reasonably-sized detections
-                        if dist < min_dist and confidence > 0.4 and bbox_size > 1000:
+                        # STRICT: Must be inside crop region if one was provided
+                        is_in_crop = True
+                        if crop_region_norm is not None:
+                            rx1, ry1, rx2, ry2 = crop_region_norm
+                            crop_x1, crop_y1 = rx1 * width, ry1 * height
+                            crop_x2, crop_y2 = rx2 * width, ry2 * height
+                            is_in_crop = (crop_x1 <= cx <= crop_x2 and crop_y1 <= cy <= crop_y2)
+                        
+                        # Only consider high-confidence, reasonably-sized detections INSIDE crop
+                        if dist < min_dist and confidence > 0.5 and bbox_size > 1000 and is_in_crop:
                             min_dist = dist
                             new_id = int(tid)
                             best_candidate = t
                     
-                    if new_id is not None and best_candidate is not None and min_dist < 40:  # Allow 40px jump
-                        log_debug(f"--> SUCCESSFUL RE-LOCK: Lost ID {int(target_track_id)}, switched to {new_id} (Dist: {min_dist:.1f}px)")
+                    if new_id is not None and best_candidate is not None and min_dist < 30:  # STRICT: 30px max
+                        log_debug(f"--> STRICT RE-LOCK: Lost ID {int(target_track_id)}, switched to {new_id} (Dist: {min_dist:.1f}px, IN CROP)")
                         target_track_id = new_id
                         # Re-search with new ID
                         for t in tracks:
@@ -555,7 +569,7 @@ def main():
                                 break
                     else:
                         if i % 30 == 0:
-                            log_debug(f"WARNING: Target ID {target_track_id} lost, no suitable re-lock found (closest candidates dist: {min_dist:.1f}px)")
+                            log_debug(f"WARNING: Target ID {target_track_id} lost, no suitable re-lock IN CROP (closest: {min_dist:.1f}px)")
         except Exception as e:
             log_debug(f"CRITICAL ERROR in Target Selection: {e}")
             traceback.print_exc()

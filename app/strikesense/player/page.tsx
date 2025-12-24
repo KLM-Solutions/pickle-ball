@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Layout, Award, ChevronRight } from "lucide-react";
+import { ArrowLeft, Award, ChevronRight } from "lucide-react";
 import VideoPanel from "../../components/VideoPanel";
 import { BiomechanicalMetrics } from "../../components/dashboard/BiomechanicalMetrics";
 
@@ -27,7 +27,6 @@ function PlayerContent() {
     const [analysisData, setAnalysisData] = useState<any>(null);
     const [strokes, setStrokes] = useState<Stroke[]>([]);
     const [selectedStroke, setSelectedStroke] = useState<number | null>(null);
-    const [viewMode, setViewMode] = useState<'analysis' | 'compare'>('analysis');
     const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
     useEffect(() => {
@@ -105,32 +104,6 @@ function PlayerContent() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* View Mode Toggle */}
-                        <div className="bg-white/5 border border-white/10 p-1 rounded-lg flex">
-                            <button
-                                onClick={() => setViewMode('analysis')}
-                                className={`px-3 py-1.5 text-xs font-medium rounded-md transition flex items-center gap-1.5 ${
-                                    viewMode === 'analysis' 
-                                        ? 'bg-white/10 text-white' 
-                                        : 'text-slate-500 hover:text-white'
-                                }`}
-                            >
-                                <Layout className="w-3.5 h-3.5" /> 
-                                <span className="hidden sm:inline">Analysis</span>
-                            </button>
-                            <button
-                                onClick={() => setViewMode('compare')}
-                                className={`px-3 py-1.5 text-xs font-medium rounded-md transition flex items-center gap-1.5 ${
-                                    viewMode === 'compare' 
-                                        ? 'bg-white/10 text-white' 
-                                        : 'text-slate-500 hover:text-white'
-                                }`}
-                            >
-                                <span className="w-3.5 h-3.5 border-l-2 border-current block transform rotate-90 scale-75" /> 
-                                <span className="hidden sm:inline">Compare</span>
-                            </button>
-                        </div>
-
                         <button
                             onClick={() => router.push(`/strikesense/analysis?stroke=${strokeType}`)}
                             className="px-4 py-2 text-sm font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:opacity-90 text-white rounded-lg shadow-lg shadow-orange-500/30 transition-all flex items-center gap-2"
@@ -158,7 +131,7 @@ function PlayerContent() {
                                 isProcessing={false}
                                 currentTime={currentTime}
                                 onTimeUpdate={setCurrentTime}
-                                sideBySide={viewMode === 'compare'}
+                                sideBySide={false}
                                 showOverlay={true}
                                 playbackSpeed={playbackSpeed}
                                 onSpeedChange={setPlaybackSpeed}
