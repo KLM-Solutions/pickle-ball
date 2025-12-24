@@ -29,7 +29,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       strokeType,
       cropRegion,
       targetPoint,
-      step = 3,
+      step = 1, // Analyze every frame by default
       jobId,
       async = false, // If true, return job ID immediately
     } = body;

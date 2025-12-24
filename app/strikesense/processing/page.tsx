@@ -63,7 +63,7 @@ function ProcessingContent() {
             videoUrl,
             strokeType,
             cropRegion,
-            step: 3,
+            step: 1, // Analyze every frame
           }),
         });
 

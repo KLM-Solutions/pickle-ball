@@ -206,7 +206,7 @@ def handler(job):
     stroke_type = job_input.get("stroke_type", "serve")
     crop_region = job_input.get("crop_region")
     target_point = job_input.get("target_point")
-    step = int(job_input.get("step", 3))
+    step = int(job_input.get("step", 1))  # Analyze every frame by default
     job_id = job_input.get("job_id") or str(uuid.uuid4())
     
     # Get Supabase uploader
