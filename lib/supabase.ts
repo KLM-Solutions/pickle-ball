@@ -46,19 +46,32 @@ export async function uploadVideo(file: File): Promise<string> {
 }
 
 /**
- * Create a new analysis job in the database
+ * Create a new analysis job in the database with full input data
  */
 export async function createAnalysisJob(params: {
   videoUrl: string;
   strokeType: string;
   cropRegion?: string;
+  targetPoint?: string;
+  step?: number;
 }): Promise<string> {
+  // Build input JSON for storage
+  const inputJson = {
+    video_url: params.videoUrl,
+    stroke_type: params.strokeType,
+    crop_region: params.cropRegion,
+    target_point: params.targetPoint,
+    step: params.step || 1,
+    submitted_at: new Date().toISOString(),
+  };
+
   const { data, error } = await supabase
     .from('analysis_jobs')
     .insert({
       video_url: params.videoUrl,
       stroke_type: params.strokeType,
       crop_region: params.cropRegion,
+      input_json: inputJson,
       status: 'pending',
     })
     .select('id')
@@ -70,6 +83,63 @@ export async function createAnalysisJob(params: {
   }
 
   return data.id;
+}
+
+/**
+ * Update job status to processing
+ */
+export async function updateJobToProcessing(jobId: string): Promise<void> {
+  const { error } = await supabase
+    .from('analysis_jobs')
+    .update({ status: 'processing' })
+    .eq('id', jobId);
+
+  if (error) {
+    console.error('Update job error:', error);
+  }
+}
+
+/**
+ * Update job with completed results
+ */
+export async function updateJobCompleted(jobId: string, params: {
+  resultVideoUrl?: string;
+  resultJson: any;
+  processingTimeSec?: number;
+  totalFrames?: number;
+}): Promise<void> {
+  const { error } = await supabase
+    .from('analysis_jobs')
+    .update({
+      status: 'completed',
+      result_video_url: params.resultVideoUrl,
+      result_json: params.resultJson,
+      processing_time_sec: params.processingTimeSec,
+      total_frames: params.totalFrames,
+    })
+    .eq('id', jobId);
+
+  if (error) {
+    console.error('Update job completed error:', error);
+    throw new Error(`Failed to update job: ${error.message}`);
+  }
+}
+
+/**
+ * Update job with failed status
+ */
+export async function updateJobFailed(jobId: string, errorMessage: string): Promise<void> {
+  const { error } = await supabase
+    .from('analysis_jobs')
+    .update({
+      status: 'failed',
+      error_message: errorMessage,
+    })
+    .eq('id', jobId);
+
+  if (error) {
+    console.error('Update job failed error:', error);
+  }
 }
 
 /**

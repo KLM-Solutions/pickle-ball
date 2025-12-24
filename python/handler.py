@@ -1,7 +1,15 @@
 """
 RunPod Serverless Handler for Pickleball Video Analysis
 
-This handler receives video analysis jobs, processes them, and uploads results to Supabase.
+This handler receives video analysis jobs, processes them, and uploads ONLY 
+the annotated video to Supabase Storage.
+
+NOTE: All DATABASE writes are handled by TypeScript (Next.js), NOT here.
+Python only:
+1. Downloads video
+2. Runs analysis
+3. Uploads annotated video to Supabase Storage
+4. Returns results to TypeScript (which stores in DB)
 
 Expected input:
 {
@@ -10,7 +18,7 @@ Expected input:
     "crop_region": "0.2,0.3,0.8,0.9",              # Optional: x1,y1,x2,y2 normalized coords
     "target_point": "0.5,0.6",                      # Optional: x,y normalized coords
     "step": 3,                                      # Optional: process every Nth frame (default: 3)
-    "job_id": "uuid-optional"                       # Optional: for tracking in database
+    "job_id": "uuid-optional"                       # Optional: for reference only (no DB writes here)
 }
 
 Returns:
@@ -18,7 +26,7 @@ Returns:
     "status": "success",
     "video_url": "https://supabase.../analysis-results/job123/annotated.mp4",
     "frames": [
-        {"filename": "frame_0001.png", "url": "https://...", "timestampSec": 0.1, "metrics": {...}}
+        {"filename": "frame_0001.png", "timestampSec": 0.1, "metrics": {...}}
     ],
     "strokes": [...],
     "summary": {...},
@@ -192,7 +200,8 @@ def handler(job):
     """
     RunPod serverless handler function.
     
-    Processes video and uploads results to Supabase.
+    Processes video and uploads annotated video to Supabase Storage.
+    NOTE: NO database writes here - TypeScript handles all DB storage.
     """
     start_time = time.time()
     job_input = job.get("input", {})
@@ -209,21 +218,11 @@ def handler(job):
     step = int(job_input.get("step", 1))  # Analyze every frame by default
     job_id = job_input.get("job_id") or str(uuid.uuid4())
     
-    # Get Supabase uploader
+    # Get Supabase uploader (for storage only, not DB)
     uploader = get_uploader()
     
-    # Create job record with user inputs
-    uploader.create_job(
-        job_id=job_id,
-        video_url=video_url,
-        stroke_type=stroke_type,
-        crop_region=crop_region,
-        target_point=target_point,
-        step=step
-    )
-    
-    # Update job status to processing
-    uploader.update_job_status(job_id, "processing")
+    # NOTE: No database writes here - TypeScript handles job creation/updates
+    print(f"Processing job {job_id} (DB managed by TypeScript)")
     
     # Create temp working directory
     work_dir = tempfile.mkdtemp(prefix="runpod_analysis_")
@@ -237,14 +236,14 @@ def handler(job):
         video_path = os.path.join(work_dir, "input.mp4")
         if not download_video(video_url, video_path):
             error_msg = "Failed to download video from URL"
-            uploader.update_job_status(job_id, "failed", error_message=error_msg)
+            # NOTE: No DB update here - TypeScript handles error status
             return {"error": error_msg}
         
         # 2. Extract frames
         frames_dir = os.path.join(work_dir, "frames")
         if not extract_frames(video_path, frames_dir):
             error_msg = "Failed to extract frames from video"
-            uploader.update_job_status(job_id, "failed", error_message=error_msg)
+            # NOTE: No DB update here - TypeScript handles error status
             return {"error": error_msg}
         
         # 3. Run tracking analysis
@@ -264,7 +263,7 @@ def handler(job):
         )
         
         if "error" in results:
-            uploader.update_job_status(job_id, "failed", error_message=results["error"])
+            # NOTE: No DB update here - TypeScript handles error status
             return results
         
         # 4. Encode annotated video
@@ -314,15 +313,7 @@ def handler(job):
             "processing_time_sec": round(processing_time, 2)
         }
         
-        # 8. Update job in database
-        uploader.update_job_status(
-            job_id=job_id,
-            status="completed",
-            result_video_url=result_video_url,
-            result_json=response,
-            processing_time_sec=processing_time,
-            total_frames=len(frames_data)
-        )
+        # NOTE: No DB update here - TypeScript stores results in database
         
         print(f"=== Analysis Complete: {job_id} ===")
         print(f"Total time: {processing_time:.1f}s, Frames: {len(frames_data)}")
@@ -333,7 +324,7 @@ def handler(job):
         import traceback
         traceback.print_exc()
         error_msg = f"Handler exception: {str(e)}"
-        uploader.update_job_status(job_id, "failed", error_message=error_msg)
+        # NOTE: No DB update here - TypeScript handles error status
         return {"error": error_msg}
     
     finally:

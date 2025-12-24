@@ -1,10 +1,11 @@
 """
-Supabase Client for uploading analysis results.
+Supabase Storage Client for uploading analysis results.
 
-Uploads:
+STORAGE ONLY - NO DATABASE WRITES
+All database operations are handled by TypeScript (Next.js).
+
+This module only uploads:
 - Annotated video to 'analysis-results' bucket
-- Frame images to 'analysis-results' bucket
-- Updates analysis_jobs table with results
 
 Environment variables required:
 - SUPABASE_URL: Your Supabase project URL
@@ -12,14 +13,13 @@ Environment variables required:
 """
 
 import os
-import json
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, List
 import httpx
 
 
 class SupabaseUploader:
-    """Handles file uploads to Supabase Storage."""
+    """Handles file uploads to Supabase Storage ONLY (no database writes)."""
     
     def __init__(self):
         self.url = os.environ.get("SUPABASE_URL")
@@ -31,7 +31,6 @@ class SupabaseUploader:
         else:
             self.enabled = True
             self.storage_url = f"{self.url}/storage/v1/object"
-            self.rest_url = f"{self.url}/rest/v1"
             self.headers = {
                 "apikey": self.key,
                 "Authorization": f"Bearer {self.key}",
@@ -138,143 +137,6 @@ class SupabaseUploader:
                 })
         
         return uploaded
-    
-    def create_job(
-        self,
-        job_id: str,
-        video_url: str,
-        stroke_type: str,
-        crop_region: Optional[str] = None,
-        target_point: Optional[str] = None,
-        step: int = 1
-    ) -> bool:
-        """
-        Create a new analysis job with user inputs.
-        
-        Args:
-            job_id: UUID of the job
-            video_url: Input video URL
-            stroke_type: Type of stroke to analyze
-            crop_region: Normalized crop coordinates (x1,y1,x2,y2)
-            target_point: Normalized target point (x,y)
-            step: Frame step (1 = every frame)
-        
-        Returns:
-            True on success, False on failure
-        """
-        if not self.enabled:
-            return False
-        
-        try:
-            # Build input data
-            input_data = {
-                "video_url": video_url,
-                "stroke_type": stroke_type,
-                "step": step
-            }
-            if crop_region:
-                input_data["crop_region"] = crop_region
-            if target_point:
-                input_data["target_point"] = target_point
-            
-            job_data = {
-                "id": job_id,
-                "status": "pending",
-                "input_video_url": video_url,
-                "stroke_type": stroke_type,
-                "input_json": input_data,
-                "created_at": "now()"
-            }
-            
-            url = f"{self.rest_url}/analysis_jobs"
-            
-            headers = {
-                **self.headers,
-                "Content-Type": "application/json",
-                "Prefer": "return=minimal",
-            }
-            
-            with httpx.Client(timeout=30) as client:
-                response = client.post(url, json=job_data, headers=headers)
-            
-            if response.status_code in [200, 201]:
-                print(f"Job {job_id} created with inputs: stroke_type={stroke_type}, step={step}")
-                return True
-            else:
-                print(f"Job create failed ({response.status_code}): {response.text}")
-                return False
-                
-        except Exception as e:
-            print(f"Job create error: {e}")
-            return False
-
-    def update_job_status(
-        self,
-        job_id: str,
-        status: str,
-        result_video_url: Optional[str] = None,
-        result_json: Optional[Dict[str, Any]] = None,
-        frames_folder: Optional[str] = None,
-        processing_time_sec: Optional[float] = None,
-        total_frames: Optional[int] = None,
-        error_message: Optional[str] = None
-    ) -> bool:
-        """
-        Update analysis_jobs table with results.
-        
-        Args:
-            job_id: UUID of the job
-            status: 'processing', 'completed', 'failed'
-            result_video_url: URL to annotated video
-            result_json: Analysis results JSON (full output)
-            frames_folder: Path to frames in storage
-            processing_time_sec: How long processing took
-            total_frames: Number of frames processed
-            error_message: Error message if failed
-        
-        Returns:
-            True on success, False on failure
-        """
-        if not self.enabled:
-            return False
-        
-        try:
-            update_data = {"status": status}
-            
-            if result_video_url:
-                update_data["result_video_url"] = result_video_url
-            if result_json:
-                update_data["result_json"] = result_json
-            if frames_folder:
-                update_data["frames_folder"] = frames_folder
-            if processing_time_sec is not None:
-                update_data["processing_time_sec"] = processing_time_sec
-            if total_frames is not None:
-                update_data["total_frames"] = total_frames
-            if error_message:
-                update_data["error_message"] = error_message
-            
-            url = f"{self.rest_url}/analysis_jobs?id=eq.{job_id}"
-            
-            headers = {
-                **self.headers,
-                "Content-Type": "application/json",
-                "Prefer": "return=minimal",
-            }
-            
-            with httpx.Client(timeout=30) as client:
-                response = client.patch(url, json=update_data, headers=headers)
-            
-            if response.status_code in [200, 204]:
-                print(f"Job {job_id} updated: status={status}")
-                return True
-            else:
-                print(f"Job update failed ({response.status_code}): {response.text}")
-                return False
-                
-        except Exception as e:
-            print(f"Job update error: {e}")
-            return False
 
 
 # Singleton instance
@@ -286,4 +148,3 @@ def get_uploader() -> SupabaseUploader:
     if _uploader is None:
         _uploader = SupabaseUploader()
     return _uploader
-
