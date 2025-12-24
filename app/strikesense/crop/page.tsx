@@ -24,11 +24,15 @@ function CropContent() {
   const [showGrid, setShowGrid] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [showHelp, setShowHelp] = useState(true);
+  const [videoLoading, setVideoLoading] = useState(true);
+  const [videoError, setVideoError] = useState(false);
 
   useEffect(() => {
     const storedUrl = sessionStorage.getItem('videoUrl');
     if (storedUrl) {
       setVideoUrl(storedUrl);
+      setVideoLoading(true);
+      setVideoError(false);
     }
   }, []);
 
@@ -44,7 +48,15 @@ function CropContent() {
         width: videoRef.current.videoWidth,
         height: videoRef.current.videoHeight
       });
+      setVideoLoading(false);
+      setVideoError(false);
     }
+  };
+
+  const handleVideoError = () => {
+    setVideoLoading(false);
+    setVideoError(true);
+    console.error('Video failed to load:', videoUrl);
   };
 
   const screenToNormalized = useCallback((clientX: number, clientY: number) => {
@@ -218,26 +230,62 @@ function CropContent() {
         )}
 
         {/* Workspace Area */}
-        <div className="flex-1 relative overflow-hidden flex items-center justify-center p-2 md:p-4">
+        <div className="flex-1 relative overflow-hidden flex items-center justify-center p-2 md:p-4 min-h-0">
           <div 
             ref={containerRef} 
-            className="relative w-full h-full flex items-center justify-center cursor-crosshair bg-black/30 rounded-xl md:rounded-2xl overflow-hidden border border-white/10"
+            className="relative w-full h-full min-h-[200px] flex items-center justify-center cursor-crosshair bg-black/50 rounded-xl md:rounded-2xl overflow-hidden border border-white/10"
             onMouseDown={(e) => handleInteractionStart(e, 'drawing')}
             onTouchStart={(e) => handleInteractionStart(e, 'drawing')}
             style={{ transform: `scale(${zoom})`, transition: activeAction ? 'none' : 'transform 0.2s ease-out' }}
           >
 
             {videoUrl ? (
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                className="max-w-full max-h-full object-contain pointer-events-none"
-                onLoadedMetadata={handleVideoLoad}
-                preload="metadata"
-                playsInline
-                muted
-                crossOrigin="anonymous"
-              />
+              <>
+                {/* Loading Spinner */}
+                {videoLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-10 h-10 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                      <p className="text-xs text-slate-400">Loading video...</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Error State */}
+                {videoError && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                    <div className="text-center p-4">
+                      <p className="text-sm text-red-400 mb-2">Failed to load video</p>
+                      <button
+                        onClick={() => {
+                          setVideoLoading(true);
+                          setVideoError(false);
+                          if (videoRef.current) {
+                            videoRef.current.load();
+                          }
+                        }}
+                        className="text-xs text-emerald-400 hover:underline"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  className="w-full h-full object-contain pointer-events-none"
+                  style={{ maxWidth: '100%', maxHeight: '100%' }}
+                  onLoadedMetadata={handleVideoLoad}
+                  onLoadedData={() => setVideoLoading(false)}
+                  onError={handleVideoError}
+                  preload="auto"
+                  playsInline
+                  muted
+                  autoPlay={false}
+                />
+              </>
             ) : (
               <div className="text-center p-6 md:p-8 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl backdrop-blur-sm">
                 <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 rounded-full bg-white/10 flex items-center justify-center">
