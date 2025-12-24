@@ -60,6 +60,7 @@ function ProcessingContent() {
         setStageStatus(0, 'active');
         setOverallProgress(10);
 
+        // Start analysis with webhook (async mode)
         const response = await fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -68,38 +69,85 @@ function ProcessingContent() {
             strokeType,
             cropRegion,
             step: 1,
+            useWebhook: true, // Use webhook for async processing
           }),
         });
-
-        setStageStatus(0, 'complete');
-        setCurrentStage(1);
-
-        for (let i = 1; i < stages.length - 1; i++) {
-          setStageStatus(i, 'active');
-          setOverallProgress(20 + (i * 15));
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          setStageStatus(i, 'complete');
-          setCurrentStage(i + 1);
-        }
-
-        setStageStatus(stages.length - 1, 'active');
-        setOverallProgress(85);
 
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || `Analysis failed: ${response.statusText}`);
         }
 
-        const result = await response.json();
+        const startResult = await response.json();
+        const jobId = startResult.job_id;
 
-        setStageStatus(stages.length - 1, 'complete');
-        setOverallProgress(100);
+        if (!jobId) {
+          throw new Error("No job ID returned from server");
+        }
 
-        sessionStorage.setItem('analysisResult', JSON.stringify(result));
-        console.log('Analysis complete:', result);
+        console.log('Analysis job started:', jobId);
+        setStageStatus(0, 'complete');
+        setCurrentStage(1);
+        setOverallProgress(20);
 
-        await new Promise(resolve => setTimeout(resolve, 500));
-        router.push(`/strikesense/player?stroke=${strokeType}`);
+        // Poll for job completion
+        let pollCount = 0;
+        const maxPolls = 300; // 5 minutes at 1 second intervals
+        const pollInterval = 1000; // 1 second
+
+        while (pollCount < maxPolls) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          pollCount++;
+
+          // Check job status
+          const statusResponse = await fetch(`/api/analyze/status?job_id=${jobId}`);
+          
+          if (!statusResponse.ok) {
+            console.warn('Status check failed, retrying...');
+            continue;
+          }
+
+          const statusData = await statusResponse.json();
+          console.log('Job status:', statusData.status, `(poll ${pollCount})`);
+
+          // Update progress based on status
+          if (statusData.status === 'processing') {
+            // Animate through stages while processing
+            const stage = Math.min(Math.floor(pollCount / 15), stages.length - 2);
+            for (let i = 1; i <= stage; i++) {
+              if (stages[i].status !== 'complete') {
+                setStageStatus(i, 'complete');
+              }
+            }
+            if (stage + 1 < stages.length - 1) {
+              setStageStatus(stage + 1, 'active');
+            }
+            setOverallProgress(Math.min(20 + (stage * 15), 80));
+          }
+
+          if (statusData.status === 'completed') {
+            // Mark all stages complete
+            for (let i = 0; i < stages.length; i++) {
+              setStageStatus(i, 'complete');
+            }
+            setOverallProgress(100);
+
+            // Store result
+            sessionStorage.setItem('analysisResult', JSON.stringify(statusData.result));
+            console.log('Analysis complete:', statusData.result);
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+            router.push(`/strikesense/player?stroke=${strokeType}`);
+            return;
+          }
+
+          if (statusData.status === 'failed') {
+            throw new Error(statusData.error_message || 'Analysis failed');
+          }
+        }
+
+        // Timeout after max polls
+        throw new Error('Analysis timed out. Please try again with a shorter video.');
 
       } catch (err: any) {
         console.error('Analysis error:', err);

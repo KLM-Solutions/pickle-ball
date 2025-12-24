@@ -8,10 +8,14 @@ Create a `.env.local` file in the project root:
 # Supabase Configuration
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 # RunPod Configuration
 RUNPOD_API_KEY=your-runpod-api-key
 RUNPOD_ENDPOINT_ID=your-endpoint-id
+
+# App URL (for webhook callbacks) - Set automatically on Vercel
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 ```
 
 ### Where to get these values:
@@ -20,8 +24,12 @@ RUNPOD_ENDPOINT_ID=your-endpoint-id
 |----------|--------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Dashboard → Settings → API → Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard → Settings → API → anon public |
+| `SUPABASE_SERVICE_KEY` | Supabase Dashboard → Settings → API → service_role secret |
 | `RUNPOD_API_KEY` | RunPod Console → Settings → API Keys |
 | `RUNPOD_ENDPOINT_ID` | RunPod Console → Serverless → Your Endpoint → ID (in URL) |
+| `NEXT_PUBLIC_APP_URL` | Your deployed app URL (auto-set by VERCEL_URL on Vercel) |
+
+⚠️ **IMPORTANT**: `SUPABASE_SERVICE_KEY` is used server-side only for webhook handling. Never expose it in frontend code!
 
 ---
 

@@ -20,6 +20,7 @@ export interface AnalysisInput {
   target_point?: string;
   step?: number;
   job_id?: string;
+  webhook_url?: string; // URL to call when job completes
 }
 
 export interface FrameResult {
@@ -71,15 +72,23 @@ export interface AnalysisResult {
 
 /**
  * Start an analysis job (async - returns job ID)
+ * If webhook_url is provided, RunPod will call it when the job completes
  */
-export async function startAnalysis(input: AnalysisInput): Promise<string> {
+export async function startAnalysis(input: AnalysisInput, webhookUrl?: string): Promise<string> {
+  const payload: any = { input };
+  
+  // Add webhook if provided
+  if (webhookUrl) {
+    payload.webhook = webhookUrl;
+  }
+
   const response = await fetch(`${RUNPOD_BASE_URL}/run`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${RUNPOD_API_KEY}`,
     },
-    body: JSON.stringify({ input }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -89,6 +98,21 @@ export async function startAnalysis(input: AnalysisInput): Promise<string> {
 
   const data = await response.json();
   return data.id; // RunPod job ID
+}
+
+/**
+ * Start an analysis job with webhook (preferred method)
+ * Returns immediately, results sent to webhook when complete
+ */
+export async function startAnalysisWithWebhook(
+  input: AnalysisInput,
+  webhookUrl: string
+): Promise<{ runpodJobId: string; jobId: string }> {
+  const runpodJobId = await startAnalysis(input, webhookUrl);
+  return {
+    runpodJobId,
+    jobId: input.job_id || runpodJobId,
+  };
 }
 
 /**
