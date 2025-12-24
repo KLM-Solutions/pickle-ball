@@ -3,9 +3,11 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-    ArrowLeft, Download, AlertCircle, Activity, TrendingUp, Award,
-    Zap, ChevronDown, ChevronUp, Target, Share2, Code, Copy, Check
+    ArrowLeft, AlertCircle, Activity, TrendingUp, Award,
+    Zap, ChevronDown, ChevronUp, Target, Code, Copy, Check,
+    MessageSquare, Loader2, Clock
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 export const dynamic = 'force-dynamic';
 
@@ -14,9 +16,14 @@ function AnalysisContent() {
     const searchParams = useSearchParams();
     const strokeType = searchParams.get('stroke') || 'serve';
     const [analysisData, setAnalysisData] = useState<any>(null);
-    const [expandedSection, setExpandedSection] = useState<string | null>('risk');
+    const [expandedSection, setExpandedSection] = useState<string | null>('coach');
     const [showJson, setShowJson] = useState(false);
     const [copied, setCopied] = useState(false);
+    
+    // LLM Response state
+    const [llmResponse, setLlmResponse] = useState<string | null>(null);
+    const [llmLoading, setLlmLoading] = useState(false);
+    const [llmError, setLlmError] = useState<string | null>(null);
 
     const copyJson = () => {
         if (analysisData) {
@@ -26,19 +33,50 @@ function AnalysisContent() {
         }
     };
 
+    // Fetch LLM response
+    const fetchLlmResponse = async (data: any) => {
+        setLlmLoading(true);
+        setLlmError(null);
+        try {
+            const response = await fetch('/api/response', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    stroke_type: data.stroke_type || strokeType,
+                    frames: data.frames,
+                    summary: data.summary,
+                    job_id: data.job_id
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate coaching feedback');
+            }
+
+            const result = await response.json();
+            setLlmResponse(result.response);
+        } catch (err: any) {
+            setLlmError(err.message);
+        } finally {
+            setLlmLoading(false);
+        }
+    };
+
     useEffect(() => {
         const storedResult = sessionStorage.getItem('analysisResult');
         if (storedResult) {
             try {
                 const parsed = JSON.parse(storedResult);
                 setAnalysisData(parsed);
+                // Fetch LLM response
+                fetchLlmResponse(parsed);
             } catch (e) {
                 router.push('/strikesense/upload');
             }
         } else {
             setTimeout(() => router.push('/strikesense/upload'), 1000);
         }
-    }, [router]);
+    }, [router, strokeType]);
 
     if (!analysisData) {
         return (
@@ -67,6 +105,7 @@ function AnalysisContent() {
     };
 
     const calculateScore = (values: number[], min: number, max: number) => {
+        if (values.length === 0) return 75;
         const avg = values.reduce((a, b) => a + b, 0) / values.length;
         const normalized = ((avg - min) / (max - min)) * 100;
         return Math.max(0, Math.min(100, normalized));
@@ -109,16 +148,13 @@ function AnalysisContent() {
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                         Watch Video
                     </button>
-                    <div className="flex gap-3">
-                        <button className="px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl font-medium text-white transition flex items-center gap-2">
-                            <Download className="w-4 h-4" />
-                            <span className="hidden sm:inline">Export</span>
-                        </button>
-                        <button className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 rounded-xl font-medium text-white transition flex items-center gap-2 shadow-lg shadow-emerald-500/30">
-                            <Share2 className="w-4 h-4" />
-                            <span className="hidden sm:inline">Share</span>
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => router.push('/strikesense/history')}
+                        className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl font-medium text-white transition"
+                    >
+                        <Clock className="w-4 h-4" />
+                        <span className="hidden sm:inline">History</span>
+                    </button>
                 </div>
 
                 {/* Hero Card */}
@@ -166,6 +202,103 @@ function AnalysisContent() {
                             ))}
                         </div>
                     </div>
+                </div>
+
+                {/* AI Coach Feedback - PRIMARY SECTION */}
+                <div className="bg-gradient-to-br from-violet-600/20 to-purple-600/20 rounded-2xl border border-violet-500/30 mb-6 overflow-hidden backdrop-blur-sm">
+                    <button
+                        onClick={() => setExpandedSection(expandedSection === 'coach' ? null : 'coach')}
+                        className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30">
+                                <MessageSquare className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="text-left">
+                                <h3 className="text-xl font-bold text-white">AI Coach Feedback</h3>
+                                <p className="text-sm text-slate-400">Personalized coaching recommendations</p>
+                            </div>
+                            {llmLoading && (
+                                <span className="flex items-center gap-2 px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm font-medium border border-violet-500/30">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Generating...
+                                </span>
+                            )}
+                        </div>
+                        {expandedSection === 'coach' ? <ChevronUp className="text-slate-500" /> : <ChevronDown className="text-slate-500" />}
+                    </button>
+
+                    {expandedSection === 'coach' && (
+                        <div className="px-6 pb-6">
+                            {llmLoading && (
+                                <div className="flex flex-col items-center justify-center py-12">
+                                    <div className="w-16 h-16 bg-violet-500/20 rounded-full flex items-center justify-center mb-4">
+                                        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+                                    </div>
+                                    <p className="text-slate-400">Generating personalized feedback...</p>
+                                    <p className="text-xs text-slate-500 mt-1">Analyzing your biomechanics data</p>
+                                </div>
+                            )}
+
+                            {llmError && (
+                                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
+                                    <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                                    <p className="text-red-400 font-medium">{llmError}</p>
+                                    <button
+                                        onClick={() => fetchLlmResponse(analysisData)}
+                                        className="mt-3 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition"
+                                    >
+                                        Try Again
+                                    </button>
+                                </div>
+                            )}
+
+                            {llmResponse && !llmLoading && (
+                                <div className="prose prose-invert prose-sm max-w-none">
+                                    <div className="bg-slate-900/50 rounded-xl p-6 border border-white/5">
+                                        <ReactMarkdown
+                                            components={{
+                                                h2: ({ children }) => (
+                                                    <h2 className="text-xl font-bold text-white mt-6 mb-4 first:mt-0 flex items-center gap-2">
+                                                        {children}
+                                                    </h2>
+                                                ),
+                                                h3: ({ children }) => (
+                                                    <h3 className="text-lg font-bold text-emerald-400 mt-5 mb-3">{children}</h3>
+                                                ),
+                                                h4: ({ children }) => (
+                                                    <h4 className="text-base font-bold text-slate-300 mt-4 mb-2">{children}</h4>
+                                                ),
+                                                p: ({ children }) => (
+                                                    <p className="text-slate-300 mb-3 leading-relaxed">{children}</p>
+                                                ),
+                                                ul: ({ children }) => (
+                                                    <ul className="list-disc list-inside text-slate-300 mb-4 space-y-1">{children}</ul>
+                                                ),
+                                                ol: ({ children }) => (
+                                                    <ol className="list-decimal list-inside text-slate-300 mb-4 space-y-1">{children}</ol>
+                                                ),
+                                                li: ({ children }) => (
+                                                    <li className="text-slate-300">{children}</li>
+                                                ),
+                                                strong: ({ children }) => (
+                                                    <strong className="text-white font-bold">{children}</strong>
+                                                ),
+                                                hr: () => <hr className="border-white/10 my-6" />,
+                                                blockquote: ({ children }) => (
+                                                    <blockquote className="border-l-4 border-violet-500 pl-4 italic text-slate-400 my-4">
+                                                        {children}
+                                                    </blockquote>
+                                                ),
+                                            }}
+                                        >
+                                            {llmResponse}
+                                        </ReactMarkdown>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Injury Risk Section */}
@@ -222,12 +355,9 @@ function AnalysisContent() {
                                             <div className="font-bold text-lg mb-1 text-white">
                                                 Form improvement opportunity detected
                                             </div>
-                                            <p className="text-sm text-slate-400 mb-3">
-                                                Our analysis detected biomechanical markers that could be optimized to reduce injury risk.
+                                            <p className="text-sm text-slate-400">
+                                                See AI Coach Feedback above for detailed recommendations.
                                             </p>
-                                            <button className="text-orange-400 font-medium flex items-center gap-2 hover:gap-3 transition-all">
-                                                Show Me How to Fix This →
-                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -301,43 +431,8 @@ function AnalysisContent() {
                     </div>
                 )}
 
-                {/* AI Recommendations */}
-                <div className="bg-gradient-to-r from-violet-600 to-purple-600 rounded-2xl p-6 shadow-xl">
-                    <div className="flex items-center gap-3 mb-6">
-                        <Zap className="w-6 h-6 text-white" />
-                        <h3 className="text-xl font-bold text-white">AI Recommendations</h3>
-                    </div>
-
-                    <div className="space-y-3">
-                        {[
-                            {
-                                priority: shoulderScore < 70 ? 'High' : 'Info',
-                                text: shoulderScore < 70 ? 'Focus on shoulder rotation drills to reduce injury risk' : 'Maintain your excellent shoulder form',
-                                color: shoulderScore < 70 ? 'bg-red-500' : 'bg-emerald-500'
-                            },
-                            {
-                                priority: 'Medium',
-                                text: 'Practice split-step timing for better court coverage',
-                                color: 'bg-yellow-500'
-                            },
-                            {
-                                priority: 'Info',
-                                text: `Your technique shows ${overallScore >= 80 ? 'excellent' : 'good'} fundamentals`,
-                                color: 'bg-emerald-500'
-                            }
-                        ].map((rec, i) => (
-                            <div key={i} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-start gap-3">
-                                <span className={`px-2 py-1 ${rec.color} rounded text-xs font-bold flex-shrink-0`}>
-                                    {rec.priority}
-                                </span>
-                                <p className="text-white">{rec.text}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
                 {/* Raw JSON Data Section */}
-                <div className="bg-white/5 rounded-2xl border border-cyan-500/30 mt-6 overflow-hidden backdrop-blur-sm">
+                <div className="bg-white/5 rounded-2xl border border-cyan-500/30 mb-6 overflow-hidden backdrop-blur-sm">
                     <button
                         onClick={() => setShowJson(!showJson)}
                         className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition"
