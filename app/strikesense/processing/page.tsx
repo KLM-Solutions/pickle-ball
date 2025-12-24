@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, CheckCircle, Circle, AlertCircle, RefreshCw, ArrowLeft, Home } from "lucide-react";
+import { Loader2, CheckCircle, Circle, AlertCircle, RefreshCw, Home, Bell, BellOff, Copy, Check, ExternalLink } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +27,10 @@ function ProcessingContent() {
   ]);
   const [overallProgress, setOverallProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [currentStage, setCurrentStage] = useState(0);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobCreated, setJobCreated] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [copied, setCopied] = useState(false);
   
   // Ref to prevent double execution in React Strict Mode
   const hasStarted = useRef(false);
@@ -35,6 +38,48 @@ function ProcessingContent() {
   const setStageStatus = (index: number, status: 'pending' | 'active' | 'complete') => {
     setStages(prev => prev.map((s, i) => i === index ? { ...s, status } : s));
   };
+
+  // Request notification permission
+  const requestNotifications = async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        setNotificationsEnabled(true);
+        // Show test notification
+        new Notification('StrikeSense', {
+          body: 'Notifications enabled! We\'ll notify you when analysis is complete.',
+          icon: '/favicon.ico',
+        });
+      }
+    }
+  };
+
+  // Send completion notification
+  const sendCompletionNotification = () => {
+    if (notificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification('Analysis Complete! 🎾', {
+        body: 'Your stroke analysis is ready. Click to view results.',
+        icon: '/favicon.ico',
+        tag: 'analysis-complete',
+      });
+    }
+  };
+
+  // Copy job ID to clipboard
+  const copyJobId = () => {
+    if (jobId) {
+      navigator.clipboard.writeText(jobId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  useEffect(() => {
+    // Check if notifications are already enabled
+    if ('Notification' in window && Notification.permission === 'granted') {
+      setNotificationsEnabled(true);
+    }
+  }, []);
 
   useEffect(() => {
     // Prevent double execution from React Strict Mode
@@ -69,7 +114,7 @@ function ProcessingContent() {
             strokeType,
             cropRegion,
             step: 1,
-            useWebhook: true, // Use webhook for async processing
+            useWebhook: true,
           }),
         });
 
@@ -79,15 +124,19 @@ function ProcessingContent() {
         }
 
         const startResult = await response.json();
-        const jobId = startResult.job_id;
+        const newJobId = startResult.job_id;
 
-        if (!jobId) {
+        if (!newJobId) {
           throw new Error("No job ID returned from server");
         }
 
-        console.log('Analysis job started:', jobId);
+        // Job created successfully!
+        setJobId(newJobId);
+        setJobCreated(true);
+        sessionStorage.setItem('currentJobId', newJobId);
+        
+        console.log('Analysis job started:', newJobId);
         setStageStatus(0, 'complete');
-        setCurrentStage(1);
         setOverallProgress(20);
 
         // Poll for job completion
@@ -100,7 +149,7 @@ function ProcessingContent() {
           pollCount++;
 
           // Check job status
-          const statusResponse = await fetch(`/api/analyze/status?job_id=${jobId}`);
+          const statusResponse = await fetch(`/api/analyze/status?job_id=${newJobId}`);
           
           if (!statusResponse.ok) {
             console.warn('Status check failed, retrying...');
@@ -131,6 +180,9 @@ function ProcessingContent() {
               setStageStatus(i, 'complete');
             }
             setOverallProgress(100);
+
+            // Send notification
+            sendCompletionNotification();
 
             // Store result
             sessionStorage.setItem('analysisResult', JSON.stringify(statusData.result));
@@ -192,7 +244,7 @@ function ProcessingContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4 py-8">
       {/* Animated background */}
       <div className="fixed inset-0 opacity-20 pointer-events-none">
         <div className="absolute top-10 left-5 md:top-20 md:left-10 w-48 md:w-72 h-48 md:h-72 bg-emerald-500 rounded-full filter blur-[100px] md:blur-[128px] animate-pulse" />
@@ -204,6 +256,77 @@ function ProcessingContent() {
         <h1 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-white">Analyzing Your Stroke</h1>
         <p className="text-slate-400 mb-1.5 md:mb-2 text-sm md:text-base">GPU-powered AI analysis in progress</p>
         <p className="text-[10px] md:text-xs text-slate-500 mb-6 md:mb-8">Processing on RunPod Serverless</p>
+
+        {/* Job Created Success Card */}
+        {jobCreated && jobId && (
+          <div className="mb-6 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 max-w-md mx-auto">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <CheckCircle className="w-5 h-5 text-emerald-400" />
+              <span className="text-emerald-400 font-semibold text-sm">Job Created Successfully!</span>
+            </div>
+            
+            {/* Job ID with copy */}
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <span className="text-slate-400 text-xs">Job ID:</span>
+              <code className="bg-slate-800/50 px-2 py-1 rounded text-xs text-white font-mono">
+                {jobId.slice(0, 8)}...
+              </code>
+              <button
+                onClick={copyJobId}
+                className="text-slate-400 hover:text-white transition p-1"
+                title="Copy full Job ID"
+              >
+                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {/* Info text */}
+            <p className="text-slate-400 text-xs mb-4">
+              You can leave this page and check results later in{' '}
+              <span className="text-emerald-400">History</span>
+            </p>
+
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => router.push('/')}
+                className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition"
+              >
+                <Home className="w-3.5 h-3.5" />
+                Go Home
+              </button>
+              
+              <button
+                onClick={() => router.push('/strikesense/history')}
+                className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                View History
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Notification Permission */}
+        {jobCreated && !notificationsEnabled && 'Notification' in window && (
+          <div className="mb-6 max-w-md mx-auto">
+            <button
+              onClick={requestNotifications}
+              className="flex items-center justify-center gap-2 w-full py-3 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 rounded-xl text-sm font-medium transition"
+            >
+              <Bell className="w-4 h-4" />
+              Enable Notifications
+              <span className="text-violet-400/70 text-xs ml-1">(get notified when complete)</span>
+            </button>
+          </div>
+        )}
+
+        {notificationsEnabled && (
+          <div className="mb-6 flex items-center justify-center gap-2 text-xs text-emerald-400">
+            <Bell className="w-4 h-4" />
+            Notifications enabled - we&apos;ll alert you when done
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="mb-8 md:mb-10 max-w-md mx-auto px-2">
