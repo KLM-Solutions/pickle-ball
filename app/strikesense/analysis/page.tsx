@@ -4,13 +4,11 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft, Download, AlertCircle, Activity, TrendingUp, Award,
-    BarChart3, Zap, ChevronDown, ChevronUp, Target
+    Zap, ChevronDown, ChevronUp, Target, Share2
 } from "lucide-react";
-import ResultsDashboard from "../../components/dashboard/ResultsDashboard";
 
 export const dynamic = 'force-dynamic';
 
-// Separate component that uses search params
 function AnalysisContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -23,33 +21,26 @@ function AnalysisContent() {
         if (storedResult) {
             try {
                 const parsed = JSON.parse(storedResult);
-                console.log('Loaded analysis data:', parsed);
                 setAnalysisData(parsed);
             } catch (e) {
-                console.error('Failed to parse analysis result:', e);
-                // Redirect back to upload if data is corrupted
                 router.push('/strikesense/upload');
             }
         } else {
-            console.log('No analysis result found in sessionStorage');
-            // Redirect back to upload if no data
             setTimeout(() => router.push('/strikesense/upload'), 1000);
         }
     }, [router]);
 
     if (!analysisData) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="text-gray-400 mb-2">Loading analysis...</div>
-                    <div className="text-sm text-gray-500 mt-2">
-                        If this takes too long, <button
-                            onClick={() => router.push('/strikesense/upload')}
-                            className="text-primary underline"
-                        >
-                            start over
-                        </button>
-                    </div>
+                    <div className="text-emerald-400 mb-2 animate-pulse">Loading analysis...</div>
+                    <button
+                        onClick={() => router.push('/strikesense/upload')}
+                        className="text-sm text-slate-500 hover:text-white underline"
+                    >
+                        Start over
+                    </button>
                 </div>
             </div>
         );
@@ -59,14 +50,12 @@ function AnalysisContent() {
     const frames = analysisData.frames || [];
     const playerStats = analysisData.playerStats;
 
-    // Calculate risk distribution
     const riskDistribution = {
         high: frames.filter((f: any) => f.metrics?.injury_risk === 'high').length,
         medium: frames.filter((f: any) => f.metrics?.injury_risk === 'medium').length,
         low: frames.filter((f: any) => f.metrics?.injury_risk === 'low').length
     };
 
-    // Calculate biomechanics scores
     const calculateScore = (values: number[], min: number, max: number) => {
         const avg = values.reduce((a, b) => a + b, 0) / values.length;
         const normalized = ((avg - min) / (max - min)) * 100;
@@ -76,81 +65,89 @@ function AnalysisContent() {
     const shoulderAngles = frames
         .map((f: any) => f.metrics?.right_shoulder_abduction)
         .filter((v: any) => v !== undefined);
-    const shoulderScore = shoulderAngles.length > 0
-        ? 100 - calculateScore(shoulderAngles, 90, 180)
-        : 75;
+    const shoulderScore = shoulderAngles.length > 0 ? 100 - calculateScore(shoulderAngles, 90, 180) : 75;
 
     const hipRotations = frames
         .map((f: any) => f.metrics?.hip_rotation_deg)
         .filter((v: any) => v !== undefined);
-    const hipScore = hipRotations.length > 0
-        ? calculateScore(hipRotations, 0, 90)
-        : 80;
+    const hipScore = hipRotations.length > 0 ? calculateScore(hipRotations, 0, 90) : 80;
 
     const kneeFlexions = frames
         .map((f: any) => f.metrics?.right_knee_flexion)
         .filter((v: any) => v !== undefined);
-    const kneeScore = kneeFlexions.length > 0
-        ? calculateScore(kneeFlexions, 20, 40)
-        : 85;
+    const kneeScore = kneeFlexions.length > 0 ? calculateScore(kneeFlexions, 20, 40) : 85;
 
     const overallScore = Math.round((shoulderScore + hipScore + kneeScore) / 3);
     const letterGrade = overallScore >= 90 ? 'A' : overallScore >= 80 ? 'B+' : overallScore >= 70 ? 'B' : overallScore >= 60 ? 'C+' : 'C';
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+            {/* Animated background */}
+            <div className="fixed inset-0 opacity-15 pointer-events-none">
+                <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-500 rounded-full filter blur-[128px]" />
+                <div className="absolute bottom-20 right-10 w-96 h-96 bg-violet-500 rounded-full filter blur-[128px]" />
+                <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-orange-500 rounded-full filter blur-[128px]" />
+            </div>
+
+            <div className="relative z-10 max-w-5xl mx-auto px-4 py-8">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <button
                         onClick={() => router.push(`/strikesense/player?stroke=${strokeType}`)}
-                        className="text-gray-600 hover:text-gray-900 flex items-center gap-2 transition font-medium group"
+                        className="text-slate-400 hover:text-white flex items-center gap-2 transition font-medium group"
                     >
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                        Watch Session Video
+                        Watch Video
                     </button>
-                    <h1 className="text-3xl font-extrabold text-[#1A237E] tracking-tight">Match Performance Report</h1>
-                    <button className="px-5 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl font-bold text-gray-700 shadow-sm transition flex items-center gap-2">
-                        <Download className="w-4 h-4" />
-                        Download PDF
-                    </button>
+                    <div className="flex gap-3">
+                        <button className="px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl font-medium text-white transition flex items-center gap-2">
+                            <Download className="w-4 h-4" />
+                            <span className="hidden sm:inline">Export</span>
+                        </button>
+                        <button className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 rounded-xl font-medium text-white transition flex items-center gap-2 shadow-lg shadow-emerald-500/30">
+                            <Share2 className="w-4 h-4" />
+                            <span className="hidden sm:inline">Share</span>
+                        </button>
+                    </div>
                 </div>
 
-                {/* Session Info Card - REDESIGNED */}
-                <div className="bg-gradient-to-br from-[#1A237E] to-[#283593] rounded-3xl p-8 text-white mb-8 shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-10">
-                        <Award size={160} />
+                {/* Hero Card */}
+                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 border border-white/10 mb-8 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                        <Award size={200} />
                     </div>
 
                     <div className="relative z-10">
                         <div className="flex items-start justify-between mb-8">
                             <div>
-                                <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold tracking-wider uppercase mb-3 backdrop-blur-md">
-                                    Analysis Session
+                                <div className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold tracking-wider uppercase mb-3 border border-emerald-500/30">
+                                    Analysis Complete
                                 </div>
-                                <h2 className="text-4xl font-black mb-2 leading-tight">
-                                    Performance Summary
-                                </h2>
-                                <p className="text-lg opacity-80 font-medium">
+                                <h1 className="text-4xl font-black text-white mb-2">
+                                    Performance Report
+                                </h1>
+                                <p className="text-slate-400">
                                     {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                 </p>
                             </div>
                             <div className="flex flex-col items-center">
-                                <div className="text-7xl font-black text-[#00BFA5] drop-shadow-lg">{letterGrade}</div>
-                                <div className="text-sm font-bold opacity-70 mt-1 uppercase tracking-widest">Grade</div>
+                                <div className="text-7xl font-black bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
+                                    {letterGrade}
+                                </div>
+                                <div className="text-sm font-bold text-slate-500 mt-1 uppercase tracking-widest">Grade</div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                             {[
                                 { label: 'Total Strokes', value: strokes.length, icon: Target },
                                 { label: 'Overall Score', value: `${overallScore}%`, icon: Zap },
-                                { label: 'High Risk', value: riskDistribution.high, icon: AlertCircle, color: 'text-red-400' },
+                                { label: 'High Risk', value: riskDistribution.high, icon: AlertCircle, color: riskDistribution.high > 0 ? 'text-red-400' : 'text-emerald-400' },
                                 { label: 'Focus Areas', value: riskDistribution.high > 0 ? 'Shoulder' : 'None', icon: Activity },
                                 { label: 'Duration', value: playerStats?.trackedDurationSec ? `${Math.round(playerStats.trackedDurationSec)}s` : 'N/A', icon: Activity }
                             ].map((stat, i) => (
-                                <div key={i} className="bg-white/10 rounded-2xl p-4 backdrop-blur-md border border-white/10 hover:bg-white/15 transition-colors">
-                                    <div className="flex items-center gap-2 mb-2 opacity-70">
+                                <div key={i} className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition">
+                                    <div className="flex items-center gap-2 mb-2 text-slate-500">
                                         {React.createElement(stat.icon as any, { size: 14 })}
                                         <span className="text-[10px] font-bold uppercase tracking-wider">{stat.label}</span>
                                     </div>
@@ -161,199 +158,98 @@ function AnalysisContent() {
                     </div>
                 </div>
 
-                {/* Injury Risk Section - CRITICAL */}
-                <div className="bg-white rounded-xl border-2 border-[#FF6F00] mb-6 shadow-lg">
+                {/* Injury Risk Section */}
+                <div className="bg-white/5 rounded-2xl border border-orange-500/30 mb-6 overflow-hidden backdrop-blur-sm">
                     <button
                         onClick={() => setExpandedSection(expandedSection === 'risk' ? null : 'risk')}
-                        className="w-full p-6 flex items-center justify-between hover:bg-gray-50 transition"
+                        className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition"
                     >
                         <div className="flex items-center gap-3">
-                            <AlertCircle className="w-6 h-6 text-[#FF6F00]" />
-                            <h3 className="text-xl font-bold text-[#1A237E]">Injury Risk Detection</h3>
+                            <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center">
+                                <AlertCircle className="w-5 h-5 text-orange-400" />
+                            </div>
+                            <div className="text-left">
+                                <h3 className="text-lg font-bold text-white">Injury Risk Detection</h3>
+                                <p className="text-sm text-slate-500">Biomechanical risk analysis</p>
+                            </div>
                             {riskDistribution.high > 0 && (
-                                <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-bold">
+                                <span className="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-sm font-bold border border-red-500/30">
                                     {riskDistribution.high} High
                                 </span>
                             )}
                         </div>
-                        {expandedSection === 'risk' ? <ChevronUp /> : <ChevronDown />}
+                        {expandedSection === 'risk' ? <ChevronUp className="text-slate-500" /> : <ChevronDown className="text-slate-500" />}
                     </button>
 
                     {expandedSection === 'risk' && (
                         <div className="px-6 pb-6">
-                            {/* Risk Distribution */}
                             <div className="grid grid-cols-3 gap-4 mb-6">
-                                <div className="bg-red-50 border-2 border-red-500 rounded-xl p-4 text-center">
-                                    <div className="text-3xl font-bold text-red-700">{riskDistribution.high}</div>
-                                    <div className="text-sm text-red-600">High Risk</div>
+                                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
+                                    <div className="text-3xl font-bold text-red-400">{riskDistribution.high}</div>
+                                    <div className="text-sm text-red-400/70">High Risk</div>
                                 </div>
-                                <div className="bg-yellow-50 border-2 border-yellow-500 rounded-xl p-4 text-center">
-                                    <div className="text-3xl font-bold text-yellow-700">{riskDistribution.medium}</div>
-                                    <div className="text-sm text-yellow-600">Medium Risk</div>
+                                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-center">
+                                    <div className="text-3xl font-bold text-yellow-400">{riskDistribution.medium}</div>
+                                    <div className="text-sm text-yellow-400/70">Medium Risk</div>
                                 </div>
-                                <div className="bg-green-50 border-2 border-green-500 rounded-xl p-4 text-center">
-                                    <div className="text-3xl font-bold text-green-700">{riskDistribution.low}</div>
-                                    <div className="text-sm text-green-600">Low Risk</div>
+                                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-center">
+                                    <div className="text-3xl font-bold text-emerald-400">{riskDistribution.low}</div>
+                                    <div className="text-sm text-emerald-400/70">Low Risk</div>
                                 </div>
                             </div>
 
-                            {/* Alert Banner */}
-                            {riskDistribution.high > 0 && shoulderAngles.length > 0 && (
-                                <div className="bg-[#FF6F00]/10 border-2 border-[#FF6F00] rounded-xl p-4 mb-4">
+                            {riskDistribution.high === 0 ? (
+                                <div className="text-center py-8">
+                                    <div className="text-4xl mb-2">✓</div>
+                                    <div className="font-medium text-emerald-400">No high-risk movements detected!</div>
+                                    <div className="text-sm text-slate-500">Your form is looking good.</div>
+                                </div>
+                            ) : (
+                                <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
                                     <div className="flex items-start gap-3">
-                                        <AlertCircle className="w-6 h-6 text-[#FF6F00] flex-shrink-0 mt-1" />
+                                        <AlertCircle className="w-6 h-6 text-orange-400 flex-shrink-0 mt-1" />
                                         <div>
-                                            <div className="font-bold text-lg mb-1 text-[#1A237E]">
-                                                Potential form improvement opportunity detected
+                                            <div className="font-bold text-lg mb-1 text-white">
+                                                Form improvement opportunity detected
                                             </div>
-                                            <p className="text-sm text-gray-700 mb-3">
-                                                Our analysis detected key biomechanical markers that could be optimized to reduce injury risk and improve consistency.
+                                            <p className="text-sm text-slate-400 mb-3">
+                                                Our analysis detected biomechanical markers that could be optimized to reduce injury risk.
                                             </p>
-                                            <button className="text-[#FF6F00] font-medium flex items-center gap-2 hover:gap-3 transition-all">
+                                            <button className="text-orange-400 font-medium flex items-center gap-2 hover:gap-3 transition-all">
                                                 Show Me How to Fix This →
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             )}
-
-                            {/* High Risk Frames */}
-                            {riskDistribution.high === 0 && (
-                                <div className="text-center py-8 text-gray-600">
-                                    <div className="text-4xl mb-2">✓</div>
-                                    <div className="font-medium">No high-risk movements detected!</div>
-                                    <div className="text-sm">Your form is looking good.</div>
-                                </div>
-                            )}
                         </div>
                     )}
                 </div>
 
-                {/* ENHANCED: Injury Risk Summary from Backend */}
-                {analysisData.injury_risk_summary && (
-                    <div className="bg-white rounded-xl border-2 border-purple-200 mb-6 shadow-lg">
-                        <div className="p-6 bg-gradient-to-r from-purple-50 to-blue-50">
-                            <div className="flex items-center gap-3 mb-4">
-                                <Zap className="w-6 h-6 text-purple-600" />
-                                <h3 className="text-xl font-bold text-[#1A237E]">⚡ Enhanced Injury Risk Analysis</h3>
-                                <span className={`px-3 py-1 rounded-full text-sm font-bold ${analysisData.injury_risk_summary.overall_risk === 'low' ? 'bg-green-100 text-green-700' :
-                                    analysisData.injury_risk_summary.overall_risk === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                        'bg-red-100 text-red-700'
-                                    }`}>
-                                    {analysisData.injury_risk_summary.overall_risk.toUpperCase()} RISK
-                                </span>
-                            </div>
-
-                            {/* Risk Percentages */}
-                            {analysisData.injury_risk_summary.percentages && (
-                                <div className="grid grid-cols-4 gap-3 mb-4">
-                                    <div className="bg-white rounded-lg p-3 border border-red-200">
-                                        <div className="text-2xl font-bold text-red-600">
-                                            {analysisData.injury_risk_summary.percentages.shoulder_overuse}%
-                                        </div>
-                                        <div className="text-xs text-gray-600">Shoulder Risk</div>
-                                    </div>
-                                    <div className="bg-white rounded-lg p-3 border border-orange-200">
-                                        <div className="text-2xl font-bold text-orange-600">
-                                            {analysisData.injury_risk_summary.percentages.poor_kinetic_chain}%
-                                        </div>
-                                        <div className="text-xs text-gray-600">Poor Kinetic Chain</div>
-                                    </div>
-                                    <div className="bg-white rounded-lg p-3 border border-yellow-200">
-                                        <div className="text-2xl font-bold text-yellow-600">
-                                            {analysisData.injury_risk_summary.percentages.knee_stress}%
-                                        </div>
-                                        <div className="text-xs text-gray-600">Knee Stress</div>
-                                    </div>
-                                    <div className="bg-white rounded-lg p-3 border border-blue-200">
-                                        <div className="text-2xl font-bold text-blue-600">
-                                            {analysisData.injury_risk_summary.percentages.elbow_strain}%
-                                        </div>
-                                        <div className="text-xs text-gray-600">Elbow Strain</div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Alerts */}
-                            {analysisData.injury_risk_summary.alerts && analysisData.injury_risk_summary.alerts.length > 0 && (
-                                <div className="space-y-2 mb-4">
-                                    {analysisData.injury_risk_summary.alerts.map((alert: any, idx: number) => (
-                                        <div key={idx} className={`p-3 rounded-lg border-2 ${alert.severity === 'high' ? 'bg-red-50 border-red-300' :
-                                            alert.severity === 'medium' ? 'bg-yellow-50 border-yellow-300' :
-                                                'bg-blue-50 border-blue-300'
-                                            }`}>
-                                            <div className="flex items-start gap-2">
-                                                <span className="text-lg">{alert.icon || '⚠️'}</span>
-                                                <div className="flex-1">
-                                                    <div className="font-bold text-sm text-gray-900">{alert.message}</div>
-                                                    <div className="text-xs text-gray-600 mt-0.5">
-                                                        Detected in {alert.percentage}% of frames
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Recommendations */}
-                            {analysisData.injury_risk_summary.recommendations && analysisData.injury_risk_summary.recommendations.length > 0 && (
-                                <div className="space-y-3">
-                                    <div className="text-sm font-bold text-gray-700 mb-2">📋 Evidence-Based Recommendations:</div>
-                                    {analysisData.injury_risk_summary.recommendations.map((rec: any, idx: number) => (
-                                        <div key={idx} className="bg-white rounded-lg p-4 border-2 border-gray-200">
-                                            <div className="flex items-start gap-3 mb-2">
-                                                <span className={`px-2 py-1 rounded text-xs font-bold ${rec.priority === 'high' ? 'bg-red-500 text-white' :
-                                                    rec.priority === 'medium' ? 'bg-yellow-500 text-white' :
-                                                        rec.priority === 'info' ? 'bg-green-500 text-white' :
-                                                            'bg-gray-500 text-white'
-                                                    }`}>
-                                                    {rec.priority.toUpperCase()}
-                                                </span>
-                                                <div className="flex-1">
-                                                    <div className="font-bold text-gray-900">{rec.title}</div>
-                                                    <div className="text-sm text-gray-600 mt-1">{rec.description}</div>
-                                                </div>
-                                            </div>
-                                            {rec.actions && rec.actions.length > 0 && (
-                                                <ul className="ml-6 mt-2 space-y-1">
-                                                    {rec.actions.map((action: string, aidx: number) => (
-                                                        <li key={aidx} className="text-sm text-gray-700">
-                                                            • {action}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
                 {/* Biomechanical Metrics */}
-                <div className="bg-white rounded-xl border-2 border-gray-200 p-6 mb-6 shadow-sm">
+                <div className="bg-white/5 rounded-2xl border border-white/10 p-6 mb-6 backdrop-blur-sm">
                     <div className="flex items-center gap-3 mb-6">
-                        <Activity className="w-6 h-6 text-[#00C853]" />
-                        <h3 className="text-xl font-bold text-[#1A237E]">Biomechanical Metrics</h3>
+                        <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+                            <Activity className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <h3 className="text-lg font-bold text-white">Biomechanical Metrics</h3>
                     </div>
 
                     <div className="grid grid-cols-2 gap-6">
                         {[
-                            { label: 'Shoulder Safety', score: Math.round(shoulderScore), color: shoulderScore > 70 ? 'bg-[#00C853]' : 'bg-[#FF6F00]' },
-                            { label: 'Hip Rotation', score: Math.round(hipScore), color: 'bg-blue-500' },
-                            { label: 'Knee Stability', score: Math.round(kneeScore), color: 'bg-[#00C853]' },
-                            { label: 'Balance Score', score: overallScore, color: 'bg-purple-500' }
+                            { label: 'Shoulder Safety', score: Math.round(shoulderScore), color: shoulderScore > 70 ? 'from-emerald-500 to-teal-500' : 'from-orange-500 to-red-500' },
+                            { label: 'Hip Rotation', score: Math.round(hipScore), color: 'from-blue-500 to-indigo-500' },
+                            { label: 'Knee Stability', score: Math.round(kneeScore), color: 'from-emerald-500 to-teal-500' },
+                            { label: 'Balance Score', score: overallScore, color: 'from-violet-500 to-purple-500' }
                         ].map((metric, i) => (
                             <div key={i}>
                                 <div className="flex justify-between mb-2">
-                                    <span className="font-medium text-gray-700">{metric.label}</span>
-                                    <span className="font-bold text-[#1A237E]">{metric.score}</span>
+                                    <span className="font-medium text-slate-400">{metric.label}</span>
+                                    <span className="font-bold text-white">{metric.score}%</span>
                                 </div>
-                                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-3 bg-white/10 rounded-full overflow-hidden">
                                     <div
-                                        className={`h-full ${metric.color} transition-all duration-500`}
+                                        className={`h-full bg-gradient-to-r ${metric.color} transition-all duration-500`}
                                         style={{ width: `${metric.score}%` }}
                                     />
                                 </div>
@@ -364,90 +260,85 @@ function AnalysisContent() {
 
                 {/* Player Stats */}
                 {playerStats && (
-                    <div className="bg-white rounded-xl border-2 border-gray-200 p-6 mb-6 shadow-sm">
+                    <div className="bg-white/5 rounded-2xl border border-white/10 p-6 mb-6 backdrop-blur-sm">
                         <div className="flex items-center gap-3 mb-6">
-                            <TrendingUp className="w-6 h-6 text-blue-500" />
-                            <h3 className="text-xl font-bold text-[#1A237E]">Movement Stats</h3>
+                            <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                                <TrendingUp className="w-5 h-5 text-blue-400" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white">Movement Stats</h3>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-6">
-                            <div className="text-center p-4 bg-gray-50 rounded-xl">
-                                <div className="text-3xl font-bold text-[#1A237E]">
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="text-center p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div className="text-3xl font-bold text-white">
                                     {playerStats.totalDistanceMeters?.toFixed(1) || '0'}m
                                 </div>
-                                <div className="text-sm text-gray-600">Distance Covered</div>
+                                <div className="text-sm text-slate-500">Distance Covered</div>
                             </div>
-                            <div className="text-center p-4 bg-gray-50 rounded-xl">
-                                <div className="text-3xl font-bold text-[#1A237E]">
+                            <div className="text-center p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div className="text-3xl font-bold text-white">
                                     {playerStats.avgSpeedKmh?.toFixed(1) || '0'} km/h
                                 </div>
-                                <div className="text-sm text-gray-600">Average Speed</div>
+                                <div className="text-sm text-slate-500">Average Speed</div>
                             </div>
-                            <div className="text-center p-4 bg-gray-50 rounded-xl">
-                                <div className="text-3xl font-bold text-[#1A237E]">
+                            <div className="text-center p-4 bg-white/5 rounded-xl border border-white/10">
+                                <div className="text-3xl font-bold text-white">
                                     {playerStats.trackedDurationSec?.toFixed(1) || '0'}s
                                 </div>
-                                <div className="text-sm text-gray-600">Tracked Duration</div>
+                                <div className="text-sm text-slate-500">Tracked Duration</div>
                             </div>
                         </div>
                     </div>
                 )}
 
                 {/* AI Recommendations */}
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-xl">
+                <div className="bg-gradient-to-r from-violet-600 to-purple-600 rounded-2xl p-6 shadow-xl">
                     <div className="flex items-center gap-3 mb-6">
-                        <Zap className="w-6 h-6" />
-                        <h3 className="text-xl font-bold">AI Recommendations</h3>
+                        <Zap className="w-6 h-6 text-white" />
+                        <h3 className="text-xl font-bold text-white">AI Recommendations</h3>
                     </div>
 
                     <div className="space-y-3">
                         {[
                             {
-                                priority: 'High',
-                                text: shoulderScore < 70
-                                    ? 'Focus on shoulder rotation drills to reduce injury risk'
-                                    : 'Maintain your excellent shoulder form',
-                                action: 'View Drills',
-                                color: shoulderScore < 70 ? 'bg-red-500' : 'bg-green-500'
+                                priority: shoulderScore < 70 ? 'High' : 'Info',
+                                text: shoulderScore < 70 ? 'Focus on shoulder rotation drills to reduce injury risk' : 'Maintain your excellent shoulder form',
+                                color: shoulderScore < 70 ? 'bg-red-500' : 'bg-emerald-500'
                             },
                             {
                                 priority: 'Medium',
                                 text: 'Practice split-step timing for better court coverage',
-                                action: 'Watch Tips',
                                 color: 'bg-yellow-500'
                             },
                             {
-                                priority: 'Low',
+                                priority: 'Info',
                                 text: `Your technique shows ${overallScore >= 80 ? 'excellent' : 'good'} fundamentals`,
-                                action: 'See Analysis',
-                                color: 'bg-green-500'
+                                color: 'bg-emerald-500'
                             }
                         ].map((rec, i) => (
                             <div key={i} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-start gap-3">
                                 <span className={`px-2 py-1 ${rec.color} rounded text-xs font-bold flex-shrink-0`}>
                                     {rec.priority}
                                 </span>
-                                <div className="flex-1">
-                                    <p className="mb-2">{rec.text}</p>
-                                    <button className="text-sm font-medium hover:underline">
-                                        {rec.action} →
-                                    </button>
-                                </div>
+                                <p className="text-white">{rec.text}</p>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Bottom Actions */}
-                <div className="mt-6 flex gap-4">
+                <div className="mt-8 flex gap-4">
                     <button
                         onClick={() => router.push(`/strikesense/player?stroke=${strokeType}`)}
-                        className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 rounded-xl font-medium transition"
+                        className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-white py-4 rounded-xl font-bold transition"
                     >
-                        Watch Video
+                        ← Watch Video
                     </button>
-                    <button className="flex-1 bg-gradient-to-r from-[#00BFA5] to-cyan-400 hover:from-[#00A890] hover:to-cyan-500 text-white py-3 rounded-xl font-medium transition shadow-lg">
-                        Share Report
+                    <button
+                        onClick={() => router.push('/')}
+                        className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white py-4 rounded-xl font-bold transition shadow-lg shadow-emerald-500/30"
+                    >
+                        New Analysis →
                     </button>
                 </div>
             </div>
@@ -458,10 +349,8 @@ function AnalysisContent() {
 export default function AnalysisPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="text-gray-400 mb-2">Loading...</div>
-                </div>
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+                <div className="text-emerald-400 font-bold animate-pulse">Loading...</div>
             </div>
         }>
             <AnalysisContent />
