@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, CheckCircle, Circle, AlertCircle, RefreshCw, Home, Bell, BellOff, Copy, Check, ExternalLink } from "lucide-react";
+import { Loader2, CheckCircle, Circle, AlertCircle, RefreshCw, Home, Bell, BellOff, Copy, Check, ExternalLink, Play, Clock } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +29,7 @@ function ProcessingContent() {
   const [error, setError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobCreated, setJobCreated] = useState(false);
+  const [jobCompleted, setJobCompleted] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [copied, setCopied] = useState(false);
   
@@ -180,16 +181,16 @@ function ProcessingContent() {
               setStageStatus(i, 'complete');
             }
             setOverallProgress(100);
+            setJobCompleted(true);
 
             // Send notification
             sendCompletionNotification();
 
-            // Store result
+            // Store result for when user views it
             sessionStorage.setItem('analysisResult', JSON.stringify(statusData.result));
             console.log('Analysis complete:', statusData.result);
 
-            await new Promise(resolve => setTimeout(resolve, 500));
-            router.push(`/strikesense/player?stroke=${strokeType}`);
+            // Don't auto-redirect - user can check history or view results manually
             return;
           }
 
@@ -210,6 +211,49 @@ function ProcessingContent() {
     runAnalysis();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Completed state - show success and let user choose where to go
+  if (jobCompleted && jobId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4">
+        {/* Background */}
+        <div className="fixed inset-0 opacity-20 pointer-events-none">
+          <div className="absolute top-10 left-5 md:top-20 md:left-10 w-48 md:w-72 h-48 md:h-72 bg-emerald-500 rounded-full filter blur-[100px] md:blur-[128px]" />
+          <div className="absolute bottom-10 right-5 md:bottom-20 md:right-10 w-64 md:w-96 h-64 md:h-96 bg-teal-500 rounded-full filter blur-[100px] md:blur-[128px]" />
+        </div>
+
+        <div className="relative z-10 max-w-md w-full text-center bg-white/5 border border-emerald-500/30 p-6 md:p-8 rounded-xl md:rounded-2xl backdrop-blur-sm">
+          <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-5 bg-emerald-500/20 rounded-full flex items-center justify-center">
+            <CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-emerald-400" />
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2 text-white">Analysis Complete! 🎾</h1>
+          <p className="text-slate-400 mb-6 text-sm md:text-base">Your stroke analysis is ready to view</p>
+          
+          <button
+            onClick={() => router.push(`/strikesense/player?stroke=${strokeType}&job_id=${jobId}`)}
+            className="flex items-center justify-center gap-2 w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white rounded-xl font-bold transition text-sm md:text-base shadow-lg shadow-emerald-500/30 mb-3"
+          >
+            <Play className="w-5 h-5" /> View Results
+          </button>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/')}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-white rounded-xl text-sm font-medium transition"
+            >
+              <Home className="w-4 h-4" /> Home
+            </button>
+            <button
+              onClick={() => router.push('/strikesense/history')}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-white rounded-xl text-sm font-medium transition"
+            >
+              <Clock className="w-4 h-4" /> History
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (

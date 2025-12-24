@@ -15,7 +15,7 @@ import {
   RefreshCw,
   Plus,
 } from "lucide-react";
-import { getCompletedAnalyses, formatDate, getStrokeInfo, AnalysisJob } from "@/lib/supabase-db";
+import { getAllAnalyses, formatDate, getStrokeInfo, AnalysisJob } from "@/lib/supabase-db";
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -27,7 +27,7 @@ export default function HistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getCompletedAnalyses(50);
+      const data = await getAllAnalyses(50);
       setAnalyses(data);
     } catch (err: any) {
       setError(err.message || "Failed to load history");
@@ -38,7 +38,16 @@ export default function HistoryPage() {
 
   useEffect(() => {
     fetchHistory();
-  }, []);
+    
+    // Auto-refresh every 5 seconds if there are processing jobs
+    const interval = setInterval(() => {
+      if (analyses.some(job => job.status === 'processing' || job.status === 'pending')) {
+        fetchHistory();
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [analyses.length]);
 
   const handleViewAnalysis = (job: AnalysisJob) => {
     // Store the result in sessionStorage and navigate to player page
