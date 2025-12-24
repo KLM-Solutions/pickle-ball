@@ -83,85 +83,85 @@ function CameraGuideContent() {
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
             {/* Animated background */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className={`absolute top-1/4 -left-20 w-96 h-96 bg-gradient-to-br ${guide.gradient} rounded-full filter blur-[150px] opacity-20 animate-pulse`} />
-                <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-violet-500 rounded-full filter blur-[150px] opacity-15 animate-pulse delay-1000" />
+                <div className={`absolute top-1/4 -left-10 md:-left-20 w-64 md:w-96 h-64 md:h-96 bg-gradient-to-br ${guide.gradient} rounded-full filter blur-[100px] md:blur-[150px] opacity-20 animate-pulse`} />
+                <div className="absolute bottom-1/4 -right-10 md:-right-20 w-48 md:w-80 h-48 md:h-80 bg-violet-500 rounded-full filter blur-[100px] md:blur-[150px] opacity-15 animate-pulse delay-1000" />
             </div>
 
             {/* Header */}
-            <header className="relative z-10 px-4 py-4">
+            <header className="relative z-10 px-4 py-3 md:py-4">
                 <div className="max-w-lg mx-auto flex items-center justify-between">
                     <button
                         onClick={() => router.push('/')}
-                        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+                        className="flex items-center gap-1.5 md:gap-2 text-slate-400 hover:text-white transition p-1"
                     >
-                        <ArrowLeft className="w-5 h-5" />
-                        <span className="text-sm font-medium">Home</span>
+                        <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
+                        <span className="text-xs md:text-sm font-medium">Home</span>
                     </button>
-                    <div className="text-xs font-bold tracking-widest uppercase text-slate-500">
+                    <div className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-slate-500">
                         Step 1 of 3
                     </div>
                 </div>
             </header>
 
             {/* Main Content */}
-            <main className="relative z-10 px-4 pb-8">
+            <main className="relative z-10 px-4 pb-6 md:pb-8">
                 <div className="max-w-lg mx-auto">
                     
                     {/* Hero */}
-                    <div className="text-center pt-4 pb-8">
-                        <div className={`inline-flex w-24 h-24 rounded-3xl bg-gradient-to-br ${guide.gradient} items-center justify-center text-5xl mb-6 shadow-2xl ${guide.shadowColor}`}>
+                    <div className="text-center pt-2 md:pt-4 pb-6 md:pb-8">
+                        <div className={`inline-flex w-20 h-20 md:w-24 md:h-24 rounded-2xl md:rounded-3xl bg-gradient-to-br ${guide.gradient} items-center justify-center text-4xl md:text-5xl mb-4 md:mb-6 shadow-2xl ${guide.shadowColor}`}>
                             {guide.icon}
                         </div>
-                        <h1 className="text-3xl font-bold mb-2">{guide.title}</h1>
-                        <p className="text-slate-400 text-lg">{guide.subtitle}</p>
+                        <h1 className="text-2xl md:text-3xl font-bold mb-1.5 md:mb-2">{guide.title}</h1>
+                        <p className="text-slate-400 text-sm md:text-lg">{guide.subtitle}</p>
                     </div>
 
                     {/* Camera Position Card */}
-                    <div className={`relative bg-gradient-to-br ${guide.gradient} rounded-3xl p-6 mb-6 overflow-hidden`}>
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+                    <div className={`relative bg-gradient-to-br ${guide.gradient} rounded-2xl md:rounded-3xl p-5 md:p-6 mb-4 md:mb-6 overflow-hidden`}>
+                        <div className="absolute top-0 right-0 w-24 md:w-32 h-24 md:h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <div className="absolute bottom-0 left-0 w-20 md:w-24 h-20 md:h-24 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2" />
                         
                         <div className="relative z-10">
-                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                <Camera className="w-5 h-5" />
+                            <h2 className="text-sm md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2">
+                                <Camera className="w-4 h-4 md:w-5 md:h-5" />
                                 Camera Position
                             </h2>
                             
-                            <div className="grid grid-cols-3 gap-3">
-                                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center">
-                                    <Camera className="w-6 h-6 mx-auto mb-2 opacity-80" />
-                                    <div className="text-xs opacity-70 mb-1">Angle</div>
-                                    <div className="text-sm font-bold">{guide.angle}</div>
+                            <div className="grid grid-cols-3 gap-2 md:gap-3">
+                                <div className="bg-white/20 backdrop-blur-sm rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
+                                    <Camera className="w-5 h-5 md:w-6 md:h-6 mx-auto mb-1.5 md:mb-2 opacity-80" />
+                                    <div className="text-[10px] md:text-xs opacity-70 mb-0.5 md:mb-1">Angle</div>
+                                    <div className="text-xs md:text-sm font-bold">{guide.angle}</div>
                                 </div>
-                                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center">
-                                    <Ruler className="w-6 h-6 mx-auto mb-2 opacity-80" />
-                                    <div className="text-xs opacity-70 mb-1">Distance</div>
-                                    <div className="text-sm font-bold">{guide.distance}</div>
+                                <div className="bg-white/20 backdrop-blur-sm rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
+                                    <Ruler className="w-5 h-5 md:w-6 md:h-6 mx-auto mb-1.5 md:mb-2 opacity-80" />
+                                    <div className="text-[10px] md:text-xs opacity-70 mb-0.5 md:mb-1">Distance</div>
+                                    <div className="text-xs md:text-sm font-bold">{guide.distance}</div>
                                 </div>
-                                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center">
-                                    <MoveVertical className="w-6 h-6 mx-auto mb-2 opacity-80" />
-                                    <div className="text-xs opacity-70 mb-1">Height</div>
-                                    <div className="text-sm font-bold">{guide.height}</div>
+                                <div className="bg-white/20 backdrop-blur-sm rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
+                                    <MoveVertical className="w-5 h-5 md:w-6 md:h-6 mx-auto mb-1.5 md:mb-2 opacity-80" />
+                                    <div className="text-[10px] md:text-xs opacity-70 mb-0.5 md:mb-1">Height</div>
+                                    <div className="text-xs md:text-sm font-bold">{guide.height}</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Tips */}
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-8 backdrop-blur-sm">
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">
+                    <div className="bg-white/5 border border-white/10 rounded-xl md:rounded-2xl p-4 md:p-5 mb-6 md:mb-8 backdrop-blur-sm">
+                        <h3 className="text-[10px] md:text-sm font-bold uppercase tracking-wider text-slate-400 mb-3 md:mb-4">
                             Recording Tips
                         </h3>
-                        <div className="space-y-4">
+                        <div className="space-y-3 md:space-y-4">
                             {guide.tips.map((tip: any, i: number) => (
-                                <div key={i} className="flex items-start gap-4">
-                                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${guide.gradient} flex items-center justify-center flex-shrink-0 shadow-lg ${guide.shadowColor}`}>
-                                        <tip.icon className="w-5 h-5 text-white" />
+                                <div key={i} className="flex items-start gap-3 md:gap-4">
+                                    <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br ${guide.gradient} flex items-center justify-center flex-shrink-0 shadow-lg ${guide.shadowColor}`}>
+                                        <tip.icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
                                     </div>
-                                    <div className="flex-1 pt-2">
-                                        <span className="text-slate-300">{tip.text}</span>
+                                    <div className="flex-1 pt-2 md:pt-2">
+                                        <span className="text-slate-300 text-xs md:text-sm">{tip.text}</span>
                                     </div>
-                                    <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-2.5 flex-shrink-0" />
+                                    <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-emerald-400 mt-2 md:mt-2.5 flex-shrink-0" />
                                 </div>
                             ))}
                         </div>
@@ -170,13 +170,13 @@ function CameraGuideContent() {
                     {/* CTA */}
                     <button
                         onClick={() => router.push(`/strikesense/upload?stroke=${strokeType}`)}
-                        className={`w-full bg-gradient-to-r ${guide.gradient} hover:opacity-90 text-white py-5 rounded-2xl font-bold text-base shadow-xl ${guide.shadowColor} transition-all active:scale-[0.98] flex items-center justify-center gap-3`}
+                        className={`w-full bg-gradient-to-r ${guide.gradient} hover:opacity-90 text-white py-4 md:py-5 rounded-xl md:rounded-2xl font-bold text-sm md:text-base shadow-xl ${guide.shadowColor} transition-all active:scale-[0.98] flex items-center justify-center gap-2 md:gap-3`}
                     >
                         <span>I'm Ready to Record</span>
-                        <ChevronRight className="w-5 h-5" />
+                        <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
                     
-                    <p className="text-center text-slate-500 text-sm mt-4">
+                    <p className="text-center text-slate-500 text-xs md:text-sm mt-3 md:mt-4">
                         Already have a video? Tap to continue
                     </p>
                 </div>

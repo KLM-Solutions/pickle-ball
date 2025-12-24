@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, CheckCircle, Circle, AlertCircle, RefreshCw, ArrowLeft } from "lucide-react";
+import { Loader2, CheckCircle, Circle, AlertCircle, RefreshCw, ArrowLeft, Home } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
@@ -28,12 +28,19 @@ function ProcessingContent() {
   const [overallProgress, setOverallProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [currentStage, setCurrentStage] = useState(0);
+  
+  // Ref to prevent double execution in React Strict Mode
+  const hasStarted = useRef(false);
 
   const setStageStatus = (index: number, status: 'pending' | 'active' | 'complete') => {
     setStages(prev => prev.map((s, i) => i === index ? { ...s, status } : s));
   };
 
   useEffect(() => {
+    // Prevent double execution from React Strict Mode
+    if (hasStarted.current) return;
+    hasStarted.current = true;
+
     const runAnalysis = async () => {
       try {
         const videoUrl = sessionStorage.getItem('videoUrl');
@@ -108,28 +115,28 @@ function ProcessingContent() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4">
         {/* Background */}
-        <div className="fixed inset-0 opacity-20">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-red-500 rounded-full filter blur-[128px]" />
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-orange-500 rounded-full filter blur-[128px]" />
+        <div className="fixed inset-0 opacity-20 pointer-events-none">
+          <div className="absolute top-10 left-5 md:top-20 md:left-10 w-48 md:w-72 h-48 md:h-72 bg-red-500 rounded-full filter blur-[100px] md:blur-[128px]" />
+          <div className="absolute bottom-10 right-5 md:bottom-20 md:right-10 w-64 md:w-96 h-64 md:h-96 bg-orange-500 rounded-full filter blur-[100px] md:blur-[128px]" />
         </div>
 
-        <div className="relative z-10 max-w-md w-full text-center bg-white/5 border border-white/10 p-8 rounded-2xl backdrop-blur-sm">
-          <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
-            <AlertCircle className="w-8 h-8 text-red-400" />
+        <div className="relative z-10 max-w-md w-full text-center bg-white/5 border border-white/10 p-6 md:p-8 rounded-xl md:rounded-2xl backdrop-blur-sm">
+          <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
+            <AlertCircle className="w-7 h-7 md:w-8 md:h-8 text-red-400" />
           </div>
-          <h1 className="text-2xl font-bold mb-2 text-white">Analysis Failed</h1>
-          <p className="text-slate-400 mb-6 text-sm">{error}</p>
+          <h1 className="text-xl md:text-2xl font-bold mb-1.5 md:mb-2 text-white">Analysis Failed</h1>
+          <p className="text-slate-400 mb-5 md:mb-6 text-xs md:text-sm">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-red-500 to-orange-500 hover:opacity-90 text-white rounded-xl font-bold transition"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-red-500 to-orange-500 hover:opacity-90 text-white rounded-xl font-bold transition text-sm md:text-base"
           >
             <RefreshCw className="w-4 h-4" /> Try Again
           </button>
           <button
             onClick={() => router.push('/')}
-            className="mt-4 flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-white transition"
+            className="mt-3 md:mt-4 flex items-center justify-center gap-2 text-xs md:text-sm text-slate-400 hover:text-white transition w-full"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to Home
+            <Home className="w-4 h-4" /> Back to Home
           </button>
         </div>
       </div>
@@ -139,33 +146,24 @@ function ProcessingContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4">
       {/* Animated background */}
-      <div className="fixed inset-0 opacity-20">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-500 rounded-full filter blur-[128px] animate-pulse" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-violet-500 rounded-full filter blur-[128px] animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-500 rounded-full filter blur-[128px] animate-pulse delay-500" />
+      <div className="fixed inset-0 opacity-20 pointer-events-none">
+        <div className="absolute top-10 left-5 md:top-20 md:left-10 w-48 md:w-72 h-48 md:h-72 bg-emerald-500 rounded-full filter blur-[100px] md:blur-[128px] animate-pulse" />
+        <div className="absolute bottom-10 right-5 md:bottom-20 md:right-10 w-64 md:w-96 h-64 md:h-96 bg-violet-500 rounded-full filter blur-[100px] md:blur-[128px] animate-pulse delay-1000" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 md:w-64 h-40 md:h-64 bg-blue-500 rounded-full filter blur-[100px] md:blur-[128px] animate-pulse delay-500" />
       </div>
 
       <div className="relative z-10 max-w-xl w-full text-center">
-        {/* Spinner */}
-        <div className="relative mb-8">
-          <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 p-1 animate-spin-slow">
-            <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center">
-              <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
-            </div>
-          </div>
-        </div>
-
-        <h1 className="text-3xl font-bold mb-3 text-white">Analyzing Your Stroke</h1>
-        <p className="text-slate-400 mb-2">GPU-powered AI analysis in progress</p>
-        <p className="text-xs text-slate-500 mb-8">Processing on RunPod Serverless</p>
+        <h1 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-white">Analyzing Your Stroke</h1>
+        <p className="text-slate-400 mb-1.5 md:mb-2 text-sm md:text-base">GPU-powered AI analysis in progress</p>
+        <p className="text-[10px] md:text-xs text-slate-500 mb-6 md:mb-8">Processing on RunPod Serverless</p>
 
         {/* Progress Bar */}
-        <div className="mb-10 max-w-md mx-auto">
-          <div className="flex justify-between text-sm mb-2">
+        <div className="mb-8 md:mb-10 max-w-md mx-auto px-2">
+          <div className="flex justify-between text-xs md:text-sm mb-2">
             <span className="text-slate-500">Progress</span>
             <span className="font-bold text-emerald-400">{Math.round(overallProgress)}%</span>
           </div>
-          <div className="h-3 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
+          <div className="h-2.5 md:h-3 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
             <div
               className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-1000 ease-linear shadow-lg shadow-emerald-500/50"
               style={{ width: `${overallProgress}%` }}
@@ -174,12 +172,12 @@ function ProcessingContent() {
         </div>
 
         {/* Processing Stages */}
-        <div className="space-y-3 max-w-md mx-auto">
+        <div className="space-y-2 md:space-y-3 max-w-md mx-auto px-2">
           {stages.map((stage) => (
             <div
               key={stage.id}
               className={`
-                p-4 rounded-xl border backdrop-blur-sm transition-all duration-500
+                p-3 md:p-4 rounded-lg md:rounded-xl border backdrop-blur-sm transition-all duration-500
                 ${stage.status === 'complete'
                   ? 'bg-emerald-500/10 border-emerald-500/30'
                   : stage.status === 'active'
@@ -188,22 +186,22 @@ function ProcessingContent() {
                 }
               `}
             >
-              <div className="flex items-center gap-4">
-                <span className="text-2xl flex-shrink-0">{stage.icon}</span>
-                <span className={`flex-1 text-left font-medium ${
+              <div className="flex items-center gap-3 md:gap-4">
+                <span className="text-xl md:text-2xl flex-shrink-0">{stage.icon}</span>
+                <span className={`flex-1 text-left font-medium text-xs md:text-sm ${
                   stage.status === 'active' ? 'text-white' : 
                   stage.status === 'complete' ? 'text-emerald-400' : 'text-slate-500'
                 }`}>
                   {stage.label}
                 </span>
                 {stage.status === 'complete' && (
-                  <CheckCircle className="w-5 h-5 text-emerald-400" />
+                  <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-emerald-400" />
                 )}
                 {stage.status === 'active' && (
-                  <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+                  <Loader2 className="w-4 h-4 md:w-5 md:h-5 text-emerald-400 animate-spin" />
                 )}
                 {stage.status === 'pending' && (
-                  <Circle className="w-5 h-5 text-slate-600" />
+                  <Circle className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
                 )}
               </div>
             </div>
@@ -211,15 +209,6 @@ function ProcessingContent() {
         </div>
       </div>
 
-      <style jsx>{`
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 3s linear infinite;
-        }
-      `}</style>
     </div>
   );
 }

@@ -47,6 +47,7 @@ export async function uploadVideo(file: File): Promise<string> {
 
 /**
  * Create a new analysis job in the database with full input data
+ * If a pending/processing job already exists for this video, return that instead
  */
 export async function createAnalysisJob(params: {
   videoUrl: string;
@@ -55,6 +56,26 @@ export async function createAnalysisJob(params: {
   targetPoint?: string;
   step?: number;
 }): Promise<string> {
+  // First, check if there's already a pending or processing job for this video
+  // created within the last 10 minutes (to avoid duplicates from double-renders)
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  
+  const { data: existingJob } = await supabase
+    .from('analysis_jobs')
+    .select('id, status')
+    .eq('video_url', params.videoUrl)
+    .in('status', ['pending', 'processing'])
+    .gte('created_at', tenMinutesAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  // If a recent pending/processing job exists, return its ID
+  if (existingJob) {
+    console.log('Reusing existing job:', existingJob.id);
+    return existingJob.id;
+  }
+
   // Build input JSON for storage
   const inputJson = {
     video_url: params.videoUrl,

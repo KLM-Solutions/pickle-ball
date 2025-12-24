@@ -13,6 +13,7 @@ import {
   Timer,
   BarChart3,
   RefreshCw,
+  Plus,
 } from "lucide-react";
 import { getCompletedAnalyses, formatDate, getStrokeInfo, AnalysisJob } from "@/lib/supabase-db";
 
@@ -56,26 +57,28 @@ export default function HistoryPage() {
     switch (status) {
       case "completed":
         return (
-          <span className="flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold">
-            <CheckCircle className="w-3 h-3" /> Completed
+          <span className="flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-[10px] md:text-xs font-bold">
+            <CheckCircle className="w-2.5 h-2.5 md:w-3 md:h-3" /> 
+            <span className="hidden sm:inline">Completed</span>
+            <span className="sm:hidden">Done</span>
           </span>
         );
       case "processing":
         return (
-          <span className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-bold">
-            <Loader2 className="w-3 h-3 animate-spin" /> Processing
+          <span className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-[10px] md:text-xs font-bold">
+            <Loader2 className="w-2.5 h-2.5 md:w-3 md:h-3 animate-spin" /> Processing
           </span>
         );
       case "failed":
         return (
-          <span className="flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-bold">
-            <XCircle className="w-3 h-3" /> Failed
+          <span className="flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-[10px] md:text-xs font-bold">
+            <XCircle className="w-2.5 h-2.5 md:w-3 md:h-3" /> Failed
           </span>
         );
       default:
         return (
-          <span className="flex items-center gap-1 px-2 py-1 bg-slate-500/20 text-slate-400 rounded-full text-xs font-bold">
-            <Clock className="w-3 h-3" /> Pending
+          <span className="flex items-center gap-1 px-2 py-1 bg-slate-500/20 text-slate-400 rounded-full text-[10px] md:text-xs font-bold">
+            <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" /> Pending
           </span>
         );
     }
@@ -85,64 +88,73 @@ export default function HistoryPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
       {/* Animated background */}
       <div className="fixed inset-0 opacity-15 pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-500 rounded-full filter blur-[128px]" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-violet-500 rounded-full filter blur-[128px]" />
+        <div className="absolute top-10 left-5 md:top-20 md:left-10 w-48 md:w-72 h-48 md:h-72 bg-emerald-500 rounded-full filter blur-[100px] md:blur-[128px]" />
+        <div className="absolute bottom-10 right-5 md:bottom-20 md:right-10 w-64 md:w-96 h-64 md:h-96 bg-violet-500 rounded-full filter blur-[100px] md:blur-[128px]" />
       </div>
 
       {/* Header */}
-      <header className="relative z-10 border-b border-white/10 backdrop-blur-sm sticky top-0">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <header className="relative z-10 border-b border-white/10 backdrop-blur-sm sticky top-0 bg-slate-900/80">
+        <div className="max-w-5xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 md:gap-4">
             <button
               onClick={() => router.push("/")}
-              className="flex items-center gap-2 text-slate-400 hover:text-white transition"
+              className="flex items-center gap-1.5 md:gap-2 text-slate-400 hover:text-white transition p-1"
             >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="text-sm font-medium hidden sm:inline">Home</span>
+              <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="text-xs md:text-sm font-medium hidden sm:inline">Home</span>
             </button>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
-                <Clock className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <Clock className="w-4 h-4 md:w-5 md:h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">Analysis History</h1>
-                <p className="text-xs text-slate-400">{analyses.length} analyses found</p>
+                <h1 className="text-base md:text-xl font-bold">History</h1>
+                <p className="text-[10px] md:text-xs text-slate-400">{analyses.length} analyses</p>
               </div>
             </div>
           </div>
 
-          <button
-            onClick={fetchHistory}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition text-sm"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchHistory}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition text-xs md:text-sm"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 md:w-4 md:h-4 ${loading ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+            <button
+              onClick={() => router.push("/")}
+              className="flex items-center gap-1.5 px-2.5 md:px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg text-xs md:text-sm font-bold shadow-lg shadow-emerald-500/30"
+            >
+              <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">New</span>
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 max-w-5xl mx-auto px-4 py-8">
+      <main className="relative z-10 max-w-5xl mx-auto px-4 py-6 md:py-8">
         {/* Loading State */}
         {loading && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
-            <p className="text-slate-400">Loading analysis history...</p>
+          <div className="flex flex-col items-center justify-center py-16 md:py-20">
+            <Loader2 className="w-10 h-10 md:w-12 md:h-12 text-emerald-400 animate-spin mb-4" />
+            <p className="text-slate-400 text-sm md:text-base">Loading history...</p>
           </div>
         )}
 
         {/* Error State */}
         {error && !loading && (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
-              <XCircle className="w-8 h-8 text-red-400" />
+          <div className="text-center py-16 md:py-20">
+            <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
+              <XCircle className="w-7 h-7 md:w-8 md:h-8 text-red-400" />
             </div>
-            <h2 className="text-xl font-bold mb-2">Failed to Load History</h2>
-            <p className="text-slate-400 mb-6">{error}</p>
+            <h2 className="text-lg md:text-xl font-bold mb-2">Failed to Load</h2>
+            <p className="text-slate-400 mb-6 text-sm md:text-base px-4">{error}</p>
             <button
               onClick={fetchHistory}
-              className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-bold"
+              className="px-5 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-bold text-sm md:text-base"
             >
               Try Again
             </button>
@@ -151,17 +163,17 @@ export default function HistoryPage() {
 
         {/* Empty State */}
         {!loading && !error && analyses.length === 0 && (
-          <div className="text-center py-20">
-            <div className="w-20 h-20 mx-auto mb-6 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
-              <BarChart3 className="w-10 h-10 text-slate-500" />
+          <div className="text-center py-16 md:py-20">
+            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-5 md:mb-6 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
+              <BarChart3 className="w-8 h-8 md:w-10 md:h-10 text-slate-500" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">No Analyses Yet</h2>
-            <p className="text-slate-400 mb-6">
+            <h2 className="text-xl md:text-2xl font-bold mb-2">No Analyses Yet</h2>
+            <p className="text-slate-400 mb-6 text-sm md:text-base px-4">
               Complete your first stroke analysis to see it here
             </p>
             <button
               onClick={() => router.push("/")}
-              className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-bold shadow-lg shadow-emerald-500/30"
+              className="px-5 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-bold shadow-lg shadow-emerald-500/30 text-sm md:text-base"
             >
               Start New Analysis
             </button>
@@ -170,7 +182,7 @@ export default function HistoryPage() {
 
         {/* Analysis List */}
         {!loading && !error && analyses.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {analyses.map((job) => {
               const strokeInfo = getStrokeInfo(job.stroke_type);
               const gradients: Record<string, string> = {
@@ -184,37 +196,42 @@ export default function HistoryPage() {
               return (
                 <div
                   key={job.id}
-                  className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 hover:border-white/20 transition-all group"
+                  onClick={() => job.status === "completed" && job.result_json && handleViewAnalysis(job)}
+                  className={`bg-white/5 border border-white/10 rounded-xl md:rounded-2xl p-4 md:p-5 transition-all
+                    ${job.status === "completed" && job.result_json 
+                      ? "hover:bg-white/10 hover:border-white/20 cursor-pointer active:scale-[0.99]" 
+                      : ""
+                    }`}
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-3 md:gap-4">
                     {/* Icon */}
                     <div
-                      className={`w-14 h-14 rounded-xl bg-gradient-to-br ${gradients[strokeInfo.color]} flex items-center justify-center text-2xl flex-shrink-0 shadow-lg`}
+                      className={`w-11 h-11 md:w-14 md:h-14 rounded-xl bg-gradient-to-br ${gradients[strokeInfo.color]} flex items-center justify-center text-xl md:text-2xl flex-shrink-0 shadow-lg`}
                     >
                       {strokeInfo.icon}
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4 mb-2">
-                        <div>
-                          <h3 className="text-lg font-bold text-white">
+                      <div className="flex items-start justify-between gap-2 mb-1.5 md:mb-2">
+                        <div className="min-w-0">
+                          <h3 className="text-sm md:text-lg font-bold text-white truncate">
                             {strokeInfo.label} Analysis
                           </h3>
-                          <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                          <div className="flex flex-wrap items-center gap-2 md:gap-3 text-[10px] md:text-xs text-slate-400 mt-0.5 md:mt-1">
                             <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
+                              <Calendar className="w-2.5 h-2.5 md:w-3 md:h-3" />
                               {formatDate(job.created_at)}
                             </span>
                             {job.processing_time_sec && (
-                              <span className="flex items-center gap-1">
-                                <Timer className="w-3 h-3" />
+                              <span className="flex items-center gap-1 hidden sm:flex">
+                                <Timer className="w-2.5 h-2.5 md:w-3 md:h-3" />
                                 {job.processing_time_sec.toFixed(1)}s
                               </span>
                             )}
                             {job.total_frames && (
                               <span className="flex items-center gap-1">
-                                <BarChart3 className="w-3 h-3" />
+                                <BarChart3 className="w-2.5 h-2.5 md:w-3 md:h-3" />
                                 {job.total_frames} frames
                               </span>
                             )}
@@ -225,15 +242,15 @@ export default function HistoryPage() {
 
                       {/* Quick Stats */}
                       {job.result_json && (
-                        <div className="flex items-center gap-4 mt-3">
+                        <div className="flex items-center gap-3 md:gap-4 mt-2 md:mt-3">
                           {job.result_json.strokes?.length > 0 && (
-                            <span className="text-xs text-slate-400">
-                              {job.result_json.strokes.length} strokes detected
+                            <span className="text-[10px] md:text-xs text-slate-400">
+                              {job.result_json.strokes.length} strokes
                             </span>
                           )}
                           {job.result_json.injury_risk_summary?.overall_risk && (
                             <span
-                              className={`text-xs px-2 py-0.5 rounded ${
+                              className={`text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 rounded ${
                                 job.result_json.injury_risk_summary.overall_risk === "low"
                                   ? "bg-emerald-500/20 text-emerald-400"
                                   : job.result_json.injury_risk_summary.overall_risk === "medium"
@@ -248,15 +265,25 @@ export default function HistoryPage() {
                       )}
                     </div>
 
-                    {/* Action Button */}
+                    {/* Action Button - Desktop only */}
                     {job.status === "completed" && job.result_json && (
                       <button
-                        onClick={() => handleViewAnalysis(job)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-bold text-sm opacity-0 group-hover:opacity-100 transition-all shadow-lg shadow-emerald-500/30"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewAnalysis(job);
+                        }}
+                        className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/30"
                       >
                         <Play className="w-4 h-4" />
                         View
                       </button>
+                    )}
+
+                    {/* Mobile Arrow */}
+                    {job.status === "completed" && job.result_json && (
+                      <div className="md:hidden flex items-center">
+                        <Play className="w-4 h-4 text-emerald-400" />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -268,4 +295,3 @@ export default function HistoryPage() {
     </div>
   );
 }
-
