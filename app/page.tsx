@@ -56,7 +56,7 @@ export default function Home() {
   const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
 
   const handleStrokeSelect = (strokeId: string) => {
-    router.push(`/strikesense/upload?stroke=${strokeId}`);
+    router.push(`/strikesense/guide?stroke=${strokeId}`);
   };
 
   const handleDemo = async () => {
