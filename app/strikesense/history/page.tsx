@@ -38,16 +38,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     fetchHistory();
-    
-    // Auto-refresh every 5 seconds if there are processing jobs
-    const interval = setInterval(() => {
-      if (analyses.some(job => job.status === 'processing' || job.status === 'pending')) {
-        fetchHistory();
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [analyses.length]);
+  }, []);
 
   const handleViewAnalysis = (job: AnalysisJob) => {
     // Store the result in sessionStorage and navigate to player page
