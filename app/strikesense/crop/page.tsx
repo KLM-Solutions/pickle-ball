@@ -50,6 +50,9 @@ function CropContent() {
       });
       setVideoLoading(false);
       setVideoError(false);
+      
+      // iOS fix: seek to first frame to show video
+      videoRef.current.currentTime = 0.001;
     }
   };
 
@@ -58,6 +61,30 @@ function CropContent() {
     setVideoError(true);
     console.error('Video failed to load:', videoUrl);
   };
+
+  // iOS fix: Force video to load when URL changes
+  useEffect(() => {
+    if (videoUrl && videoRef.current) {
+      const video = videoRef.current;
+      
+      // iOS requires explicit load() call
+      video.load();
+      
+      // iOS fix: Try to play briefly then pause to render first frame
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            video.pause();
+            video.currentTime = 0;
+          })
+          .catch(() => {
+            // Autoplay was prevented, that's okay
+            video.currentTime = 0.001;
+          });
+      }
+    }
+  }, [videoUrl]);
 
   const screenToNormalized = useCallback((clientX: number, clientY: number) => {
     if (!containerRef.current || !videoRef.current) return { x: 0, y: 0 };
@@ -279,11 +306,15 @@ function CropContent() {
                   style={{ maxWidth: '100%', maxHeight: '100%' }}
                   onLoadedMetadata={handleVideoLoad}
                   onLoadedData={() => setVideoLoading(false)}
+                  onCanPlay={() => setVideoLoading(false)}
                   onError={handleVideoError}
                   preload="auto"
                   playsInline
+                  // @ts-ignore - iOS specific attribute
+                  webkit-playsinline="true"
                   muted
                   autoPlay={false}
+                  controls={false}
                 />
               </>
             ) : (
