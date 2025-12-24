@@ -2,55 +2,74 @@
 
 import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Camera, Ruler, MoveVertical, CheckCircle2 } from "lucide-react";
-import Image from "next/image";
+import { ArrowLeft, Camera, Ruler, MoveVertical, CheckCircle2, Smartphone, Sun, Clock, ChevronRight } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
 const cameraGuides: Record<string, any> = {
     serve: {
-        angle: '90° Side',
-        distance: '8-12 ft',
-        height: 'Chest',
+        angle: '90° Side View',
+        distance: '8-12 feet',
+        height: 'Chest Level',
         icon: '🎾',
-        title: 'SERVE SETUP',
-        subtitle: 'Capture the full power arc',
-        image: '/images/serve-camera-guide.png',
-        tips: ['Use tripod for stability', 'Capture full follow-through', 'Record 2-5 mins'],
-        gradient: 'from-emerald-500 to-teal-600'
+        title: 'Serve Analysis',
+        subtitle: 'Capture your full service motion',
+        gradient: 'from-emerald-500 to-teal-600',
+        shadowColor: 'shadow-emerald-500/30',
+        tips: [
+            { icon: Smartphone, text: 'Place phone on tripod for stability' },
+            { icon: Camera, text: 'Record from your non-dominant side' },
+            { icon: Sun, text: 'Face the light source for clarity' },
+            { icon: Clock, text: 'Record 3-5 serves for best results' },
+        ]
     },
     groundstroke: {
-        angle: '45° Rear',
-        distance: '10-15 ft',
-        height: 'Waist',
+        angle: '45° Rear View',
+        distance: '10-15 feet',
+        height: 'Waist Level',
         icon: '💪',
-        title: 'DRIVE SETUP',
-        subtitle: 'Shadow the shoulder rotation',
-        image: '/images/groundstroke-camera-guide.png',
-        tips: ['Show weight transfer', 'Show footwork clearly', 'Record 2-5 mins'],
-        gradient: 'from-orange-500 to-red-500'
+        title: 'Drive Analysis',
+        subtitle: 'Analyze your forehand & backhand',
+        gradient: 'from-orange-500 to-red-500',
+        shadowColor: 'shadow-orange-500/30',
+        tips: [
+            { icon: Smartphone, text: 'Position behind and to the side' },
+            { icon: Camera, text: 'Capture full body and racket swing' },
+            { icon: Sun, text: 'Ensure good lighting conditions' },
+            { icon: Clock, text: 'Record multiple rallies' },
+        ]
     },
     dink: {
-        angle: 'Front/Side',
-        distance: '8-10 ft',
-        height: 'Net',
+        angle: 'Front or Side',
+        distance: '8-10 feet',
+        height: 'Net Height',
         icon: '🤏',
-        title: 'DINK SETUP',
-        subtitle: 'Focus on paddle precision',
-        image: '/images/dink-camera-guide.png',
-        tips: ['Capture mid-court view', 'Show wrist positioning', 'Record 2-5 mins'],
-        gradient: 'from-violet-500 to-purple-600'
+        title: 'Dink Analysis',
+        subtitle: 'Perfect your soft game technique',
+        gradient: 'from-violet-500 to-purple-600',
+        shadowColor: 'shadow-violet-500/30',
+        tips: [
+            { icon: Smartphone, text: 'Film at kitchen line level' },
+            { icon: Camera, text: 'Focus on paddle and wrist action' },
+            { icon: Sun, text: 'Avoid shadows on the court' },
+            { icon: Clock, text: 'Record several dink exchanges' },
+        ]
     },
     overhead: {
-        angle: '90° Side',
-        distance: '8-12 ft',
-        height: 'Chest',
+        angle: '90° Side View',
+        distance: '8-12 feet',
+        height: 'Chest Level',
         icon: '⚡',
-        title: 'OVERHEAD SETUP',
-        subtitle: 'Track the ball contact point',
-        image: '/images/overhead-camera-guide.png',
-        tips: ['Capture full extension', 'Show shoulder rotation', 'Record 2-5 mins'],
-        gradient: 'from-blue-500 to-indigo-600'
+        title: 'Overhead Analysis',
+        subtitle: 'Optimize your smash technique',
+        gradient: 'from-blue-500 to-indigo-600',
+        shadowColor: 'shadow-blue-500/30',
+        tips: [
+            { icon: Smartphone, text: 'Capture full vertical extension' },
+            { icon: Camera, text: 'Film from 90° to your hitting arm' },
+            { icon: Sun, text: 'Bright lighting for fast motion' },
+            { icon: Clock, text: 'Record 5-10 overhead shots' },
+        ]
     }
 };
 
@@ -61,92 +80,107 @@ function CameraGuideContent() {
     const guide = cameraGuides[strokeType] || cameraGuides.serve;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
             {/* Animated background */}
-            <div className="fixed inset-0 opacity-20">
-                <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-500 rounded-full filter blur-[128px] animate-pulse" />
-                <div className="absolute bottom-20 right-10 w-96 h-96 bg-violet-500 rounded-full filter blur-[128px] animate-pulse delay-1000" />
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                <div className={`absolute top-1/4 -left-20 w-96 h-96 bg-gradient-to-br ${guide.gradient} rounded-full filter blur-[150px] opacity-20 animate-pulse`} />
+                <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-violet-500 rounded-full filter blur-[150px] opacity-15 animate-pulse delay-1000" />
             </div>
 
             {/* Header */}
-            <header className="relative z-10 h-16 flex items-center justify-between px-4 border-b border-white/10 backdrop-blur-sm">
-                <button
-                    onClick={() => router.push('/')}
-                    className="flex items-center gap-2 text-slate-400 hover:text-white transition"
-                >
-                    <ArrowLeft className="w-5 h-5" />
-                    <span className="text-sm font-medium">Back</span>
-                </button>
-                <div className="flex items-center gap-2">
-                    <span className="text-2xl">{guide.icon}</span>
-                    <span className="text-xs font-bold tracking-widest uppercase text-slate-400">Setup Guide</span>
+            <header className="relative z-10 px-4 py-4">
+                <div className="max-w-lg mx-auto flex items-center justify-between">
+                    <button
+                        onClick={() => router.push('/')}
+                        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                        <span className="text-sm font-medium">Home</span>
+                    </button>
+                    <div className="text-xs font-bold tracking-widest uppercase text-slate-500">
+                        Step 1 of 3
+                    </div>
                 </div>
-                <div className="w-16" />
             </header>
 
             {/* Main Content */}
-            <div className="relative z-10 max-w-2xl mx-auto px-4 py-8">
-                
-                {/* Hero Section */}
-                <div className="text-center mb-8">
-                    <div className={`inline-flex w-20 h-20 rounded-2xl bg-gradient-to-br ${guide.gradient} items-center justify-center text-4xl mb-4 shadow-lg`}>
-                        {guide.icon}
-                    </div>
-                    <h1 className="text-3xl font-bold mb-2">{guide.title}</h1>
-                    <p className="text-slate-400">{guide.subtitle}</p>
-                </div>
-
-                {/* Visual Guide */}
-                <div className="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden mb-6 backdrop-blur-sm">
-                    <div className="aspect-video relative">
-                        <Image
-                            src={guide.image}
-                            alt="setup guide"
-                            fill
-                            className="object-contain p-4"
-                            priority
-                        />
-                        {/* Fallback gradient if image missing */}
-                        <div className={`absolute inset-0 bg-gradient-to-br ${guide.gradient} opacity-10`} />
-                    </div>
-                </div>
-
-                {/* Spec Grid */}
-                <div className="grid grid-cols-3 gap-3 mb-6">
-                    {[
-                        { icon: <Camera className="w-5 h-5" />, label: 'Angle', val: guide.angle },
-                        { icon: <Ruler className="w-5 h-5" />, label: 'Distance', val: guide.distance },
-                        { icon: <MoveVertical className="w-5 h-5" />, label: 'Height', val: guide.height }
-                    ].map((spec, i) => (
-                        <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4 text-center backdrop-blur-sm">
-                            <div className="text-emerald-400 flex justify-center mb-2">{spec.icon}</div>
-                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">{spec.label}</div>
-                            <div className="text-sm font-bold text-white">{spec.val}</div>
+            <main className="relative z-10 px-4 pb-8">
+                <div className="max-w-lg mx-auto">
+                    
+                    {/* Hero */}
+                    <div className="text-center pt-4 pb-8">
+                        <div className={`inline-flex w-24 h-24 rounded-3xl bg-gradient-to-br ${guide.gradient} items-center justify-center text-5xl mb-6 shadow-2xl ${guide.shadowColor}`}>
+                            {guide.icon}
                         </div>
-                    ))}
-                </div>
-
-                {/* Quick Tips */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-8 backdrop-blur-sm">
-                    <h3 className="font-bold text-xs uppercase tracking-widest text-slate-400 mb-4">Quick Tips</h3>
-                    <div className="space-y-3">
-                        {guide.tips.map((tip: string, i: number) => (
-                            <div key={i} className="flex items-center gap-3">
-                                <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                                <span className="text-sm text-slate-300">{tip}</span>
-                            </div>
-                        ))}
+                        <h1 className="text-3xl font-bold mb-2">{guide.title}</h1>
+                        <p className="text-slate-400 text-lg">{guide.subtitle}</p>
                     </div>
-                </div>
 
-                {/* CTA Button */}
-                <button
-                    onClick={() => router.push(`/strikesense/upload?stroke=${strokeType}`)}
-                    className={`w-full bg-gradient-to-r ${guide.gradient} hover:opacity-90 text-white py-4 rounded-xl font-bold text-sm uppercase tracking-widest shadow-lg transition-all active:scale-[0.98]`}
-                >
-                    I'm Ready — Upload Video →
-                </button>
-            </div>
+                    {/* Camera Position Card */}
+                    <div className={`relative bg-gradient-to-br ${guide.gradient} rounded-3xl p-6 mb-6 overflow-hidden`}>
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+                        
+                        <div className="relative z-10">
+                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                <Camera className="w-5 h-5" />
+                                Camera Position
+                            </h2>
+                            
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center">
+                                    <Camera className="w-6 h-6 mx-auto mb-2 opacity-80" />
+                                    <div className="text-xs opacity-70 mb-1">Angle</div>
+                                    <div className="text-sm font-bold">{guide.angle}</div>
+                                </div>
+                                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center">
+                                    <Ruler className="w-6 h-6 mx-auto mb-2 opacity-80" />
+                                    <div className="text-xs opacity-70 mb-1">Distance</div>
+                                    <div className="text-sm font-bold">{guide.distance}</div>
+                                </div>
+                                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center">
+                                    <MoveVertical className="w-6 h-6 mx-auto mb-2 opacity-80" />
+                                    <div className="text-xs opacity-70 mb-1">Height</div>
+                                    <div className="text-sm font-bold">{guide.height}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tips */}
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-8 backdrop-blur-sm">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">
+                            Recording Tips
+                        </h3>
+                        <div className="space-y-4">
+                            {guide.tips.map((tip: any, i: number) => (
+                                <div key={i} className="flex items-start gap-4">
+                                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${guide.gradient} flex items-center justify-center flex-shrink-0 shadow-lg ${guide.shadowColor}`}>
+                                        <tip.icon className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div className="flex-1 pt-2">
+                                        <span className="text-slate-300">{tip.text}</span>
+                                    </div>
+                                    <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-2.5 flex-shrink-0" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* CTA */}
+                    <button
+                        onClick={() => router.push(`/strikesense/upload?stroke=${strokeType}`)}
+                        className={`w-full bg-gradient-to-r ${guide.gradient} hover:opacity-90 text-white py-5 rounded-2xl font-bold text-base shadow-xl ${guide.shadowColor} transition-all active:scale-[0.98] flex items-center justify-center gap-3`}
+                    >
+                        <span>I'm Ready to Record</span>
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
+                    
+                    <p className="text-center text-slate-500 text-sm mt-4">
+                        Already have a video? Tap to continue
+                    </p>
+                </div>
+            </main>
         </div>
     );
 }
