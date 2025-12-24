@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft, Download, AlertCircle, Activity, TrendingUp, Award,
-    Zap, ChevronDown, ChevronUp, Target, Share2
+    Zap, ChevronDown, ChevronUp, Target, Share2, Code, Copy, Check
 } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +15,16 @@ function AnalysisContent() {
     const strokeType = searchParams.get('stroke') || 'serve';
     const [analysisData, setAnalysisData] = useState<any>(null);
     const [expandedSection, setExpandedSection] = useState<string | null>('risk');
+    const [showJson, setShowJson] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const copyJson = () => {
+        if (analysisData) {
+            navigator.clipboard.writeText(JSON.stringify(analysisData, null, 2));
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
 
     useEffect(() => {
         const storedResult = sessionStorage.getItem('analysisResult');
@@ -324,6 +334,87 @@ function AnalysisContent() {
                             </div>
                         ))}
                     </div>
+                </div>
+
+                {/* Raw JSON Data Section */}
+                <div className="bg-white/5 rounded-2xl border border-cyan-500/30 mt-6 overflow-hidden backdrop-blur-sm">
+                    <button
+                        onClick={() => setShowJson(!showJson)}
+                        className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center">
+                                <Code className="w-5 h-5 text-cyan-400" />
+                            </div>
+                            <div className="text-left">
+                                <h3 className="text-lg font-bold text-white">Raw JSON Data</h3>
+                                <p className="text-sm text-slate-500">View complete analysis output</p>
+                            </div>
+                            <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-bold border border-cyan-500/30">
+                                {frames.length} frames
+                            </span>
+                        </div>
+                        {showJson ? <ChevronUp className="text-slate-500" /> : <ChevronDown className="text-slate-500" />}
+                    </button>
+
+                    {showJson && (
+                        <div className="px-6 pb-6">
+                            {/* Copy Button */}
+                            <div className="flex justify-end mb-3">
+                                <button
+                                    onClick={copyJson}
+                                    className="flex items-center gap-2 px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg text-sm font-medium transition border border-cyan-500/30"
+                                >
+                                    {copied ? (
+                                        <>
+                                            <Check className="w-4 h-4" />
+                                            Copied!
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy className="w-4 h-4" />
+                                            Copy JSON
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* JSON Viewer */}
+                            <div className="bg-slate-950 rounded-xl border border-white/10 overflow-hidden">
+                                <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border-b border-white/10">
+                                    <div className="w-3 h-3 rounded-full bg-red-500" />
+                                    <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                                    <div className="w-3 h-3 rounded-full bg-green-500" />
+                                    <span className="ml-2 text-xs text-slate-500 font-mono">analysis_output.json</span>
+                                </div>
+                                <pre className="p-4 overflow-auto max-h-[600px] text-xs font-mono text-slate-300 leading-relaxed">
+                                    <code>{JSON.stringify(analysisData, null, 2)}</code>
+                                </pre>
+                            </div>
+
+                            {/* Quick Stats */}
+                            <div className="grid grid-cols-4 gap-3 mt-4">
+                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/10">
+                                    <div className="text-lg font-bold text-cyan-400">{frames.length}</div>
+                                    <div className="text-[10px] text-slate-500 uppercase">Frames</div>
+                                </div>
+                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/10">
+                                    <div className="text-lg font-bold text-cyan-400">{strokes.length}</div>
+                                    <div className="text-[10px] text-slate-500 uppercase">Strokes</div>
+                                </div>
+                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/10">
+                                    <div className="text-lg font-bold text-cyan-400">
+                                        {(JSON.stringify(analysisData).length / 1024).toFixed(1)}KB
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 uppercase">Size</div>
+                                </div>
+                                <div className="bg-white/5 rounded-lg p-3 text-center border border-white/10">
+                                    <div className="text-lg font-bold text-emerald-400">✓</div>
+                                    <div className="text-[10px] text-slate-500 uppercase">Valid</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Bottom Actions */}

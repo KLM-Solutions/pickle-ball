@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { AnalyzeResponse, ApiFrame } from "../../types";
 import VideoPanel from "../VideoPanel";
-import { Activity, AlertTriangle, TrendingUp, User, Layout, List, CheckCircle, ArrowLeft, Zap } from "lucide-react";
+import { Activity, AlertTriangle, TrendingUp, User, Layout, List, CheckCircle, ArrowLeft, Zap, Code, Copy, Check, X } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { BiomechanicalMetrics } from "./BiomechanicalMetrics";
 
@@ -14,6 +14,14 @@ interface ResultsDashboardProps {
 export default function ResultsDashboard({ result, videoFile, onReset }: ResultsDashboardProps) {
     const [currentTime, setCurrentTime] = useState(0);
     const [viewMode, setViewMode] = useState<'analysis' | 'compare'>('analysis');
+    const [showJson, setShowJson] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const copyJson = () => {
+        navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     // Find current frame data based on currentTime
     const currentFrame = useMemo(() => {
@@ -54,6 +62,65 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                 <div className="absolute bottom-20 right-10 w-96 h-96 bg-violet-500 rounded-full filter blur-[128px]" />
             </div>
 
+            {/* JSON Modal */}
+            {showJson && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center">
+                                    <Code className="w-4 h-4 text-cyan-400" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-white">Analysis JSON Output</h3>
+                                    <p className="text-xs text-slate-500">
+                                        {result.frames?.length || 0} frames • {(JSON.stringify(result).length / 1024).toFixed(1)}KB
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={copyJson}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg text-sm font-medium transition border border-cyan-500/30"
+                                >
+                                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                    {copied ? 'Copied!' : 'Copy'}
+                                </button>
+                                <button
+                                    onClick={() => setShowJson(false)}
+                                    className="p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* JSON Content */}
+                        <div className="flex-1 overflow-auto p-4 bg-slate-950">
+                            <pre className="text-xs font-mono text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                <code>{JSON.stringify(result, null, 2)}</code>
+                            </pre>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="px-6 py-3 border-t border-white/10 bg-white/5 flex items-center justify-between">
+                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                                <span>Frames: <strong className="text-cyan-400">{result.frames?.length || 0}</strong></span>
+                                <span>Strokes: <strong className="text-cyan-400">{result.strokes?.length || 0}</strong></span>
+                                <span>Type: <strong className="text-cyan-400 capitalize">{result.stroke_type || 'N/A'}</strong></span>
+                            </div>
+                            <button
+                                onClick={() => setShowJson(false)}
+                                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition border border-white/10"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <header className="relative z-10 border-b border-white/10 backdrop-blur-sm">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 py-4">
@@ -82,6 +149,17 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                         </div>
                         
                         <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setShowJson(!showJson)}
+                                className={`px-3 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${
+                                    showJson 
+                                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
+                                        : 'bg-white/5 text-slate-400 border border-white/10 hover:text-white hover:bg-white/10'
+                                }`}
+                            >
+                                <Code className="w-4 h-4" />
+                                <span className="hidden sm:inline">JSON</span>
+                            </button>
                             <div className="bg-white/5 p-1 rounded-lg border border-white/10 flex">
                                 <button
                                     onClick={() => setViewMode('analysis')}
