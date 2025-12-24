@@ -30,7 +30,7 @@ function PlayerContent() {
     const [playbackSpeed, setPlaybackSpeed] = useState(1);
     const [showJson, setShowJson] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [showMetrics, setShowMetrics] = useState(false);
+    const [showMetrics, setShowMetrics] = useState(true); // Default to showing metrics on mobile
 
     const copyJson = () => {
         if (analysisData) {
