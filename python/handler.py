@@ -212,6 +212,16 @@ def handler(job):
     # Get Supabase uploader
     uploader = get_uploader()
     
+    # Create job record with user inputs
+    uploader.create_job(
+        job_id=job_id,
+        video_url=video_url,
+        stroke_type=stroke_type,
+        crop_region=crop_region,
+        target_point=target_point,
+        step=step
+    )
+    
     # Update job status to processing
     uploader.update_job_status(job_id, "processing")
     

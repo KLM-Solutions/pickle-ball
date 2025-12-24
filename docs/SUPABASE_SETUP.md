@@ -86,25 +86,29 @@ USING (bucket_id = 'analysis-results');
 Go to **SQL Editor** and run:
 
 ```sql
--- Table to track analysis jobs
+-- Table to track analysis jobs with FULL input and output storage
 CREATE TABLE IF NOT EXISTS analysis_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   
-  -- Input
-  video_url TEXT NOT NULL,
-  stroke_type TEXT NOT NULL DEFAULT 'serve',
+  -- User Inputs (stored when job is created)
+  input_video_url TEXT,                    -- Original video URL from Supabase
+  stroke_type TEXT NOT NULL DEFAULT 'serve', -- serve, dink, groundstroke, overhead
+  input_json JSONB,                        -- Full input: {video_url, stroke_type, crop_region, step, target_point}
+  
+  -- Legacy (kept for compatibility)
+  video_url TEXT,
   crop_region TEXT,
   
   -- Status
-  status TEXT NOT NULL DEFAULT 'pending', -- pending, processing, completed, failed
+  status TEXT NOT NULL DEFAULT 'pending',  -- pending, processing, completed, failed
   error_message TEXT,
   
   -- Output (populated after analysis)
-  result_video_url TEXT,
-  result_json JSONB,
-  frames_folder TEXT, -- path in storage like 'analysis-results/{job_id}/frames/'
+  result_video_url TEXT,                   -- Annotated video URL
+  result_json JSONB,                       -- Full output: {frames, strokes, summary, injury_risk_summary}
+  frames_folder TEXT,                      -- Path in storage (deprecated - frames not stored separately)
   
   -- Metadata
   processing_time_sec FLOAT,

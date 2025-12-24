@@ -139,6 +139,75 @@ class SupabaseUploader:
         
         return uploaded
     
+    def create_job(
+        self,
+        job_id: str,
+        video_url: str,
+        stroke_type: str,
+        crop_region: Optional[str] = None,
+        target_point: Optional[str] = None,
+        step: int = 1
+    ) -> bool:
+        """
+        Create a new analysis job with user inputs.
+        
+        Args:
+            job_id: UUID of the job
+            video_url: Input video URL
+            stroke_type: Type of stroke to analyze
+            crop_region: Normalized crop coordinates (x1,y1,x2,y2)
+            target_point: Normalized target point (x,y)
+            step: Frame step (1 = every frame)
+        
+        Returns:
+            True on success, False on failure
+        """
+        if not self.enabled:
+            return False
+        
+        try:
+            # Build input data
+            input_data = {
+                "video_url": video_url,
+                "stroke_type": stroke_type,
+                "step": step
+            }
+            if crop_region:
+                input_data["crop_region"] = crop_region
+            if target_point:
+                input_data["target_point"] = target_point
+            
+            job_data = {
+                "id": job_id,
+                "status": "pending",
+                "input_video_url": video_url,
+                "stroke_type": stroke_type,
+                "input_json": input_data,
+                "created_at": "now()"
+            }
+            
+            url = f"{self.rest_url}/analysis_jobs"
+            
+            headers = {
+                **self.headers,
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            }
+            
+            with httpx.Client(timeout=30) as client:
+                response = client.post(url, json=job_data, headers=headers)
+            
+            if response.status_code in [200, 201]:
+                print(f"Job {job_id} created with inputs: stroke_type={stroke_type}, step={step}")
+                return True
+            else:
+                print(f"Job create failed ({response.status_code}): {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"Job create error: {e}")
+            return False
+
     def update_job_status(
         self,
         job_id: str,
@@ -157,7 +226,7 @@ class SupabaseUploader:
             job_id: UUID of the job
             status: 'processing', 'completed', 'failed'
             result_video_url: URL to annotated video
-            result_json: Analysis results JSON
+            result_json: Analysis results JSON (full output)
             frames_folder: Path to frames in storage
             processing_time_sec: How long processing took
             total_frames: Number of frames processed
