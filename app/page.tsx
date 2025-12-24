@@ -121,13 +121,19 @@ export default function Home() {
 
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-5 border-b border-white/10 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-xl shadow-lg shadow-emerald-500/30">
-            🏓
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-xl shadow-lg shadow-emerald-500/30">
+              🏓
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">StrikeSense</h1>
+              <p className="text-xs text-slate-400">AI Stroke Analysis</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">StrikeSense</h1>
-            <p className="text-xs text-slate-400">AI Stroke Analysis</p>
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-slate-300 backdrop-blur-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            AI-Powered Biomechanics
           </div>
         </div>
         
@@ -144,11 +150,6 @@ export default function Home() {
         
         {/* Hero Section */}
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-slate-300 mb-6 backdrop-blur-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            AI-Powered Biomechanics
-          </div>
-          
           <h2 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
             Analyze Your
             <span className="block bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent">
