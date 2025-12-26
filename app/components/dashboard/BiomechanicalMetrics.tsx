@@ -37,42 +37,63 @@ export function BiomechanicalMetrics({ currentFrameMetrics, aggregates }: Biomec
             </h3>
 
             <div className="grid grid-cols-3 gap-2">
+                {/* Hip Rotation: 30-70° is optimal for power generation */}
                 <Gauge
                     label="Hip Rotation"
                     value={hipValue}
                     max={120}
                     ranges={[
-                        { min: 0, max: 30, color: '#d4d4d4' },   // Low (neutral-300)
-                        { min: 31, max: 70, color: '#000000' },  // Optimal (black)
-                        { min: 71, max: 120, color: '#a3a3a3' }, // High (neutral-400)
+                        { min: 0, max: 20, color: '#ef4444' },    // Red - Too low (poor power)
+                        { min: 21, max: 30, color: '#f59e0b' },   // Amber - Below optimal
+                        { min: 31, max: 70, color: '#22c55e' },   // Green - Optimal range
+                        { min: 71, max: 90, color: '#f59e0b' },   // Amber - Above optimal
+                        { min: 91, max: 120, color: '#ef4444' },  // Red - Too high (strain risk)
                     ]}
                 />
 
+                {/* Shoulder Abduction: 45-110° is optimal for strokes */}
                 <Gauge
                     label="Shldr Abd."
                     value={shoulderValue}
                     max={180}
                     ranges={[
-                        { min: 0, max: 45, color: '#d4d4d4' },
-                        { min: 46, max: 110, color: '#000000' },
-                        { min: 111, max: 180, color: '#a3a3a3' },
+                        { min: 0, max: 30, color: '#ef4444' },    // Red - Too low
+                        { min: 31, max: 45, color: '#f59e0b' },   // Amber - Below optimal
+                        { min: 46, max: 110, color: '#22c55e' },  // Green - Optimal range
+                        { min: 111, max: 140, color: '#f59e0b' }, // Amber - Above optimal
+                        { min: 141, max: 180, color: '#ef4444' }, // Red - Impingement risk
                     ]}
                 />
 
+                {/* Knee Flexion: 90-140° is optimal for stability */}
                 <Gauge
                     label="Knee Flexion"
                     value={kneeValue}
-                    max={150}
+                    max={180}
                     ranges={[
-                        { min: 140, max: 180, color: '#d4d4d4' },
-                        { min: 90, max: 139, color: '#000000' },
-                        { min: 0, max: 89, color: '#a3a3a3' },
+                        { min: 0, max: 70, color: '#ef4444' },    // Red - Too bent (strain)
+                        { min: 71, max: 89, color: '#f59e0b' },   // Amber - Deep flexion
+                        { min: 90, max: 140, color: '#22c55e' },  // Green - Optimal range
+                        { min: 141, max: 160, color: '#f59e0b' }, // Amber - Too straight
+                        { min: 161, max: 180, color: '#ef4444' }, // Red - Locked out (injury risk)
                     ]}
                 />
             </div>
 
-            <div className="mt-4 text-xs text-center text-neutral-500 bg-white p-2 rounded-lg border border-neutral-200">
-                <p>Values update in real-time during playback</p>
+            {/* Legend */}
+            <div className="mt-4 flex items-center justify-center gap-4 text-[10px] text-neutral-500">
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span>Optimal</span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                    <span>Caution</span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span>Risk</span>
+                </div>
             </div>
         </div>
     );
