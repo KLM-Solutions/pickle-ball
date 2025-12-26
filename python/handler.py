@@ -284,31 +284,31 @@ def handler(job):
                 content_type="video/mp4"
             )
         
-        # Build frames response with metrics only (no image upload - not used by UI)
+        # Build frames response with landmarks (no image upload - not used by UI)
         raw_frames = results.get("frames", [])
-        print(f"Processing {len(raw_frames)} frames (no image upload)")
+        print(f"Processing {len(raw_frames)} frames (passing landmarks to TypeScript)")
         
         for i, frame_data in enumerate(raw_frames):
             frames_data.append({
-                "frameIndex": i,
+                "frameIdx": frame_data.get("frameIdx", i),
                 "timestampSec": frame_data.get("timestampSec", i * step / 30.0),
                 "bbox": frame_data.get("bbox", [0, 0, 0, 0]),
                 "confidence": frame_data.get("confidence", 0),
-                "metrics": frame_data.get("metrics", {})
+                "track_id": frame_data.get("track_id", -1),
+                "landmarks": frame_data.get("landmarks", None)  # Pass landmarks to TypeScript
             })
         
         # 6. Calculate processing time
         processing_time = time.time() - start_time
         
-        # 7. Build response
+        # 7. Build response (raw data - analysis done in TypeScript)
         response = {
             "status": "success",
             "job_id": job_id,
             "video_url": result_video_url,
-            "frames": frames_data,
-            "strokes": results.get("strokes", []),
+            "stroke_type": stroke_type,
+            "frames": frames_data,  # Raw frames with landmarks
             "summary": results.get("summary", {}),
-            "injury_risk_summary": results.get("injury_risk_summary", {}),
             "total_frames_processed": len(frames_data),
             "processing_time_sec": round(processing_time, 2)
         }
