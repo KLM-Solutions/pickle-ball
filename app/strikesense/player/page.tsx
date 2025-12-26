@@ -8,15 +8,6 @@ import { BiomechanicalMetrics } from "../../components/dashboard/BiomechanicalMe
 
 export const dynamic = 'force-dynamic';
 
-interface Stroke {
-    id: number;
-    type: string;
-    timestamp: number;
-    label: string;
-    confidence: number;
-    riskLevel?: 'low' | 'medium' | 'high';
-}
-
 function PlayerContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -25,8 +16,6 @@ function PlayerContent() {
     const [currentTime, setCurrentTime] = useState(0);
     const [showSidebar, setShowSidebar] = useState(false);
     const [analysisData, setAnalysisData] = useState<any>(null);
-    const [strokes, setStrokes] = useState<Stroke[]>([]);
-    const [selectedStroke, setSelectedStroke] = useState<number | null>(null);
     const [playbackSpeed, setPlaybackSpeed] = useState(1);
     const [showJson, setShowJson] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -51,18 +40,6 @@ function PlayerContent() {
         if (storedResult) {
             const result = JSON.parse(storedResult);
             setAnalysisData(result);
-
-            if (result.strokes) {
-                const mappedStrokes = result.strokes.map((s: any, idx: number) => ({
-                    id: idx,
-                    type: s.type || s.stroke_type || 'groundstroke',
-                    timestamp: s.startSec || s.timestamp || 0,
-                    label: formatTime(s.startSec || s.timestamp || 0),
-                    confidence: s.confidence || 0.9,
-                    riskLevel: s.riskLevel || 'low'
-                }));
-                setStrokes(mappedStrokes);
-            }
         }
     }, []);
 
@@ -74,9 +51,23 @@ function PlayerContent() {
 
     const currentFrame = useMemo(() => {
         if (!analysisData?.frames || analysisData.frames.length === 0) return null;
-        return analysisData.frames.reduce((prev: any, curr: any) => {
-            return Math.abs(curr.timestampSec - currentTime) < Math.abs(prev.timestampSec - currentTime) ? curr : prev;
+        let bestIdx = 0;
+        let bestDiff = Infinity;
+        analysisData.frames.forEach((frame: any, idx: number) => {
+            const timestamp = frame.timestampSec ?? frame.timestamp_sec ?? 0;
+            const diff = Math.abs(timestamp - currentTime);
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                bestIdx = idx;
+            }
         });
+        const frame = analysisData.frames[bestIdx];
+        // Add calculated index if not present
+        return {
+            ...frame,
+            _calculatedIdx: bestIdx,
+            _calculatedTime: frame.timestampSec ?? frame.timestamp_sec ?? 0
+        };
     }, [currentTime, analysisData]);
 
     const aggregates = useMemo(() => {
@@ -231,146 +222,118 @@ function PlayerContent() {
                             aggregates={aggregates}
                         />
 
-                        {/* Current Frame Data */}
-                        {currentFrame && (
-                            <div className="flex-none bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm">
-                                <h3 className="text-[10px] md:text-xs font-bold text-slate-400 mb-2 md:mb-3 flex items-center gap-2 uppercase tracking-wide">
-                                    <span className="text-amber-400">⚡</span> Current Frame
-                                </h3>
+                        {/* Current Frame Data - Always visible */}
+                        <div className="flex-none bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm">
+                            <h3 className="text-[10px] md:text-xs font-bold text-slate-400 mb-2 md:mb-3 flex items-center gap-2 uppercase tracking-wide">
+                                <span className="text-amber-400">⚡</span> Current Frame
+                            </h3>
 
-                                <div className="space-y-2 md:space-y-3">
-                                    {/* Frame Info */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Frame</div>
-                                            <div className="text-sm md:text-base font-bold text-white">{currentFrame.frameIdx || 0}</div>
-                                        </div>
-                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Time</div>
-                                            <div className="text-sm md:text-base font-bold text-white">{currentFrame.timestampSec?.toFixed(2) || 0}s</div>
+                            <div className="space-y-2 md:space-y-3">
+                                {/* Frame Info */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                        <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Frame</div>
+                                        <div className="text-sm md:text-base font-bold text-white">
+                                            {currentFrame ? (currentFrame.frameIdx ?? currentFrame.frame_idx ?? currentFrame._calculatedIdx ?? 0) : '--'}
                                         </div>
                                     </div>
-
-                                    {/* Risk Status */}
-                                    {currentFrame.metrics?.injury_risk && (
-                                        <div className={`p-2.5 md:p-3 rounded-lg border ${
-                                            currentFrame.metrics.injury_risk === 'high' 
-                                                ? 'bg-red-500/10 border-red-500/30' 
-                                                : currentFrame.metrics.injury_risk === 'medium'
-                                                    ? 'bg-yellow-500/10 border-yellow-500/30'
-                                                    : 'bg-emerald-500/10 border-emerald-500/30'
-                                        }`}>
-                                            <div className={`text-xs md:text-sm font-bold ${
-                                                currentFrame.metrics.injury_risk === 'high' 
-                                                    ? 'text-red-400' 
-                                                    : currentFrame.metrics.injury_risk === 'medium'
-                                                        ? 'text-yellow-400'
-                                                        : 'text-emerald-400'
-                                            }`}>
-                                                Risk: {currentFrame.metrics.injury_risk.toUpperCase()}
-                                            </div>
-                                            {currentFrame.metrics.feedback && currentFrame.metrics.feedback.length > 0 && (
-                                                <p className="text-[10px] md:text-xs text-slate-400 mt-1">
-                                                    {currentFrame.metrics.feedback[0]}
-                                                </p>
-                                            )}
+                                    <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                        <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Time</div>
+                                        <div className="text-sm md:text-base font-bold text-white">
+                                            {currentFrame ? `${(currentFrame.timestampSec ?? currentFrame.timestamp_sec ?? currentFrame._calculatedTime ?? 0).toFixed(2)}s` : '--'}
                                         </div>
-                                    )}
+                                    </div>
+                                </div>
 
-                                    {/* Stroke Type */}
-                                    {currentFrame.stroke_type && (
-                                        <div className="p-2.5 md:p-3 bg-violet-500/10 border border-violet-500/30 rounded-lg">
-                                            <div className="text-[9px] md:text-[10px] text-violet-400 uppercase">Stroke Detected</div>
-                                            <div className="text-sm md:text-base font-bold text-white capitalize">{currentFrame.stroke_type}</div>
-                                        </div>
-                                    )}
+                                {/* Stroke Type */}
+                                <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                    <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Stroke Type</div>
+                                    <div className="text-sm md:text-base font-bold text-white capitalize">
+                                        {currentFrame?.stroke_type || analysisData?.stroke_type || strokeType || '--'}
+                                    </div>
                                 </div>
                             </div>
-                        )}
+                        </div>
 
-                        {/* Strokes Detected */}
-                        {strokes.length > 0 && (
-                            <div className="flex-1 bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm overflow-hidden flex flex-col">
-                                <h2 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 md:mb-3 flex items-center gap-2">
-                                    <span className="text-violet-400">🎾</span> Strokes ({strokes.length})
-                                </h2>
-                                <div className="space-y-2 md:space-y-3 overflow-y-auto pr-1 flex-1">
-                                    {strokes.map((stroke, i) => (
-                                        <div 
-                                            key={i} 
-                                            className={`p-2.5 md:p-3 rounded-lg border cursor-pointer transition-all ${
-                                                stroke.riskLevel === 'high' 
-                                                    ? 'bg-red-500/10 border-red-500/30 hover:bg-red-500/20' 
-                                                    : stroke.riskLevel === 'medium'
-                                                        ? 'bg-yellow-500/10 border-yellow-500/30 hover:bg-yellow-500/20'
-                                                        : 'bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20'
-                                            }`}
-                                            onClick={() => {
-                                                if (stroke.timestamp) {
-                                                    setCurrentTime(stroke.timestamp);
-                                                }
-                                            }}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <h4 className="text-[10px] md:text-xs font-bold text-white capitalize">{stroke.type}</h4>
-                                                    <p className="text-[9px] md:text-xs text-slate-400">{stroke.label}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-[9px] md:text-[10px] text-slate-500">Confidence</div>
-                                                    <div className="text-xs md:text-sm font-bold text-white">{Math.round(stroke.confidence * 100)}%</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                        {/* Risk Status - Always visible */}
+                        <div className="flex-none bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm">
+                            <h3 className="text-[10px] md:text-xs font-bold text-slate-400 mb-2 md:mb-3 flex items-center gap-2 uppercase tracking-wide">
+                                <span className="text-red-400">⚠️</span> Risk Status
+                            </h3>
 
-                        {/* Analysis Summary */}
-                        {analysisData?.summary && (
-                            <div className="flex-none bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm">
-                                <h3 className="text-[10px] md:text-xs font-bold text-slate-400 mb-2 md:mb-3 flex items-center gap-2 uppercase tracking-wide">
-                                    <span className="text-blue-400">📊</span> Summary
-                                </h3>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {analysisData.summary.total_frames && (
-                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Frames</div>
-                                            <div className="text-sm md:text-base font-bold text-white">{analysisData.summary.total_frames}</div>
-                                        </div>
-                                    )}
-                                    {analysisData.summary.duration_sec && (
-                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Duration</div>
-                                            <div className="text-sm md:text-base font-bold text-white">{analysisData.summary.duration_sec.toFixed(1)}s</div>
-                                        </div>
-                                    )}
-                                    {analysisData.summary.fps && (
-                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">FPS</div>
-                                            <div className="text-sm md:text-base font-bold text-white">{analysisData.summary.fps}</div>
-                                        </div>
-                                    )}
-                                    {analysisData.playerStats?.trackedDurationSec && (
-                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Tracked</div>
-                                            <div className="text-sm md:text-base font-bold text-white">{analysisData.playerStats.trackedDurationSec.toFixed(1)}s</div>
-                                        </div>
+                            {currentFrame?.metrics?.injury_risk ? (
+                                <div className={`p-2.5 md:p-3 rounded-lg border ${
+                                    currentFrame.metrics.injury_risk === 'high' 
+                                        ? 'bg-red-500/10 border-red-500/30' 
+                                        : currentFrame.metrics.injury_risk === 'medium'
+                                            ? 'bg-yellow-500/10 border-yellow-500/30'
+                                            : 'bg-emerald-500/10 border-emerald-500/30'
+                                }`}>
+                                    <div className={`text-xs md:text-sm font-bold ${
+                                        currentFrame.metrics.injury_risk === 'high' 
+                                            ? 'text-red-400' 
+                                            : currentFrame.metrics.injury_risk === 'medium'
+                                                ? 'text-yellow-400'
+                                                : 'text-emerald-400'
+                                    }`}>
+                                        {currentFrame.metrics.injury_risk.toUpperCase()}
+                                    </div>
+                                    {currentFrame.metrics.feedback && currentFrame.metrics.feedback.length > 0 && (
+                                        <p className="text-[10px] md:text-xs text-slate-400 mt-1">
+                                            {currentFrame.metrics.feedback[0]}
+                                        </p>
                                     )}
                                 </div>
-                            </div>
-                        )}
+                            ) : (
+                                <div className="p-2.5 md:p-3 rounded-lg border bg-slate-500/10 border-slate-500/30">
+                                    <div className="text-xs md:text-sm font-bold text-slate-400">
+                                        {currentFrame ? 'LOW' : 'Waiting...'}
+                                    </div>
+                                    <p className="text-[10px] md:text-xs text-slate-500 mt-1">
+                                        {currentFrame ? 'No risk detected' : 'Play video to analyze'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
 
-                        {/* No Data State */}
-                        {!currentFrame && strokes.length === 0 && !analysisData?.summary && (
-                            <div className="flex-1 bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm flex items-center justify-center">
-                                <div className="text-center py-4">
-                                    <div className="text-2xl mb-2">🎬</div>
-                                    <p className="text-[10px] md:text-xs text-slate-500">Play video to see analysis data</p>
+                        {/* Analysis Summary - Always visible */}
+                        <div className="flex-none bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm">
+                            <h3 className="text-[10px] md:text-xs font-bold text-slate-400 mb-2 md:mb-3 flex items-center gap-2 uppercase tracking-wide">
+                                <span className="text-blue-400">📊</span> Summary
+                            </h3>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                    <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Frames</div>
+                                    <div className="text-sm md:text-base font-bold text-white">
+                                        {analysisData?.summary?.total_frames || analysisData?.frames?.length || '--'}
+                                    </div>
+                                </div>
+                                <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                    <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Duration</div>
+                                    <div className="text-sm md:text-base font-bold text-white">
+                                        {analysisData?.summary?.duration_sec 
+                                            ? `${analysisData.summary.duration_sec.toFixed(1)}s` 
+                                            : analysisData?.playerStats?.trackedDurationSec 
+                                                ? `${analysisData.playerStats.trackedDurationSec.toFixed(1)}s`
+                                                : '--'}
+                                    </div>
+                                </div>
+                                <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                    <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">FPS</div>
+                                    <div className="text-sm md:text-base font-bold text-white">
+                                        {analysisData?.summary?.fps || '--'}
+                                    </div>
+                                </div>
+                                <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                    <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Tracked</div>
+                                    <div className="text-sm md:text-base font-bold text-white">
+                                        {analysisData?.playerStats?.trackedDurationSec 
+                                            ? `${analysisData.playerStats.trackedDurationSec.toFixed(1)}s` 
+                                            : '--'}
+                                    </div>
                                 </div>
                             </div>
-                        )}
+                        </div>
                     </div>
                 </div>
 
