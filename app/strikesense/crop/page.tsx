@@ -219,29 +219,23 @@ function CropContent() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
-      {/* Animated background */}
-      <div className="fixed inset-0 opacity-20 pointer-events-none">
-        <div className="absolute top-10 left-5 md:top-20 md:left-10 w-48 md:w-72 h-48 md:h-72 bg-violet-500 rounded-full filter blur-[100px] md:blur-[128px] animate-pulse" />
-        <div className="absolute bottom-10 right-5 md:bottom-20 md:right-10 w-64 md:w-96 h-64 md:h-96 bg-emerald-500 rounded-full filter blur-[100px] md:blur-[128px] animate-pulse delay-1000" />
-      </div>
-
+    <div className="h-screen flex flex-col bg-white text-neutral-900 overflow-hidden">
       {/* Header */}
-      <header className="relative z-50 h-14 md:h-16 flex items-center justify-between px-3 md:px-4 border-b border-white/10 backdrop-blur-sm flex-shrink-0">
+      <header className="relative z-50 h-14 md:h-16 flex items-center justify-between px-3 md:px-4 border-b border-neutral-200 flex-shrink-0">
         <button
           onClick={() => router.push(`/strikesense/upload?stroke=${strokeType}`)}
-          className="flex items-center gap-1.5 md:gap-2 text-slate-400 hover:text-white transition p-1"
+          className="flex items-center gap-1.5 md:gap-2 text-neutral-500 hover:text-black transition p-1"
         >
           <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
           <span className="text-xs md:text-sm font-medium">Back</span>
         </button>
         <div className="flex items-center gap-1.5 md:gap-2">
-          <User className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-400" />
-          <span className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-slate-400">Select Player</span>
+          <User className="w-3.5 h-3.5 md:w-4 md:h-4 text-black" />
+          <span className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-neutral-500">Select Player</span>
         </div>
         <button 
           onClick={() => setShowGrid(!showGrid)} 
-          className={`p-1.5 md:p-2 rounded-lg transition-all ${showGrid ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-500 hover:text-white'}`}
+          className={`p-1.5 md:p-2 rounded-lg transition-all ${showGrid ? 'bg-black text-white' : 'text-neutral-500 hover:text-black bg-neutral-100'}`}
         >
           <Grid3x3 className="w-4 h-4 md:w-5 md:h-5" />
         </button>
@@ -250,7 +244,7 @@ function CropContent() {
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* Help Tooltip */}
         {showHelp && videoUrl && !cropBox && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-emerald-500/90 text-white px-4 py-2 rounded-xl text-xs md:text-sm font-medium flex items-center gap-2 shadow-lg animate-bounce">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-black text-white px-4 py-2 rounded-xl text-xs md:text-sm font-medium flex items-center gap-2 shadow-lg animate-bounce">
             <Info className="w-4 h-4" />
             Draw a box around the player
           </div>
@@ -260,7 +254,7 @@ function CropContent() {
         <div className="flex-1 relative overflow-hidden flex items-center justify-center p-2 md:p-4 min-h-0">
           <div 
             ref={containerRef} 
-            className="relative w-full h-full min-h-[200px] flex items-center justify-center cursor-crosshair bg-black/50 rounded-xl md:rounded-2xl overflow-hidden border border-white/10"
+            className="relative w-full h-full min-h-[200px] flex items-center justify-center cursor-crosshair bg-neutral-100 rounded-xl md:rounded-2xl overflow-hidden border border-neutral-200"
             onMouseDown={(e) => handleInteractionStart(e, 'drawing')}
             onTouchStart={(e) => handleInteractionStart(e, 'drawing')}
             style={{ transform: `scale(${zoom})`, transition: activeAction ? 'none' : 'transform 0.2s ease-out' }}
@@ -270,19 +264,19 @@ function CropContent() {
               <>
                 {/* Loading Spinner */}
                 {videoLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="w-10 h-10 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                      <p className="text-xs text-slate-400">Loading video...</p>
+                      <div className="w-10 h-10 border-4 border-neutral-300 border-t-black rounded-full animate-spin" />
+                      <p className="text-xs text-neutral-500">Loading video...</p>
                     </div>
                   </div>
                 )}
                 
                 {/* Error State */}
                 {videoError && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
                     <div className="text-center p-4">
-                      <p className="text-sm text-red-400 mb-2">Failed to load video</p>
+                      <p className="text-sm text-neutral-600 mb-2">Failed to load video</p>
                       <button
                         onClick={() => {
                           setVideoLoading(true);
@@ -291,7 +285,7 @@ function CropContent() {
                             videoRef.current.load();
                           }
                         }}
-                        className="text-xs text-emerald-400 hover:underline"
+                        className="text-xs text-black hover:underline"
                       >
                         Try again
                       </button>
@@ -318,14 +312,14 @@ function CropContent() {
                 />
               </>
             ) : (
-              <div className="text-center p-6 md:p-8 bg-white/5 border border-white/10 rounded-xl md:rounded-2xl backdrop-blur-sm">
-                <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 rounded-full bg-white/10 flex items-center justify-center">
-                  <Upload className="w-6 h-6 md:w-8 md:h-8 text-slate-400" />
+              <div className="text-center p-6 md:p-8 bg-neutral-50 border border-neutral-200 rounded-xl md:rounded-2xl">
+                <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 rounded-full bg-neutral-200 flex items-center justify-center">
+                  <Upload className="w-6 h-6 md:w-8 md:h-8 text-neutral-500" />
                 </div>
-                <p className="text-xs md:text-sm font-bold text-white uppercase tracking-tight mb-1.5 md:mb-2">No Video Loaded</p>
+                <p className="text-xs md:text-sm font-bold text-black uppercase tracking-tight mb-1.5 md:mb-2">No Video Loaded</p>
                 <button
                   onClick={() => router.push(`/strikesense/upload?stroke=${strokeType}`)}
-                  className="text-xs md:text-sm text-emerald-400 hover:underline"
+                  className="text-xs md:text-sm text-black hover:underline"
                 >
                   Upload a video
                 </button>
@@ -335,11 +329,11 @@ function CropContent() {
             {videoUrl && cropBox && (
               <div className="absolute inset-0 pointer-events-none">
                 <div 
-                  className="absolute inset-0 bg-black/60" 
+                  className="absolute inset-0 bg-black/50" 
                   style={{ clipPath: `polygon(0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%, ${cropBox.x}% ${cropBox.y}%, ${cropBox.x}% ${cropBox.y + cropBox.height}%, ${cropBox.x + cropBox.width}% ${cropBox.y + cropBox.height}%, ${cropBox.x + cropBox.width}% ${cropBox.y}%, ${cropBox.x}% ${cropBox.y}%)` }} 
                 />
                 <div 
-                  className="absolute border-2 border-emerald-400 pointer-events-auto bg-emerald-500/10 shadow-lg shadow-emerald-500/20 flex items-center justify-center"
+                  className="absolute border-2 border-black pointer-events-auto bg-black/10 shadow-lg flex items-center justify-center"
                   onMouseDown={(e) => handleInteractionStart(e, 'moving')}
                   onTouchStart={(e) => handleInteractionStart(e, 'moving')}
                   style={{ left: `${cropBox.x}%`, top: `${cropBox.y}%`, width: `${cropBox.width}%`, height: `${cropBox.height}%` }}
@@ -362,22 +356,22 @@ function CropContent() {
                       onMouseDown={(e) => handleInteractionStart(e, 'resizing', h.id)}
                       onTouchStart={(e) => handleInteractionStart(e, 'resizing', h.id)}
                     >
-                      <div className="w-3.5 h-3.5 md:w-3 md:h-3 bg-white border-2 border-emerald-400 rounded-full shadow-lg" />
+                      <div className="w-3.5 h-3.5 md:w-3 md:h-3 bg-white border-2 border-black rounded-full shadow-lg" />
                     </div>
                   ))}
 
                   {/* Grid Overlay */}
                   {showGrid && (
                     <div className="absolute inset-0 pointer-events-none opacity-30">
-                      <div className="absolute left-1/3 top-0 bottom-0 w-px bg-emerald-400" />
-                      <div className="absolute left-2/3 top-0 bottom-0 w-px bg-emerald-400" />
-                      <div className="absolute top-1/3 left-0 right-0 h-px bg-emerald-400" />
-                      <div className="absolute top-2/3 left-0 right-0 h-px bg-emerald-400" />
+                      <div className="absolute left-1/3 top-0 bottom-0 w-px bg-black" />
+                      <div className="absolute left-2/3 top-0 bottom-0 w-px bg-black" />
+                      <div className="absolute top-1/3 left-0 right-0 h-px bg-black" />
+                      <div className="absolute top-2/3 left-0 right-0 h-px bg-black" />
                     </div>
                   )}
 
                   {/* Label */}
-                  <div className="absolute -top-7 md:-top-8 left-0 bg-emerald-500 text-white px-2 md:px-3 py-0.5 md:py-1 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-widest shadow-lg flex items-center gap-1 md:gap-1.5">
+                  <div className="absolute -top-7 md:-top-8 left-0 bg-black text-white px-2 md:px-3 py-0.5 md:py-1 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-widest shadow-lg flex items-center gap-1 md:gap-1.5">
                     <User className="w-2.5 h-2.5 md:w-3 md:h-3" />
                     Target
                   </div>
@@ -388,27 +382,27 @@ function CropContent() {
 
           {/* Floating Zoom Controls */}
           <div className="absolute bottom-4 md:bottom-6 right-4 md:right-6 flex flex-col gap-1.5 md:gap-2 z-20">
-            <button onClick={() => setZoom(Math.min(2, zoom + 0.25))} className="w-9 h-9 md:w-10 md:h-10 bg-white/10 border border-white/20 text-white rounded-lg md:rounded-xl flex items-center justify-center backdrop-blur-sm hover:bg-white/20 active:scale-95 transition-all">
+            <button onClick={() => setZoom(Math.min(2, zoom + 0.25))} className="w-9 h-9 md:w-10 md:h-10 bg-white border border-neutral-200 text-black rounded-lg md:rounded-xl flex items-center justify-center hover:bg-neutral-100 active:scale-95 transition-all shadow-sm">
               <ZoomIn className="w-4 h-4 md:w-5 md:h-5" />
             </button>
-            <button onClick={() => setZoom(Math.max(0.5, zoom - 0.25))} className="w-9 h-9 md:w-10 md:h-10 bg-white/10 border border-white/20 text-white rounded-lg md:rounded-xl flex items-center justify-center backdrop-blur-sm hover:bg-white/20 active:scale-95 transition-all">
+            <button onClick={() => setZoom(Math.max(0.5, zoom - 0.25))} className="w-9 h-9 md:w-10 md:h-10 bg-white border border-neutral-200 text-black rounded-lg md:rounded-xl flex items-center justify-center hover:bg-neutral-100 active:scale-95 transition-all shadow-sm">
               <ZoomOut className="w-4 h-4 md:w-5 md:h-5" />
             </button>
-            <button onClick={resetCrop} className="w-9 h-9 md:w-10 md:h-10 bg-white/10 border border-white/20 text-white rounded-lg md:rounded-xl flex items-center justify-center backdrop-blur-sm hover:bg-white/20 active:scale-95 transition-all">
+            <button onClick={resetCrop} className="w-9 h-9 md:w-10 md:h-10 bg-white border border-neutral-200 text-black rounded-lg md:rounded-xl flex items-center justify-center hover:bg-neutral-100 active:scale-95 transition-all shadow-sm">
               <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
             </button>
           </div>
         </div>
 
         {/* Bottom Control Panel */}
-        <div className="bg-slate-900/80 border-t border-white/10 px-3 md:px-4 py-4 md:py-5 flex-shrink-0 z-50 backdrop-blur-sm">
+        <div className="bg-neutral-50 border-t border-neutral-200 px-3 md:px-4 py-4 md:py-5 flex-shrink-0 z-50">
           <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-3 md:gap-4">
 
             {/* Quick Presets */}
             <div className="flex-1 w-full">
               <div className="flex items-center justify-between mb-2 md:mb-3 px-1">
-                <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-slate-500">Quick Zones</span>
-                {cropBox && <span className="text-[9px] md:text-[10px] font-bold text-emerald-400">{Math.round(cropBox.width)}% x {Math.round(cropBox.height)}%</span>}
+                <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-neutral-400">Quick Zones</span>
+                {cropBox && <span className="text-[9px] md:text-[10px] font-bold text-black">{Math.round(cropBox.width)}% x {Math.round(cropBox.height)}%</span>}
               </div>
               <div className="grid grid-cols-4 gap-1.5 md:gap-2">
                 {[
@@ -420,29 +414,29 @@ function CropContent() {
                   <button 
                     key={p.id} 
                     onClick={() => applyPreset(p.id as any)}
-                    className="bg-white/5 border border-white/10 hover:border-emerald-400/50 hover:bg-white/10 text-white py-2.5 md:py-3 rounded-lg md:rounded-xl transition-all flex flex-col items-center gap-1 active:scale-95"
+                    className="bg-white border border-neutral-200 hover:border-black hover:bg-neutral-100 text-black py-2.5 md:py-3 rounded-lg md:rounded-xl transition-all flex flex-col items-center gap-1 active:scale-95"
                   >
-                    <div className="text-emerald-400">{p.icon}</div>
-                    <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-tight text-slate-400">{p.label}</span>
+                    <div className="text-black">{p.icon}</div>
+                    <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-tight text-neutral-500">{p.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="hidden md:block w-px h-16 bg-white/10 mx-2" />
+            <div className="hidden md:block w-px h-16 bg-neutral-200 mx-2" />
 
             {/* CTA */}
             <div className="flex flex-col gap-1.5 md:gap-2 w-full md:w-64">
               <button 
                 onClick={handleStartAnalysis} 
                 disabled={!videoUrl || !cropBox}
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed text-white py-3.5 md:py-4 rounded-xl font-bold text-xs md:text-sm uppercase tracking-widest shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                className="w-full bg-black hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed text-white py-3.5 md:py-4 rounded-xl font-bold text-xs md:text-sm uppercase tracking-widest active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
                 <Play className="w-3.5 h-3.5 md:w-4 md:h-4 fill-white" />
                 Analyze
               </button>
               {!cropBox && (
-                <p className="text-[9px] md:text-[10px] text-center text-slate-500 font-medium">
+                <p className="text-[9px] md:text-[10px] text-center text-neutral-400 font-medium">
                   Draw a box around the player
                 </p>
               )}
@@ -457,8 +451,8 @@ function CropContent() {
 export default function CropPage() {
   return (
     <React.Suspense fallback={
-      <div className="h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-emerald-400 font-bold animate-pulse">Loading...</div>
+      <div className="h-screen bg-white flex items-center justify-center">
+        <div className="text-black font-bold animate-pulse">Loading...</div>
       </div>
     }>
       <CropContent />

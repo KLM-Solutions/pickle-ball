@@ -37,7 +37,7 @@ export function Gauge({
         // Ensure value is a number and handle edge cases
         const safeValue = isNaN(value) ? 0 : value;
         const match = ranges.find(r => safeValue >= r.min && safeValue <= r.max);
-        return match ? match.color : "#00BFA5"; // Default to PRD primary color
+        return match ? match.color : "#000000"; // Default to black
     }, [value, ranges]);
 
     return (
@@ -52,7 +52,7 @@ export function Gauge({
                     <path
                         d="M 5 50 A 45 45 0 0 1 95 50"
                         fill="none"
-                        stroke="#262626"
+                        stroke="#e5e5e5"
                         strokeWidth={strokeWidth}
                         strokeLinecap="round"
                     />
@@ -76,7 +76,7 @@ export function Gauge({
                         textAnchor="middle"
                         fontSize="22"
                         fontWeight="bold"
-                        fill="#ffffff"
+                        fill="#000000"
                         className="font-bold"
                     >
                         {Math.round(value)}{unit}

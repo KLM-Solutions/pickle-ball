@@ -71,18 +71,18 @@ function UploadContent() {
     };
 
     return (
-        <div className="min-h-screen bg-black text-white">
+        <div className="min-h-screen bg-white text-neutral-900">
             {/* Header */}
             <header className="relative z-10 px-4 py-3 md:py-4">
                 <div className="max-w-lg mx-auto flex items-center justify-between">
                     <button
                         onClick={() => router.push(`/strikesense/guide?stroke=${strokeType}`)}
-                        className="flex items-center gap-1.5 md:gap-2 text-neutral-500 hover:text-white transition p-1"
+                        className="flex items-center gap-1.5 md:gap-2 text-neutral-500 hover:text-black transition p-1"
                     >
                         <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
                         <span className="text-xs md:text-sm font-medium">Back</span>
                     </button>
-                    <div className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-neutral-600">
+                    <div className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-neutral-400">
                         Step 2 of 3
                     </div>
                 </div>
@@ -94,7 +94,7 @@ function UploadContent() {
                     
                     {/* Hero */}
                     <div className="text-center pt-2 md:pt-4 pb-6 md:pb-8">
-                        <div className="inline-flex w-16 h-16 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-white items-center justify-center text-3xl md:text-4xl mb-4 md:mb-5">
+                        <div className="inline-flex w-16 h-16 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-black items-center justify-center text-3xl md:text-4xl mb-4 md:mb-5">
                             🎾
                         </div>
                         <h1 className="text-xl md:text-2xl font-bold mb-1.5 md:mb-2">Upload Your Video</h1>
@@ -103,9 +103,9 @@ function UploadContent() {
 
                     {/* Error */}
                     {error && (
-                        <div className="mb-4 md:mb-6 p-3 md:p-4 bg-neutral-900 border border-neutral-800 text-neutral-300 rounded-xl md:rounded-2xl text-xs md:text-sm flex items-start gap-2 md:gap-3">
-                            <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-white flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span className="text-[10px] md:text-xs text-black">!</span>
+                        <div className="mb-4 md:mb-6 p-3 md:p-4 bg-neutral-100 border border-neutral-200 text-neutral-700 rounded-xl md:rounded-2xl text-xs md:text-sm flex items-start gap-2 md:gap-3">
+                            <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-black flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <span className="text-[10px] md:text-xs text-white">!</span>
                             </div>
                             {error}
                         </div>
@@ -120,8 +120,8 @@ function UploadContent() {
                         className={`
                             relative rounded-2xl md:rounded-3xl p-6 md:p-8 text-center cursor-pointer transition-all duration-300
                             ${isDragging 
-                                ? 'bg-white scale-[1.02]' 
-                                : 'bg-neutral-900 hover:bg-neutral-800 border-2 border-dashed border-neutral-700 hover:border-neutral-500'
+                                ? 'bg-black scale-[1.02]' 
+                                : 'bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-300 hover:border-neutral-400'
                             }
                             ${isUploading ? 'pointer-events-none' : ''}
                             active:scale-[0.98] touch-manipulation
@@ -142,13 +142,13 @@ function UploadContent() {
                                             stroke="currentColor"
                                             strokeWidth="8"
                                             fill="none"
-                                            className="text-neutral-800"
+                                            className="text-neutral-200"
                                         />
                                         <circle
                                             cx="50"
                                             cy="50"
                                             r="42"
-                                            stroke="white"
+                                            stroke="black"
                                             strokeWidth="8"
                                             fill="none"
                                             strokeLinecap="round"
@@ -158,7 +158,7 @@ function UploadContent() {
                                         />
                                     </svg>
                                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="text-2xl sm:text-3xl md:text-4xl font-black text-white">
+                                        <span className="text-2xl sm:text-3xl md:text-4xl font-black text-black">
                                             {uploadProgress}
                                         </span>
                                         <span className="text-[10px] sm:text-xs text-neutral-500 font-medium -mt-1">
@@ -169,28 +169,28 @@ function UploadContent() {
                                 
                                 <h3 className="text-lg sm:text-xl md:text-2xl font-bold mb-2">Uploading...</h3>
                                 <p className="text-neutral-500 text-xs sm:text-sm mb-2 truncate max-w-[220px] sm:max-w-[280px] mx-auto px-2">{fileName}</p>
-                                <p className="text-neutral-600 text-[10px] sm:text-xs">Securely uploading to cloud</p>
+                                <p className="text-neutral-400 text-[10px] sm:text-xs">Securely uploading to cloud</p>
                             </div>
                         ) : (
                             <>
                                 <div className={`
                                     w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-xl md:rounded-2xl flex items-center justify-center
-                                    ${isDragging ? 'bg-black' : 'bg-white'}
+                                    ${isDragging ? 'bg-white' : 'bg-black'}
                                     transition-all duration-300
                                 `}>
-                                    <Upload className={`w-8 h-8 md:w-10 md:h-10 ${isDragging ? 'text-white' : 'text-black'}`} />
+                                    <Upload className={`w-8 h-8 md:w-10 md:h-10 ${isDragging ? 'text-black' : 'text-white'}`} />
                                 </div>
 
-                                <h3 className={`text-lg md:text-xl font-bold mb-1.5 md:mb-2 ${isDragging ? 'text-black' : 'text-white'}`}>
+                                <h3 className={`text-lg md:text-xl font-bold mb-1.5 md:mb-2 ${isDragging ? 'text-white' : 'text-black'}`}>
                                     {isDragging ? 'Drop it here!' : 'Tap to Upload'}
                                 </h3>
-                                <p className={`mb-4 md:mb-6 text-sm ${isDragging ? 'text-neutral-700' : 'text-neutral-500'}`}>
+                                <p className={`mb-4 md:mb-6 text-sm ${isDragging ? 'text-white/70' : 'text-neutral-500'}`}>
                                     {isDragging ? 'Release to upload' : 'or drag & drop a file'}
                                 </p>
 
                                 <div className="flex gap-1.5 md:gap-2 justify-center flex-wrap">
                                     {['MP4', 'MOV', 'AVI', 'WEBM'].map((format) => (
-                                        <span key={format} className={`px-2.5 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-medium ${isDragging ? 'bg-black text-white' : 'bg-neutral-800 text-neutral-400'}`}>
+                                        <span key={format} className={`px-2.5 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-medium ${isDragging ? 'bg-white text-black' : 'bg-neutral-200 text-neutral-600'}`}>
                                             {format}
                                         </span>
                                     ))}
@@ -219,10 +219,10 @@ function UploadContent() {
                                 { icon: Zap, label: 'GPU Analysis', desc: 'AI-powered' },
                                 { icon: Shield, label: 'Private', desc: 'Your data safe' },
                             ].map((feature, i) => (
-                                <div key={i} className="bg-neutral-900 border border-neutral-800 rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
-                                    <feature.icon className="w-5 h-5 md:w-6 md:h-6 mx-auto mb-1.5 md:mb-2 text-white" />
-                                    <div className="text-[10px] md:text-xs font-bold text-white mb-0.5">{feature.label}</div>
-                                    <div className="text-[9px] md:text-[10px] text-neutral-600">{feature.desc}</div>
+                                <div key={i} className="bg-neutral-50 border border-neutral-200 rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
+                                    <feature.icon className="w-5 h-5 md:w-6 md:h-6 mx-auto mb-1.5 md:mb-2 text-black" />
+                                    <div className="text-[10px] md:text-xs font-bold text-black mb-0.5">{feature.label}</div>
+                                    <div className="text-[9px] md:text-[10px] text-neutral-400">{feature.desc}</div>
                                 </div>
                             ))}
                         </div>
@@ -230,7 +230,7 @@ function UploadContent() {
 
                     {/* File Info */}
                     {!isUploading && (
-                        <div className="mt-4 md:mt-6 flex items-center justify-center gap-2 md:gap-4 text-[10px] md:text-xs text-neutral-600 flex-wrap">
+                        <div className="mt-4 md:mt-6 flex items-center justify-center gap-2 md:gap-4 text-[10px] md:text-xs text-neutral-400 flex-wrap">
                             <div className="flex items-center gap-1">
                                 <Film className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                 <span>Max 500MB</span>
@@ -254,8 +254,8 @@ function UploadContent() {
 export default function UploadPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-white font-bold animate-pulse">Loading...</div>
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <div className="text-black font-bold animate-pulse">Loading...</div>
             </div>
         }>
             <UploadContent />

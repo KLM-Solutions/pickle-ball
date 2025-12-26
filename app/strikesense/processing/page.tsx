@@ -188,17 +188,17 @@ function ProcessingContent() {
   // Completed state
   if (jobCompleted && jobId) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center px-4">
-        <div className="relative z-10 max-w-md w-full text-center bg-neutral-900 border border-neutral-800 p-6 md:p-8 rounded-xl md:rounded-2xl">
-          <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-5 bg-white rounded-full flex items-center justify-center">
-            <CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-black" />
+      <div className="min-h-screen bg-white flex items-center justify-center px-4">
+        <div className="relative z-10 max-w-md w-full text-center bg-neutral-50 border border-neutral-200 p-6 md:p-8 rounded-xl md:rounded-2xl">
+          <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-5 bg-black rounded-full flex items-center justify-center">
+            <CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-white" />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2 text-white">Analysis Complete! 🎾</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2 text-black">Analysis Complete! 🎾</h1>
           <p className="text-neutral-500 mb-6 text-sm md:text-base">Your stroke analysis is ready to view</p>
           
           <button
             onClick={() => router.push(`/strikesense/player?stroke=${strokeType}&job_id=${jobId}`)}
-            className="flex items-center justify-center gap-2 w-full py-3.5 bg-white hover:bg-neutral-200 text-black rounded-xl font-bold transition text-sm md:text-base mb-3"
+            className="flex items-center justify-center gap-2 w-full py-3.5 bg-black hover:bg-neutral-800 text-white rounded-xl font-bold transition text-sm md:text-base mb-3"
           >
             <Play className="w-5 h-5" /> View Results
           </button>
@@ -206,13 +206,13 @@ function ProcessingContent() {
           <div className="flex gap-3">
             <button
               onClick={() => router.push('/')}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-sm font-medium transition"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-neutral-200 hover:bg-neutral-300 text-black rounded-xl text-sm font-medium transition"
             >
               <Home className="w-4 h-4" /> Home
             </button>
             <button
               onClick={() => router.push('/strikesense/history')}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-sm font-medium transition"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-neutral-200 hover:bg-neutral-300 text-black rounded-xl text-sm font-medium transition"
             >
               <Clock className="w-4 h-4" /> History
             </button>
@@ -224,22 +224,22 @@ function ProcessingContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center px-4">
-        <div className="relative z-10 max-w-md w-full text-center bg-neutral-900 border border-neutral-800 p-6 md:p-8 rounded-xl md:rounded-2xl">
-          <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-neutral-800 rounded-full flex items-center justify-center">
-            <AlertCircle className="w-7 h-7 md:w-8 md:h-8 text-neutral-400" />
+      <div className="min-h-screen bg-white flex items-center justify-center px-4">
+        <div className="relative z-10 max-w-md w-full text-center bg-neutral-50 border border-neutral-200 p-6 md:p-8 rounded-xl md:rounded-2xl">
+          <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-neutral-200 rounded-full flex items-center justify-center">
+            <AlertCircle className="w-7 h-7 md:w-8 md:h-8 text-neutral-500" />
           </div>
-          <h1 className="text-xl md:text-2xl font-bold mb-1.5 md:mb-2 text-white">Analysis Failed</h1>
+          <h1 className="text-xl md:text-2xl font-bold mb-1.5 md:mb-2 text-black">Analysis Failed</h1>
           <p className="text-neutral-500 mb-5 md:mb-6 text-xs md:text-sm">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="flex items-center justify-center gap-2 w-full py-3 bg-white hover:bg-neutral-200 text-black rounded-xl font-bold transition text-sm md:text-base"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-black hover:bg-neutral-800 text-white rounded-xl font-bold transition text-sm md:text-base"
           >
             <RefreshCw className="w-4 h-4" /> Try Again
           </button>
           <button
             onClick={() => router.push('/')}
-            className="mt-3 md:mt-4 flex items-center justify-center gap-2 text-xs md:text-sm text-neutral-500 hover:text-white transition w-full"
+            className="mt-3 md:mt-4 flex items-center justify-center gap-2 text-xs md:text-sm text-neutral-500 hover:text-black transition w-full"
           >
             <Home className="w-4 h-4" /> Back to Home
           </button>
@@ -249,43 +249,43 @@ function ProcessingContent() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
       <div className="relative z-10 max-w-xl w-full text-center">
-        <h1 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-white">Analyzing Your Stroke</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-black">Analyzing Your Stroke</h1>
         <p className="text-neutral-500 mb-1.5 md:mb-2 text-sm md:text-base">GPU-powered AI analysis in progress</p>
-        <p className="text-[10px] md:text-xs text-neutral-600 mb-6 md:mb-8">Processing on RunPod Serverless</p>
+        <p className="text-[10px] md:text-xs text-neutral-400 mb-6 md:mb-8">Processing on RunPod Serverless</p>
 
         {/* Job Created Success Card */}
         {jobCreated && jobId && (
-          <div className="mb-6 bg-neutral-900 border border-neutral-800 rounded-xl p-4 max-w-md mx-auto">
+          <div className="mb-6 bg-neutral-50 border border-neutral-200 rounded-xl p-4 max-w-md mx-auto">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <CheckCircle className="w-5 h-5 text-white" />
-              <span className="text-white font-semibold text-sm">Job Created Successfully!</span>
+              <CheckCircle className="w-5 h-5 text-black" />
+              <span className="text-black font-semibold text-sm">Job Created Successfully!</span>
             </div>
             
             <div className="flex items-center justify-center gap-2 mb-3">
               <span className="text-neutral-500 text-xs">Job ID:</span>
-              <code className="bg-black px-2 py-1 rounded text-xs text-white font-mono">
+              <code className="bg-white border border-neutral-200 px-2 py-1 rounded text-xs text-black font-mono">
                 {jobId.slice(0, 8)}...
               </code>
               <button
                 onClick={copyJobId}
-                className="text-neutral-500 hover:text-white transition p-1"
+                className="text-neutral-500 hover:text-black transition p-1"
                 title="Copy full Job ID"
               >
-                {copied ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
+                {copied ? <Check className="w-4 h-4 text-black" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
 
             <p className="text-neutral-500 text-xs mb-4">
               You can leave this page and check results later in{' '}
-              <span className="text-white">History</span>
+              <span className="text-black">History</span>
             </p>
 
             <div className="flex gap-2">
               <button
                 onClick={() => router.push('/')}
-                className="flex-1 flex items-center justify-center gap-2 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-xs font-medium transition"
+                className="flex-1 flex items-center justify-center gap-2 py-2 bg-neutral-200 hover:bg-neutral-300 text-black rounded-lg text-xs font-medium transition"
               >
                 <Home className="w-3.5 h-3.5" />
                 Go Home
@@ -293,7 +293,7 @@ function ProcessingContent() {
               
               <button
                 onClick={() => router.push('/strikesense/history')}
-                className="flex-1 flex items-center justify-center gap-2 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-xs font-medium transition"
+                className="flex-1 flex items-center justify-center gap-2 py-2 bg-neutral-200 hover:bg-neutral-300 text-black rounded-lg text-xs font-medium transition"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 View History
@@ -307,7 +307,7 @@ function ProcessingContent() {
           <div className="mb-6 max-w-md mx-auto">
             <button
               onClick={requestNotifications}
-              className="flex items-center justify-center gap-2 w-full py-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 rounded-xl text-sm font-medium transition"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 rounded-xl text-sm font-medium transition"
             >
               <Bell className="w-4 h-4" />
               Enable Notifications
@@ -317,7 +317,7 @@ function ProcessingContent() {
         )}
 
         {notificationsEnabled && (
-          <div className="mb-6 flex items-center justify-center gap-2 text-xs text-white">
+          <div className="mb-6 flex items-center justify-center gap-2 text-xs text-black">
             <Bell className="w-4 h-4" />
             Notifications enabled - we&apos;ll alert you when done
           </div>
@@ -326,12 +326,12 @@ function ProcessingContent() {
         {/* Progress Bar */}
         <div className="mb-8 md:mb-10 max-w-md mx-auto px-2">
           <div className="flex justify-between text-xs md:text-sm mb-2">
-            <span className="text-neutral-600">Progress</span>
-            <span className="font-bold text-white">{Math.round(overallProgress)}%</span>
+            <span className="text-neutral-400">Progress</span>
+            <span className="font-bold text-black">{Math.round(overallProgress)}%</span>
           </div>
-          <div className="h-2.5 md:h-3 bg-neutral-800 rounded-full overflow-hidden">
+          <div className="h-2.5 md:h-3 bg-neutral-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-white transition-all duration-1000 ease-linear"
+              className="h-full bg-black transition-all duration-1000 ease-linear"
               style={{ width: `${overallProgress}%` }}
             />
           </div>
@@ -345,29 +345,29 @@ function ProcessingContent() {
               className={`
                 p-3 md:p-4 rounded-lg md:rounded-xl border transition-all duration-500
                 ${stage.status === 'complete'
-                  ? 'bg-neutral-900 border-neutral-700'
+                  ? 'bg-neutral-50 border-neutral-300'
                   : stage.status === 'active'
-                    ? 'bg-neutral-900 border-white scale-[1.02]'
-                    : 'bg-neutral-900/50 border-neutral-800 opacity-50'
+                    ? 'bg-neutral-50 border-black scale-[1.02]'
+                    : 'bg-neutral-50 border-neutral-200 opacity-50'
                 }
               `}
             >
               <div className="flex items-center gap-3 md:gap-4">
                 <span className="text-xl md:text-2xl flex-shrink-0">{stage.icon}</span>
                 <span className={`flex-1 text-left font-medium text-xs md:text-sm ${
-                  stage.status === 'active' ? 'text-white' : 
-                  stage.status === 'complete' ? 'text-neutral-300' : 'text-neutral-600'
+                  stage.status === 'active' ? 'text-black' : 
+                  stage.status === 'complete' ? 'text-neutral-700' : 'text-neutral-400'
                 }`}>
                   {stage.label}
                 </span>
                 {stage.status === 'complete' && (
-                  <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                  <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-black" />
                 )}
                 {stage.status === 'active' && (
-                  <Loader2 className="w-4 h-4 md:w-5 md:h-5 text-white animate-spin" />
+                  <Loader2 className="w-4 h-4 md:w-5 md:h-5 text-black animate-spin" />
                 )}
                 {stage.status === 'pending' && (
-                  <Circle className="w-4 h-4 md:w-5 md:h-5 text-neutral-700" />
+                  <Circle className="w-4 h-4 md:w-5 md:h-5 text-neutral-300" />
                 )}
               </div>
             </div>
@@ -381,8 +381,8 @@ function ProcessingContent() {
 export default function ProcessingPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white font-bold animate-pulse">Loading...</div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-black font-bold animate-pulse">Loading...</div>
       </div>
     }>
       <ProcessingContent />

@@ -72,18 +72,18 @@ function CameraGuideContent() {
     const guide = cameraGuides[strokeType] || cameraGuides.serve;
 
     return (
-        <div className="min-h-screen bg-black text-white">
+        <div className="min-h-screen bg-white text-neutral-900">
             {/* Header */}
             <header className="relative z-10 px-4 py-3 md:py-4">
                 <div className="max-w-lg mx-auto flex items-center justify-between">
                     <button
                         onClick={() => router.push('/')}
-                        className="flex items-center gap-1.5 md:gap-2 text-neutral-500 hover:text-white transition p-1"
+                        className="flex items-center gap-1.5 md:gap-2 text-neutral-500 hover:text-black transition p-1"
                     >
                         <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
                         <span className="text-xs md:text-sm font-medium">Home</span>
                     </button>
-                    <div className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-neutral-600">
+                    <div className="text-[10px] md:text-xs font-bold tracking-widest uppercase text-neutral-400">
                         Step 1 of 3
                     </div>
                 </div>
@@ -95,7 +95,7 @@ function CameraGuideContent() {
                     
                     {/* Hero */}
                     <div className="text-center pt-2 md:pt-4 pb-6 md:pb-8">
-                        <div className="inline-flex w-20 h-20 md:w-24 md:h-24 rounded-2xl md:rounded-3xl bg-white items-center justify-center text-4xl md:text-5xl mb-4 md:mb-6">
+                        <div className="inline-flex w-20 h-20 md:w-24 md:h-24 rounded-2xl md:rounded-3xl bg-black items-center justify-center text-4xl md:text-5xl mb-4 md:mb-6">
                             {guide.icon}
                         </div>
                         <h1 className="text-2xl md:text-3xl font-bold mb-1.5 md:mb-2">{guide.title}</h1>
@@ -103,30 +103,30 @@ function CameraGuideContent() {
                     </div>
 
                     {/* Camera Position Card */}
-                    <div className="relative bg-white rounded-2xl md:rounded-3xl p-5 md:p-6 mb-4 md:mb-6 overflow-hidden">
-                        <div className="absolute top-0 right-0 w-24 md:w-32 h-24 md:h-32 bg-neutral-100 rounded-full -translate-y-1/2 translate-x-1/2" />
-                        <div className="absolute bottom-0 left-0 w-20 md:w-24 h-20 md:h-24 bg-neutral-200 rounded-full translate-y-1/2 -translate-x-1/2" />
+                    <div className="relative bg-black rounded-2xl md:rounded-3xl p-5 md:p-6 mb-4 md:mb-6 overflow-hidden">
+                        <div className="absolute top-0 right-0 w-24 md:w-32 h-24 md:h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <div className="absolute bottom-0 left-0 w-20 md:w-24 h-20 md:h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
                         
                         <div className="relative z-10">
-                            <h2 className="text-sm md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-black">
+                            <h2 className="text-sm md:text-lg font-bold mb-3 md:mb-4 flex items-center gap-2 text-white">
                                 <Camera className="w-4 h-4 md:w-5 md:h-5" />
                                 Camera Position
                             </h2>
                             
                             <div className="grid grid-cols-3 gap-2 md:gap-3">
-                                <div className="bg-black rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
+                                <div className="bg-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
                                     <Camera className="w-5 h-5 md:w-6 md:h-6 mx-auto mb-1.5 md:mb-2 text-white" />
-                                    <div className="text-[10px] md:text-xs text-neutral-400 mb-0.5 md:mb-1">Angle</div>
+                                    <div className="text-[10px] md:text-xs text-white/60 mb-0.5 md:mb-1">Angle</div>
                                     <div className="text-xs md:text-sm font-bold text-white">{guide.angle}</div>
                                 </div>
-                                <div className="bg-black rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
+                                <div className="bg-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
                                     <Ruler className="w-5 h-5 md:w-6 md:h-6 mx-auto mb-1.5 md:mb-2 text-white" />
-                                    <div className="text-[10px] md:text-xs text-neutral-400 mb-0.5 md:mb-1">Distance</div>
+                                    <div className="text-[10px] md:text-xs text-white/60 mb-0.5 md:mb-1">Distance</div>
                                     <div className="text-xs md:text-sm font-bold text-white">{guide.distance}</div>
                                 </div>
-                                <div className="bg-black rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
+                                <div className="bg-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 text-center">
                                     <MoveVertical className="w-5 h-5 md:w-6 md:h-6 mx-auto mb-1.5 md:mb-2 text-white" />
-                                    <div className="text-[10px] md:text-xs text-neutral-400 mb-0.5 md:mb-1">Height</div>
+                                    <div className="text-[10px] md:text-xs text-white/60 mb-0.5 md:mb-1">Height</div>
                                     <div className="text-xs md:text-sm font-bold text-white">{guide.height}</div>
                                 </div>
                             </div>
@@ -134,20 +134,20 @@ function CameraGuideContent() {
                     </div>
 
                     {/* Tips */}
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-xl md:rounded-2xl p-4 md:p-5 mb-6 md:mb-8">
-                        <h3 className="text-[10px] md:text-sm font-bold uppercase tracking-wider text-neutral-500 mb-3 md:mb-4">
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-xl md:rounded-2xl p-4 md:p-5 mb-6 md:mb-8">
+                        <h3 className="text-[10px] md:text-sm font-bold uppercase tracking-wider text-neutral-400 mb-3 md:mb-4">
                             Recording Tips
                         </h3>
                         <div className="space-y-3 md:space-y-4">
                             {guide.tips.map((tip: any, i: number) => (
                                 <div key={i} className="flex items-start gap-3 md:gap-4">
-                                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-white flex items-center justify-center flex-shrink-0">
-                                        <tip.icon className="w-4 h-4 md:w-5 md:h-5 text-black" />
+                                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-black flex items-center justify-center flex-shrink-0">
+                                        <tip.icon className="w-4 h-4 md:w-5 md:h-5 text-white" />
                                     </div>
                                     <div className="flex-1 pt-2 md:pt-2">
-                                        <span className="text-neutral-300 text-xs md:text-sm">{tip.text}</span>
+                                        <span className="text-neutral-600 text-xs md:text-sm">{tip.text}</span>
                                     </div>
-                                    <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-white mt-2 md:mt-2.5 flex-shrink-0" />
+                                    <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-black mt-2 md:mt-2.5 flex-shrink-0" />
                                 </div>
                             ))}
                         </div>
@@ -156,13 +156,13 @@ function CameraGuideContent() {
                     {/* CTA */}
                     <button
                         onClick={() => router.push(`/strikesense/upload?stroke=${strokeType}`)}
-                        className="w-full bg-white hover:bg-neutral-200 text-black py-4 md:py-5 rounded-xl md:rounded-2xl font-bold text-sm md:text-base transition-all active:scale-[0.98] flex items-center justify-center gap-2 md:gap-3"
+                        className="w-full bg-black hover:bg-neutral-800 text-white py-4 md:py-5 rounded-xl md:rounded-2xl font-bold text-sm md:text-base transition-all active:scale-[0.98] flex items-center justify-center gap-2 md:gap-3"
                     >
                         <span>I'm Ready to Record</span>
                         <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
                     
-                    <p className="text-center text-neutral-600 text-xs md:text-sm mt-3 md:mt-4">
+                    <p className="text-center text-neutral-400 text-xs md:text-sm mt-3 md:mt-4">
                         Already have a video? Tap to continue
                     </p>
                 </div>
@@ -174,8 +174,8 @@ function CameraGuideContent() {
 export default function CameraGuidePage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-white font-bold animate-pulse">Loading...</div>
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <div className="text-black font-bold animate-pulse">Loading...</div>
             </div>
         }>
             <CameraGuideContent />

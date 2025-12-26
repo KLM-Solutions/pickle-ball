@@ -98,12 +98,12 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden">
+    <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden">
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-neutral-800">
+      <header className="relative z-10 flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-neutral-200">
         <div className="flex items-center gap-3 md:gap-4">
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-white flex items-center justify-center text-lg md:text-xl">
+            <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-black flex items-center justify-center text-lg md:text-xl">
               🏓
             </div>
             <div>
@@ -111,8 +111,8 @@ export default function Home() {
               <p className="text-[10px] md:text-xs text-neutral-500 hidden sm:block">AI Stroke Analysis</p>
             </div>
           </div>
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-900 border border-neutral-800 text-xs text-neutral-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-xs text-neutral-600">
+            <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
             AI-Powered Biomechanics
           </div>
         </div>
@@ -120,14 +120,14 @@ export default function Home() {
         <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={() => router.push('/strikesense/history')}
-            className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-2 text-xs md:text-sm font-medium text-neutral-500 border border-neutral-800 rounded-full hover:bg-neutral-900 hover:text-white transition-all duration-300"
+            className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-2 text-xs md:text-sm font-medium text-neutral-500 border border-neutral-200 rounded-full hover:bg-neutral-100 hover:text-black transition-all duration-300"
           >
             <Clock className="w-3.5 h-3.5 md:w-4 md:h-4" />
             <span className="hidden sm:inline">History</span>
           </button>
           <button
             onClick={handleDemo}
-            className="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-white border border-neutral-700 rounded-full hover:bg-neutral-900 transition-all duration-300"
+            className="px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-black border border-neutral-300 rounded-full hover:bg-neutral-100 transition-all duration-300"
           >
             Demo
           </button>
@@ -141,7 +141,7 @@ export default function Home() {
         <div className="text-center mb-10 md:mb-16">
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 leading-tight">
             Analyze Your
-            <span className="block text-white">
+            <span className="block text-black">
               Pickleball Stroke
             </span>
           </h2>
@@ -154,17 +154,17 @@ export default function Home() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3 sm:flex sm:items-center sm:justify-center sm:gap-6 md:gap-8 text-xs md:text-sm max-w-md sm:max-w-none mx-auto">
             <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2">
-              <span className="text-lg sm:text-xl md:text-2xl font-bold text-white">33</span>
+              <span className="text-lg sm:text-xl md:text-2xl font-bold text-black">33</span>
               <span className="text-neutral-500 text-[10px] sm:text-xs md:text-sm">Body Points</span>
             </div>
-            <div className="hidden sm:block w-px h-6 md:h-8 bg-neutral-800 flex-shrink-0" />
+            <div className="hidden sm:block w-px h-6 md:h-8 bg-neutral-200 flex-shrink-0" />
             <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2">
-              <span className="text-lg sm:text-xl md:text-2xl font-bold text-white">30</span>
+              <span className="text-lg sm:text-xl md:text-2xl font-bold text-black">30</span>
               <span className="text-neutral-500 text-[10px] sm:text-xs md:text-sm">FPS Analysis</span>
             </div>
-            <div className="hidden sm:block w-px h-6 md:h-8 bg-neutral-800 flex-shrink-0" />
+            <div className="hidden sm:block w-px h-6 md:h-8 bg-neutral-200 flex-shrink-0" />
             <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2">
-              <span className="text-lg sm:text-xl md:text-2xl font-bold text-white">Real-time</span>
+              <span className="text-lg sm:text-xl md:text-2xl font-bold text-black">Real-time</span>
               <span className="text-neutral-500 text-[10px] sm:text-xs md:text-sm">Feedback</span>
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function Home() {
 
         {/* Stroke Selection */}
         <div className="mb-8">
-          <h3 className="text-center text-[10px] md:text-sm font-medium text-neutral-600 uppercase tracking-wider mb-6 md:mb-8">
+          <h3 className="text-center text-[10px] md:text-sm font-medium text-neutral-400 uppercase tracking-wider mb-6 md:mb-8">
             Select Your Stroke Type
           </h3>
           
@@ -184,21 +184,21 @@ export default function Home() {
                 onMouseEnter={() => setHoveredStroke(stroke.id)}
                 onMouseLeave={() => setHoveredStroke(null)}
                 className={`
-                  relative group p-4 md:p-6 rounded-2xl border border-neutral-800 
-                  bg-neutral-900
-                  hover:border-neutral-700 hover:bg-neutral-800
+                  relative group p-4 md:p-6 rounded-2xl border border-neutral-200 
+                  bg-neutral-50
+                  hover:border-neutral-300 hover:bg-neutral-100
                   transition-all duration-300 ease-out
                   active:scale-[0.98] touch-manipulation
                   ${hoveredStroke === stroke.id ? 'scale-[1.02]' : ''}
                 `}
               >
                 {/* Icon */}
-                <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl mb-3 md:mb-4 flex items-center justify-center text-2xl md:text-3xl bg-white group-hover:scale-110 transition-transform duration-300">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl mb-3 md:mb-4 flex items-center justify-center text-2xl md:text-3xl bg-black group-hover:scale-110 transition-transform duration-300">
                   {stroke.icon}
                 </div>
                 
                 {/* Content */}
-                <h4 className="text-base md:text-xl font-bold mb-1 md:mb-2 text-white text-left">
+                <h4 className="text-base md:text-xl font-bold mb-1 md:mb-2 text-black text-left">
                   {stroke.title}
                 </h4>
                 <p className="text-xs md:text-sm text-neutral-500 mb-2 md:mb-4 line-clamp-2 text-left hidden sm:block">
@@ -206,13 +206,13 @@ export default function Home() {
                 </p>
                 
                 {/* Stats tag */}
-                <div className="text-[10px] md:text-xs text-neutral-600 font-medium text-left">
+                <div className="text-[10px] md:text-xs text-neutral-400 font-medium text-left">
                   {stroke.stats}
                 </div>
 
                 {/* Arrow indicator */}
-                <div className="absolute top-4 md:top-6 right-4 md:right-6 w-7 h-7 md:w-8 md:h-8 rounded-full bg-neutral-800 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                  <ChevronRight className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
+                <div className="absolute top-4 md:top-6 right-4 md:right-6 w-7 h-7 md:w-8 md:h-8 rounded-full bg-neutral-200 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  <ChevronRight className="w-3.5 h-3.5 md:w-4 md:h-4 text-black" />
                 </div>
               </button>
             ))}
@@ -221,7 +221,7 @@ export default function Home() {
 
         {/* How it works */}
         <div className="mt-12 md:mt-20 text-center">
-          <h3 className="text-[10px] md:text-sm font-medium text-neutral-600 uppercase tracking-wider mb-6 md:mb-8">
+          <h3 className="text-[10px] md:text-sm font-medium text-neutral-400 uppercase tracking-wider mb-6 md:mb-8">
             How It Works
           </h3>
           
@@ -232,10 +232,10 @@ export default function Home() {
               { step: "3", title: "Get Analysis", desc: "View biomechanics & feedback", icon: Shield },
             ].map((item, i) => (
               <div key={i} className="flex flex-col items-center">
-                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white flex items-center justify-center text-base md:text-lg font-bold mb-2 md:mb-3 text-black">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-black flex items-center justify-center text-base md:text-lg font-bold mb-2 md:mb-3 text-white">
                   {item.step}
                 </div>
-                <h4 className="font-semibold text-white mb-0.5 md:mb-1 text-sm md:text-base">{item.title}</h4>
+                <h4 className="font-semibold text-black mb-0.5 md:mb-1 text-sm md:text-base">{item.title}</h4>
                 <p className="text-xs md:text-sm text-neutral-500">{item.desc}</p>
               </div>
             ))}
@@ -246,7 +246,7 @@ export default function Home() {
         <div className="mt-10 md:hidden">
           <button
             onClick={() => handleStrokeSelect('serve')}
-            className="w-full py-4 bg-white text-black rounded-2xl font-bold text-base active:scale-[0.98] transition-transform"
+            className="w-full py-4 bg-black text-white rounded-2xl font-bold text-base active:scale-[0.98] transition-transform"
           >
             Start Analysis →
           </button>
@@ -254,8 +254,8 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 text-center py-6 md:py-8 border-t border-neutral-800 mt-8">
-        <p className="text-xs md:text-sm text-neutral-600 px-4">
+      <footer className="relative z-10 text-center py-6 md:py-8 border-t border-neutral-200 mt-8">
+        <p className="text-xs md:text-sm text-neutral-400 px-4">
           © 2024 StrikeSense • AI-Powered Pickleball Analysis
         </p>
       </footer>

@@ -67,15 +67,15 @@ function AnalysisContent() {
 
     if (!analysisData) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center p-4">
+            <div className="min-h-screen bg-white flex items-center justify-center p-4">
                 <div className="text-center">
-                    <div className="text-white mb-2 animate-pulse">Loading analysis...</div>
+                    <div className="text-black mb-2 animate-pulse">Loading analysis...</div>
                     <button
-                        onClick={() => router.push('/strikesense/upload')}
-                        className="text-sm text-neutral-500 hover:text-white underline"
-                    >
+                            onClick={() => router.push('/strikesense/upload')}
+                        className="text-sm text-neutral-500 hover:text-black underline"
+                        >
                         Start over
-                    </button>
+                        </button>
                 </div>
             </div>
         );
@@ -127,13 +127,13 @@ function AnalysisContent() {
     const grade = getGrade(overallScore);
 
     return (
-        <div className="min-h-screen bg-black">
+        <div className="min-h-screen bg-white">
             <div className="relative z-10 max-w-4xl mx-auto px-4 py-6 md:py-10">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <button
                         onClick={() => router.push(`/strikesense/player?stroke=${strokeType}`)}
-                        className="text-neutral-500 hover:text-white flex items-center gap-2 transition font-medium group"
+                        className="text-neutral-500 hover:text-black flex items-center gap-2 transition font-medium group"
                     >
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                         <span className="text-sm">Back to Video</span>
@@ -141,57 +141,57 @@ function AnalysisContent() {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => router.push('/strikesense/history')}
-                            className="p-2.5 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition"
+                            className="p-2.5 bg-neutral-100 border border-neutral-200 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-black transition"
                         >
                             <Clock className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => router.push('/')}
-                            className="p-2.5 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition"
+                            className="p-2.5 bg-neutral-100 border border-neutral-200 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-black transition"
                         >
                             <Home className="w-4 h-4" />
-                        </button>
+                    </button>
                     </div>
                 </div>
 
                 {/* Hero Section */}
                 <div className="text-center mb-10">
-                    <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/5 text-neutral-300 text-xs font-semibold tracking-wide uppercase mb-4 border border-neutral-800">
+                    <div className="inline-flex items-center px-3 py-1 rounded-full bg-neutral-100 text-neutral-700 text-xs font-semibold tracking-wide uppercase mb-4 border border-neutral-200">
                         <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
                         Analysis Complete
                     </div>
-                    <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+                    <h1 className="text-3xl md:text-4xl font-bold text-black mb-2">
                         Performance Report
                     </h1>
                     <p className="text-neutral-500 text-sm">
                         {strokeType.charAt(0).toUpperCase() + strokeType.slice(1)} Analysis • {new Date().toLocaleDateString()}
-                    </p>
-                </div>
+                                </p>
+                            </div>
 
                 {/* Grade Card */}
-                <div className="bg-neutral-900 rounded-2xl p-6 md:p-8 border border-neutral-800 mb-6">
+                <div className="bg-neutral-50 rounded-2xl p-6 md:p-8 border border-neutral-200 mb-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-neutral-500 text-sm font-medium mb-1">Overall Score</p>
                             <div className="flex items-baseline gap-3">
-                                <span className="text-5xl md:text-6xl font-black text-white">
+                                <span className="text-5xl md:text-6xl font-black text-black">
                                     {grade}
                                 </span>
-                                <span className="text-2xl md:text-3xl font-bold text-neutral-600">{overallScore}%</span>
+                                <span className="text-2xl md:text-3xl font-bold text-neutral-400">{overallScore}%</span>
                             </div>
                         </div>
                         <div className="w-20 h-20 md:w-24 md:h-24 relative">
                             <svg className="w-full h-full transform -rotate-90">
-                                <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="8" className="text-neutral-800" />
+                                <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="8" className="text-neutral-200" />
                                 <circle 
-                                    cx="50%" cy="50%" r="45%" fill="none" stroke="white" strokeWidth="8" 
+                                    cx="50%" cy="50%" r="45%" fill="none" stroke="black" strokeWidth="8" 
                                     strokeLinecap="round"
                                     strokeDasharray={`${overallScore * 2.83} 283`}
                                 />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <Award className="w-8 h-8 md:w-10 md:h-10 text-white" />
-                            </div>
+                                <Award className="w-8 h-8 md:w-10 md:h-10 text-black" />
+                                </div>
                         </div>
                     </div>
                 </div>
@@ -225,9 +225,9 @@ function AnalysisContent() {
                 </div>
 
                 {/* Biomechanics Breakdown */}
-                <div className="bg-neutral-900 rounded-2xl p-5 md:p-6 border border-neutral-800 mb-6">
-                    <h2 className="text-lg font-semibold text-white mb-5 flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-neutral-400" />
+                <div className="bg-neutral-50 rounded-2xl p-5 md:p-6 border border-neutral-200 mb-6">
+                    <h2 className="text-lg font-semibold text-black mb-5 flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-neutral-600" />
                         Biomechanics Breakdown
                     </h2>
 
@@ -256,22 +256,22 @@ function AnalysisContent() {
                 </div>
 
                 {/* AI Coach Feedback */}
-                <div className="bg-neutral-900 rounded-2xl border border-neutral-800 mb-6 overflow-hidden">
+                <div className="bg-neutral-50 rounded-2xl border border-neutral-200 mb-6 overflow-hidden">
                     <button
                         onClick={() => setExpandedCoach(!expandedCoach)}
-                        className="w-full p-5 md:p-6 flex items-center justify-between hover:bg-neutral-800/50 transition"
+                        className="w-full p-5 md:p-6 flex items-center justify-between hover:bg-neutral-100 transition"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
-                                <MessageSquare className="w-5 h-5 text-black" />
+                            <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center">
+                                <MessageSquare className="w-5 h-5 text-white" />
                             </div>
                             <div className="text-left">
-                                <h3 className="text-base font-semibold text-white">AI Coach Analysis</h3>
+                                <h3 className="text-base font-semibold text-black">AI Coach Analysis</h3>
                                 <p className="text-xs text-neutral-500">Personalized feedback & recommendations</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            {llmLoading && <Loader2 className="w-4 h-4 text-neutral-400 animate-spin" />}
+                            {llmLoading && <Loader2 className="w-4 h-4 text-neutral-500 animate-spin" />}
                             {expandedCoach ? <ChevronUp className="w-5 h-5 text-neutral-500" /> : <ChevronDown className="w-5 h-5 text-neutral-500" />}
                         </div>
                     </button>
@@ -280,47 +280,47 @@ function AnalysisContent() {
                         <div className="px-5 md:px-6 pb-5 md:pb-6">
                             {llmLoading && (
                                 <div className="flex flex-col items-center justify-center py-10">
-                                    <Loader2 className="w-10 h-10 text-neutral-400 animate-spin mb-3" />
+                                    <Loader2 className="w-10 h-10 text-neutral-500 animate-spin mb-3" />
                                     <p className="text-neutral-500 text-sm">Analyzing your technique...</p>
                                 </div>
                             )}
 
                             {llmError && (
-                                <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-4 text-center">
-                                    <AlertCircle className="w-6 h-6 text-neutral-400 mx-auto mb-2" />
-                                    <p className="text-neutral-400 text-sm mb-3">{llmError}</p>
+                                <div className="bg-neutral-100 border border-neutral-200 rounded-xl p-4 text-center">
+                                    <AlertCircle className="w-6 h-6 text-neutral-500 mx-auto mb-2" />
+                                    <p className="text-neutral-600 text-sm mb-3">{llmError}</p>
                                     <button
                                         onClick={() => fetchLlmResponse(analysisData)}
-                                        className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium transition hover:bg-neutral-200"
+                                        className="px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-lg text-sm font-medium transition"
                                     >
                                         Retry
-                                    </button>
+                                            </button>
                                 </div>
                             )}
 
                             {llmResponse && !llmLoading && (
-                                <div className="bg-black rounded-xl p-5 border border-neutral-800">
+                                <div className="bg-white rounded-xl p-5 border border-neutral-200">
                                     <ReactMarkdown
                                         components={{
                                             h2: ({ children }) => (
-                                                <h2 className="text-lg font-bold text-white mt-5 mb-3 first:mt-0">{children}</h2>
+                                                <h2 className="text-lg font-bold text-black mt-5 mb-3 first:mt-0">{children}</h2>
                                             ),
                                             h3: ({ children }) => (
-                                                <h3 className="text-base font-semibold text-neutral-300 mt-4 mb-2">{children}</h3>
+                                                <h3 className="text-base font-semibold text-neutral-700 mt-4 mb-2">{children}</h3>
                                             ),
                                             p: ({ children }) => (
-                                                <p className="text-neutral-400 mb-3 leading-relaxed text-sm">{children}</p>
+                                                <p className="text-neutral-600 mb-3 leading-relaxed text-sm">{children}</p>
                                             ),
                                             ul: ({ children }) => (
-                                                <ul className="list-disc list-inside text-neutral-400 mb-4 space-y-1.5 text-sm">{children}</ul>
+                                                <ul className="list-disc list-inside text-neutral-600 mb-4 space-y-1.5 text-sm">{children}</ul>
                                             ),
                                             ol: ({ children }) => (
-                                                <ol className="list-decimal list-inside text-neutral-400 mb-4 space-y-1.5 text-sm">{children}</ol>
+                                                <ol className="list-decimal list-inside text-neutral-600 mb-4 space-y-1.5 text-sm">{children}</ol>
                                             ),
                                             strong: ({ children }) => (
-                                                <strong className="text-white font-semibold">{children}</strong>
+                                                <strong className="text-black font-semibold">{children}</strong>
                                             ),
-                                            hr: () => <hr className="border-neutral-800 my-5" />,
+                                            hr: () => <hr className="border-neutral-200 my-5" />,
                                         }}
                                     >
                                         {llmResponse}
@@ -335,13 +335,13 @@ function AnalysisContent() {
                 <div className="flex flex-col sm:flex-row gap-3">
                     <button
                         onClick={() => router.push(`/strikesense/player?stroke=${strokeType}`)}
-                        className="flex-1 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-white py-3.5 rounded-xl font-semibold transition text-sm"
+                        className="flex-1 bg-neutral-100 border border-neutral-200 hover:bg-neutral-200 text-black py-3.5 rounded-xl font-semibold transition text-sm"
                     >
                         ← Review Video
                     </button>
                     <button
                         onClick={() => router.push('/')}
-                        className="flex-1 bg-white hover:bg-neutral-200 text-black py-3.5 rounded-xl font-semibold transition text-sm"
+                        className="flex-1 bg-black hover:bg-neutral-800 text-white py-3.5 rounded-xl font-semibold transition text-sm"
                     >
                         New Analysis →
                     </button>
@@ -358,13 +358,13 @@ function MetricCard({ icon, label, value, subtext }: {
     subtext: string;
 }) {
     return (
-        <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800">
+        <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
             <div className="flex items-center gap-1.5 text-neutral-500 mb-2">
                 {icon}
                 <span className="text-xs font-medium">{label}</span>
             </div>
-            <div className="text-2xl font-bold text-white">{value}</div>
-            <div className="text-xs text-neutral-600 mt-0.5">{subtext}</div>
+            <div className="text-2xl font-bold text-black">{value}</div>
+            <div className="text-xs text-neutral-400 mt-0.5">{subtext}</div>
         </div>
     );
 }
@@ -373,15 +373,15 @@ function MetricBar({ label, value, detail }: { label: string; value: number; det
     return (
         <div>
             <div className="flex justify-between items-baseline mb-2">
-                <span className="text-sm font-medium text-neutral-400">{label}</span>
+                <span className="text-sm font-medium text-neutral-600">{label}</span>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs text-neutral-600">{detail}</span>
-                    <span className="text-sm font-bold text-white">{value}%</span>
+                    <span className="text-xs text-neutral-400">{detail}</span>
+                    <span className="text-sm font-bold text-black">{value}%</span>
                 </div>
             </div>
-            <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
+            <div className="h-2 bg-neutral-200 rounded-full overflow-hidden">
                 <div 
-                    className="h-full bg-white transition-all duration-700"
+                    className="h-full bg-black transition-all duration-700"
                     style={{ width: `${value}%` }}
                 />
             </div>
@@ -392,8 +392,8 @@ function MetricBar({ label, value, detail }: { label: string; value: number; det
 export default function AnalysisPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-white font-bold animate-pulse">Loading...</div>
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <div className="text-black font-bold animate-pulse">Loading...</div>
             </div>
         }>
             <AnalysisContent />
