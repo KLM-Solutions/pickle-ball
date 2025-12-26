@@ -231,70 +231,146 @@ function PlayerContent() {
                             aggregates={aggregates}
                         />
 
-                        {/* Real-time Analysis */}
-                        <div className="flex-none bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm">
-                            <h3 className="text-[10px] md:text-xs font-bold text-slate-400 mb-2 md:mb-3 flex items-center gap-2 uppercase tracking-wide">
-                                <span className="text-amber-400">⚡</span> Live Analysis
-                            </h3>
+                        {/* Current Frame Data */}
+                        {currentFrame && (
+                            <div className="flex-none bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm">
+                                <h3 className="text-[10px] md:text-xs font-bold text-slate-400 mb-2 md:mb-3 flex items-center gap-2 uppercase tracking-wide">
+                                    <span className="text-amber-400">⚡</span> Current Frame
+                                </h3>
 
-                            <div className="space-y-2 md:space-y-3">
-                                {/* Safe Status */}
-                                <div className={`p-2.5 md:p-3 rounded-lg border transition-all duration-300 ${
-                                    !currentFrame?.metrics?.injury_risk || currentFrame?.metrics?.injury_risk === 'low' 
-                                        ? 'bg-emerald-500/10 border-emerald-500/30' 
-                                        : 'bg-white/5 border-white/10 opacity-50'
-                                }`}>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`text-xs md:text-sm font-bold ${
-                                            !currentFrame?.metrics?.injury_risk || currentFrame?.metrics?.injury_risk === 'low' 
-                                                ? 'text-emerald-400' 
-                                                : 'text-slate-500'
-                                        }`}>
-                                            ✓ Form Status: SAFE
-                                        </span>
-                                    </div>
-                                    <p className="text-[10px] md:text-xs text-slate-400 mt-0.5 md:mt-1">Good biomechanics detected</p>
-                                </div>
-
-                                {/* Risk Alert */}
-                                {currentFrame?.metrics?.injury_risk && currentFrame.metrics.injury_risk !== 'low' && (
-                                    <div className="p-2.5 md:p-3 bg-red-500/10 border border-red-500/30 rounded-lg animate-pulse">
-                                        <div className="flex items-center gap-2 mb-0.5 md:mb-1">
-                                            <span className="text-[10px] md:text-xs font-bold text-red-400 uppercase tracking-wider">⚠️ Risk Alert</span>
+                                <div className="space-y-2 md:space-y-3">
+                                    {/* Frame Info */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Frame</div>
+                                            <div className="text-sm md:text-base font-bold text-white">{currentFrame.frameIdx || 0}</div>
                                         </div>
-                                        <p className="text-xs md:text-sm font-medium text-red-300">
-                                            {currentFrame.metrics.feedback?.[0] || 'Form deviation detected'}
-                                        </p>
+                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Time</div>
+                                            <div className="text-sm md:text-base font-bold text-white">{currentFrame.timestampSec?.toFixed(2) || 0}s</div>
+                                        </div>
                                     </div>
-                                )}
 
-                                {!currentFrame && (
-                                    <div className="text-center py-3 md:py-4 text-[10px] md:text-xs text-slate-500">
-                                        Play video to see live analysis
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                                    {/* Risk Status */}
+                                    {currentFrame.metrics?.injury_risk && (
+                                        <div className={`p-2.5 md:p-3 rounded-lg border ${
+                                            currentFrame.metrics.injury_risk === 'high' 
+                                                ? 'bg-red-500/10 border-red-500/30' 
+                                                : currentFrame.metrics.injury_risk === 'medium'
+                                                    ? 'bg-yellow-500/10 border-yellow-500/30'
+                                                    : 'bg-emerald-500/10 border-emerald-500/30'
+                                        }`}>
+                                            <div className={`text-xs md:text-sm font-bold ${
+                                                currentFrame.metrics.injury_risk === 'high' 
+                                                    ? 'text-red-400' 
+                                                    : currentFrame.metrics.injury_risk === 'medium'
+                                                        ? 'text-yellow-400'
+                                                        : 'text-emerald-400'
+                                            }`}>
+                                                Risk: {currentFrame.metrics.injury_risk.toUpperCase()}
+                                            </div>
+                                            {currentFrame.metrics.feedback && currentFrame.metrics.feedback.length > 0 && (
+                                                <p className="text-[10px] md:text-xs text-slate-400 mt-1">
+                                                    {currentFrame.metrics.feedback[0]}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
 
-                        {/* Pro Tips */}
-                        <div className="flex-1 bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm overflow-hidden flex flex-col">
-                            <h2 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 md:mb-3 flex items-center gap-2">
-                                <span className="text-yellow-400">💡</span> Pro Tips
-                            </h2>
-                            <div className="space-y-2 md:space-y-3 overflow-y-auto pr-1 flex-1">
-                                {[
-                                    { title: "Consistency is Key", desc: "Focus on getting the ball over rather than hitting winners.", color: "from-blue-500/20 to-blue-600/10 border-blue-500/20" },
-                                    { title: "Master the Dink", desc: "Keep dinks low and unattackable. Patience wins points.", color: "from-purple-500/20 to-purple-600/10 border-purple-500/20" },
-                                    { title: "Move with Purpose", desc: "Split step before opponent hits. Better positioning.", color: "from-orange-500/20 to-orange-600/10 border-orange-500/20" },
-                                    { title: "Stay Balanced", desc: "Weight forward, knees bent. Stable base equals power.", color: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/20" },
-                                ].map((tip, i) => (
-                                    <div key={i} className={`p-2.5 md:p-3 bg-gradient-to-br ${tip.color} rounded-lg border`}>
-                                        <h4 className="text-[10px] md:text-xs font-bold text-white mb-0.5 md:mb-1">{tip.title}</h4>
-                                        <p className="text-[9px] md:text-xs text-slate-400 leading-relaxed">{tip.desc}</p>
-                                    </div>
-                                ))}
+                                    {/* Stroke Type */}
+                                    {currentFrame.stroke_type && (
+                                        <div className="p-2.5 md:p-3 bg-violet-500/10 border border-violet-500/30 rounded-lg">
+                                            <div className="text-[9px] md:text-[10px] text-violet-400 uppercase">Stroke Detected</div>
+                                            <div className="text-sm md:text-base font-bold text-white capitalize">{currentFrame.stroke_type}</div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {/* Strokes Detected */}
+                        {strokes.length > 0 && (
+                            <div className="flex-1 bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm overflow-hidden flex flex-col">
+                                <h2 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 md:mb-3 flex items-center gap-2">
+                                    <span className="text-violet-400">🎾</span> Strokes ({strokes.length})
+                                </h2>
+                                <div className="space-y-2 md:space-y-3 overflow-y-auto pr-1 flex-1">
+                                    {strokes.map((stroke, i) => (
+                                        <div 
+                                            key={i} 
+                                            className={`p-2.5 md:p-3 rounded-lg border cursor-pointer transition-all ${
+                                                stroke.riskLevel === 'high' 
+                                                    ? 'bg-red-500/10 border-red-500/30 hover:bg-red-500/20' 
+                                                    : stroke.riskLevel === 'medium'
+                                                        ? 'bg-yellow-500/10 border-yellow-500/30 hover:bg-yellow-500/20'
+                                                        : 'bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20'
+                                            }`}
+                                            onClick={() => {
+                                                if (stroke.timestamp) {
+                                                    setCurrentTime(stroke.timestamp);
+                                                }
+                                            }}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h4 className="text-[10px] md:text-xs font-bold text-white capitalize">{stroke.type}</h4>
+                                                    <p className="text-[9px] md:text-xs text-slate-400">{stroke.label}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-[9px] md:text-[10px] text-slate-500">Confidence</div>
+                                                    <div className="text-xs md:text-sm font-bold text-white">{Math.round(stroke.confidence * 100)}%</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Analysis Summary */}
+                        {analysisData?.summary && (
+                            <div className="flex-none bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm">
+                                <h3 className="text-[10px] md:text-xs font-bold text-slate-400 mb-2 md:mb-3 flex items-center gap-2 uppercase tracking-wide">
+                                    <span className="text-blue-400">📊</span> Summary
+                                </h3>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {analysisData.summary.total_frames && (
+                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Frames</div>
+                                            <div className="text-sm md:text-base font-bold text-white">{analysisData.summary.total_frames}</div>
+                                        </div>
+                                    )}
+                                    {analysisData.summary.duration_sec && (
+                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Duration</div>
+                                            <div className="text-sm md:text-base font-bold text-white">{analysisData.summary.duration_sec.toFixed(1)}s</div>
+                                        </div>
+                                    )}
+                                    {analysisData.summary.fps && (
+                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">FPS</div>
+                                            <div className="text-sm md:text-base font-bold text-white">{analysisData.summary.fps}</div>
+                                        </div>
+                                    )}
+                                    {analysisData.playerStats?.trackedDurationSec && (
+                                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                            <div className="text-[9px] md:text-[10px] text-slate-500 uppercase">Tracked</div>
+                                            <div className="text-sm md:text-base font-bold text-white">{analysisData.playerStats.trackedDurationSec.toFixed(1)}s</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* No Data State */}
+                        {!currentFrame && strokes.length === 0 && !analysisData?.summary && (
+                            <div className="flex-1 bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm flex items-center justify-center">
+                                <div className="text-center py-4">
+                                    <div className="text-2xl mb-2">🎬</div>
+                                    <p className="text-[10px] md:text-xs text-slate-500">Play video to see analysis data</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
