@@ -176,21 +176,21 @@ export default function Home() {
             Track joint angles, detect form issues, and improve your game.
           </p>
 
-          {/* Stats - Mobile Scrollable */}
-          <div className="flex items-center justify-center gap-4 sm:gap-6 md:gap-8 text-xs md:text-sm overflow-x-auto pb-2">
-            <div className="flex items-center gap-1.5 md:gap-2 whitespace-nowrap">
-              <span className="text-xl md:text-2xl font-bold text-white">33</span>
-              <span className="text-slate-400">Body Points</span>
+          {/* Stats - Mobile Grid */}
+          <div className="grid grid-cols-3 gap-3 sm:flex sm:items-center sm:justify-center sm:gap-6 md:gap-8 text-xs md:text-sm max-w-md sm:max-w-none mx-auto">
+            <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2">
+              <span className="text-lg sm:text-xl md:text-2xl font-bold text-white">33</span>
+              <span className="text-slate-400 text-[10px] sm:text-xs md:text-sm">Body Points</span>
             </div>
-            <div className="w-px h-6 md:h-8 bg-white/20 flex-shrink-0" />
-            <div className="flex items-center gap-1.5 md:gap-2 whitespace-nowrap">
-              <span className="text-xl md:text-2xl font-bold text-white">30</span>
-              <span className="text-slate-400">FPS Analysis</span>
+            <div className="hidden sm:block w-px h-6 md:h-8 bg-white/20 flex-shrink-0" />
+            <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2">
+              <span className="text-lg sm:text-xl md:text-2xl font-bold text-white">30</span>
+              <span className="text-slate-400 text-[10px] sm:text-xs md:text-sm">FPS Analysis</span>
             </div>
-            <div className="w-px h-6 md:h-8 bg-white/20 flex-shrink-0" />
-            <div className="flex items-center gap-1.5 md:gap-2 whitespace-nowrap">
-              <span className="text-xl md:text-2xl font-bold text-white">Real-time</span>
-              <span className="text-slate-400">Feedback</span>
+            <div className="hidden sm:block w-px h-6 md:h-8 bg-white/20 flex-shrink-0" />
+            <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2">
+              <span className="text-lg sm:text-xl md:text-2xl font-bold text-white">Real-time</span>
+              <span className="text-slate-400 text-[10px] sm:text-xs md:text-sm">Feedback</span>
             </div>
           </div>
         </div>

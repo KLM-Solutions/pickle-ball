@@ -93,7 +93,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Header */}
-      <header className="relative z-10 border-b border-white/10 backdrop-blur-sm sticky top-0 bg-slate-900/80">
+      <header className="relative z-10 border-b border-white/10 backdrop-blur-sm sticky top-0 bg-slate-900 md:bg-slate-900/80">
         <div className="max-w-5xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 md:gap-4">
             <button
