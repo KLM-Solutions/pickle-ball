@@ -3,10 +3,16 @@
  * 
  * This endpoint receives notifications from RunPod when a job completes.
  * RunPod sends a POST request with the job result to this URL.
+ * 
+ * Flow:
+ * 1. Python sends raw frames (with landmarks)
+ * 2. TypeScript analyzes frames: angles, risk, feedback
+ * 3. Stores complete analysis in Supabase
  */
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { analyzeFrames, RawFrame } from "@/lib/analysis";
 
 // Use service key for webhook (server-side only)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -32,6 +38,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     // Extract our job_id from the output or input
     const jobId = output?.job_id || payload.input?.job_id;
+    const strokeType = output?.stroke_type || payload.input?.stroke_type || 'groundstroke';
 
     if (!jobId) {
       console.error("No job_id in webhook payload");
@@ -45,37 +52,40 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     // Handle different statuses
     if (status === "COMPLETED" && output) {
-      // Transform the result
-      const transformedResult = {
-        job_id: jobId,
-        stroke_type: output.stroke_type || payload.input?.stroke_type,
-        videoUrl: output.video_url,
-        frames: (output.frames || []).map((frame: any, index: number) => ({
-          frameIndex: index,
-          timestampSec: frame.timestampSec,
-          bbox: frame.bbox,
-          confidence: frame.confidence,
-          metrics: frame.metrics,
-        })),
-        strokes: output.strokes || [],
-        playerStats: output.summary ? {
-          totalDistanceMeters: output.summary.total_distance_m,
-          avgSpeedKmh: output.summary.avg_speed_kmh,
-          trackedDurationSec: output.summary.tracked_duration_sec,
-        } : undefined,
-        injuryRiskSummary: output.injury_risk_summary,
-        processingTime: output.processing_time_sec,
-      };
+      // Get raw frames from Python output
+      const rawFrames: RawFrame[] = (output.frames || []).map((frame: any) => ({
+        frameIdx: frame.frameIdx ?? frame.frame_idx ?? 0,
+        timestampSec: frame.timestampSec ?? frame.timestamp_sec ?? 0,
+        bbox: frame.bbox || [],
+        confidence: frame.confidence ?? 1,
+        track_id: frame.track_id ?? 0,
+        landmarks: frame.landmarks || null,
+      }));
 
-      // Update job in database
+      console.log(`Processing ${rawFrames.length} frames with TypeScript analysis...`);
+
+      // Run TypeScript biomechanics analysis
+      const analysisResult = analyzeFrames(
+        rawFrames,
+        strokeType,
+        jobId,
+        output.video_url || ''
+      );
+
+      // Add processing time from RunPod
+      analysisResult.processingTime = output.processing_time_sec;
+
+      console.log(`Analysis complete. Overall risk: ${analysisResult.summary.overall_risk}`);
+
+      // Update job in database with full analysis
       const { error: updateError } = await supabase
         .from("analysis_jobs")
         .update({
           status: "completed",
           result_video_url: output.video_url || null,
-          result_json: transformedResult,
+          result_json: analysisResult,
           processing_time_sec: output.processing_time_sec,
-          total_frames: output.frames?.length || 0,
+          total_frames: rawFrames.length,
           updated_at: new Date().toISOString(),
         })
         .eq("id", jobId);
@@ -92,7 +102,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ 
         received: true, 
         status: "completed",
-        job_id: jobId 
+        job_id: jobId,
+        summary: {
+          total_frames: analysisResult.summary.total_frames,
+          analyzed_frames: analysisResult.summary.analyzed_frames,
+          overall_risk: analysisResult.summary.overall_risk,
+        }
       });
 
     } else if (status === "FAILED") {
