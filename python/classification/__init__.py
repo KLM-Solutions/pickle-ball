@@ -1,7 +1,6 @@
 from .classifier import StrokeClassifier
 from .heuristics import (
-    classify_frame, 
-    classify_stroke_enhanced,
+    classify_frame,
     is_overhead, 
     is_dink, 
     is_serve,
