@@ -254,7 +254,8 @@ def is_groundstroke(metrics: Dict[str, Any]) -> Tuple[bool, float, str]:
 def classify_stroke_enhanced(
     metrics: Dict[str, Any],
     frame_history: List[Dict],
-    position_data: Optional[Dict] = None
+    position_data: Optional[Dict] = None,
+    target_type: Optional[str] = None
 ) -> Tuple[str, float, str]:
     """
     Enhanced stroke classification using research-based heuristics.
@@ -263,6 +264,7 @@ def classify_stroke_enhanced(
         metrics: Current frame biomechanics metrics
         frame_history: Previous frames for motion analysis
         position_data: Optional court position data
+        target_type: Optional user-specified stroke type to bias towards
     
     Returns:
         (stroke_type, confidence, sub_type)
@@ -277,9 +279,64 @@ def classify_stroke_enhanced(
     
     # 2. SERVE - Distinctive (below waist, upward motion)
     is_srv, srv_conf = is_serve(metrics, frame_history)
-    if is_srv and srv_conf > 0.75:
-        return ('serve', srv_conf, 'underhand')
     
+    # BIAS LOGIC for Serve
+    if target_type == 'serve':
+        if is_srv:
+            # If it passes is_serve, boost confidence
+            return ('serve', max(srv_conf, 0.85), 'underhand')
+        
+        # FALLBACK: Many serves look like groundstrokes. If it's a groundstroke and we want a serve, take it.
+        is_gs_fallback, _, _ = is_groundstroke(metrics)
+        if is_gs_fallback:
+             return ('serve', 0.80, 'underhand_drive')
+    else:
+        # Standard strict check
+        if is_srv and srv_conf > 0.75:
+            return ('serve', srv_conf, 'underhand')
+
+    # BIAS LOGIC for Groundstroke/Drive (Check BEFORE Dink/Volley)
+    if target_type in ['groundstroke', 'drive']:
+        # 1. Standard Check
+        is_gs, gs_conf, gs_sub = is_groundstroke(metrics)
+        if is_gs:
+            return ('groundstroke', max(gs_conf, 0.85), gs_sub)
+            
+        # 2. RELAXED Check (Ambiguous shots)
+        # Often drives are low (confused with dink) or have less rotation (arm shots)
+        shoulder_abd = metrics.get('right_shoulder_abduction', 0)
+        hip_rot = metrics.get('hip_rotation_deg', 0)
+        
+        # Relaxed Thresholds: Shoulder > 45 (vs 60), Hip > 10 (vs 30)
+        if shoulder_abd > 45 and hip_rot > 10:
+             return ('groundstroke', 0.80, 'drive_recreational')
+    
+    # BIAS LOGIC for Dink (Check BEFORE Standard Checks)
+    if target_type == 'dink':
+        # 1. Standard Check
+        is_dnk, dnk_conf, dnk_sub = is_dink(metrics, frame_history)
+        if is_dnk:
+             return ('dink', max(dnk_conf, 0.85), dnk_sub)
+        
+        # 2. RELAXED Check for Recreational Dinks
+        # Recreational players often rely on back/arm without bending knees
+        shoulder_abd = metrics.get('right_shoulder_abduction', 0)
+        wrist_y = metrics.get('right_wrist_y', 0.5)
+        hip_y = metrics.get('right_hip_y', 0.5)
+        
+        # Relaxed: Shoulder < 80 (allow defensive high dinks), No knee check
+        low_arm = shoulder_abd < 80
+        low_contact = wrist_y > (hip_y - 0.2) # Generous waist tolerance
+        
+        if low_arm and low_contact:
+            return ('dink', 0.80, 'dink_recreational')
+            
+        # 3. CONFLICT RESOLUTION: "Block Volley" -> Dink
+        # Block volleys often look like dinks near the kitchen
+        is_vol, _, sub = is_volley(metrics, position_data)
+        if is_vol: # Catch ANY volley (punch or block) if target is dink
+            return ('dink', 0.75, 'dink_high')
+
     # 3. DINK - Distinctive (low shoulder, low body)
     is_dnk, dnk_conf, dnk_sub = is_dink(metrics, frame_history)
     if is_dnk and dnk_conf > 0.80:
@@ -295,11 +352,16 @@ def classify_stroke_enhanced(
     if is_gs:
         return ('groundstroke', gs_conf, gs_sub)
     
+    # CRITICAL FALLBACK: If we have a specific target and found SOME motion/tracking,
+    # but couldn't classify it, FORCE it to the target type.
+    if target_type:
+        return (target_type, 0.60, 'forced_fallback')
+    
     # Fallback
     return ('groundstroke', 0.60, 'unknown')
 
 
-def classify_frame(metrics: Dict[str, float], landmarks: Any) -> str:
+def classify_frame(metrics: Dict[str, float], landmarks: Any, target_type: Optional[str] = None) -> str:
     """
     Legacy compatibility function.
     Simplified classification for single frame without history.
@@ -307,5 +369,5 @@ def classify_frame(metrics: Dict[str, float], landmarks: Any) -> str:
     Returns: stroke_type string
     """
     # Use enhanced classification with empty history
-    stroke_type, _, _ = classify_stroke_enhanced(metrics, [], None)
+    stroke_type, _, _ = classify_stroke_enhanced(metrics, [], None, target_type=target_type)
     return stroke_type

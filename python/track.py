@@ -716,6 +716,16 @@ def main():
                                         metrics['injury_risks'] = frame_risks
                                 except Exception as e:
                                     print(f"Biomechanics calcs failed: {e}")
+                            # velocity calculation
+                            wrist_v = 0.0
+                            current_wrist_y = metrics.get('right_wrist_y', 0)
+                            if len(all_frames_metrics) > 0:
+                                prev_m = all_frames_metrics[-1]
+                                prev_wrist_y = prev_m.get('right_wrist_y', current_wrist_y)
+                                # Velocity: change per second. Abs value.
+                                wrist_v = abs(current_wrist_y - prev_wrist_y) * fps
+                            metrics['wrist_velocity_y'] = wrist_v
+                            
                             # Add enhanced fields
                             metrics["stroke_type_detected"] = stroke_type_detected
                             metrics["stroke_confidence"] = round(stroke_confidence, 3)
@@ -764,15 +774,63 @@ def main():
     classifier = StrokeClassifier() if StrokeClassifier else None
     
     if classifier is not None and len(all_frames_metrics) > 0:
-        # Detect segments automatically
-        detected_segments = classifier.detect_segments(all_frames_metrics)
-        detected_strokes = [{
-            "stroke_type": s["stroke_type"],
-            "start_frame": s["start_frame"],
-            "startSec": round(s["start_frame"] * step / fps, 2),
-            "confidence": s["confidence"]
-        } for s in detected_segments]
-        print(f"Auto-detected strokes: {[s['stroke_type'] for s in detected_strokes]}")
+        # Detect segments automatically with BIAS
+        raw_segments = classifier.detect_segments(all_frames_metrics, target_type=args.stroke_type)
+        
+        # STRICT FILTERING: Only keep strokes matching the user's selection
+        if args.stroke_type and args.stroke_type.lower() not in ['overall', 'none', '']:
+            detected_strokes = []
+            dropped_types = []
+            for s in raw_segments:
+                # Accept if matches target OR if it's our forced fallback
+                if (s['stroke_type'].lower() == args.stroke_type.lower() or 
+                    s['stroke_type'] == 'forced_fallback'):
+                    
+                    s['confidence'] = float(s['confidence']) # Ensure float
+                    
+                    # --- PEAK VELOCITY LOGIC (Ported from Manual Test) ---
+                    s_start = s['start_frame']
+                    s_end = s['end_frame']
+                    max_v = 0.0
+                    max_v_frame = s_start
+                    
+                    # Scan frames in this segment
+                    # Note: all_frames_metrics indices might not align perfectly if frames were skipped
+                    # But if we strictly appended, they should map via frame_idx
+                    for m in all_frames_metrics:
+                        f_idx = m.get('frame_idx', -1)
+                        if s_start <= f_idx <= s_end:
+                            v = m.get('wrist_velocity_y', 0.0)
+                            if v > max_v:
+                                max_v = v
+                                max_v_frame = f_idx
+                    
+                    s['peak_velocity'] = float(round(max_v, 2))
+                    s['peak_frame_idx'] = int(max_v_frame)
+                    s['peak_timestamp'] = float(round(max_v_frame / fps, 3))
+                    
+                    detected_strokes.append(s)
+                    
+                    # PRINT DETAILED TIMING LOG FOR USER (Verified Format)
+                    start_sec = round(s['start_frame'] / fps, 2)
+                    end_sec = round(s['end_frame'] / fps, 2)
+                    print(f"[RESULT] Found '{s['stroke_type']}': Frame {s['start_frame']}-{s['end_frame']} (t={start_sec}s to {end_sec}s)")
+                    print(f"       -> PEAK: Frame {s['peak_frame_idx']} (t={s['peak_timestamp']}s, V={s['peak_velocity']})")
+                else:
+                    dropped_types.append(s['stroke_type'])
+            
+            print(f"Strict Filter: Kept {len(detected_strokes)} segments matching '{args.stroke_type}'")
+            if dropped_types:
+                print(f"  (Dropped {len(dropped_types)} others: {dropped_types})")
+        else:
+            detected_strokes = raw_segments
+
+        # Final Cleanup for output
+        for s in detected_strokes:
+             s["startSec"] = round(s["start_frame"] * step / fps, 2)
+             s["confidence"] = float(s["confidence"])
+             
+        print(f"Final Output strokes: {[s['stroke_type'] for s in detected_strokes]}")
     else:
         # Fallback if classifier failed or no metrics
         print("Classifier unavailable or no metrics collected. Using hint.")

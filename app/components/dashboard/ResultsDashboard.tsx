@@ -134,7 +134,7 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                                 <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
                                 <span className="text-sm font-medium text-slate-400 group-hover:text-white transition-colors">Back</span>
                             </button>
-                            
+
                             <div className="flex items-center gap-3">
                                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getStrokeColor(result.stroke_type)} flex items-center justify-center shadow-lg`}>
                                     <Zap className="w-5 h-5 text-white" />
@@ -147,15 +147,14 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setShowJson(!showJson)}
-                                className={`px-3 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${
-                                    showJson 
-                                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
-                                        : 'bg-white/5 text-slate-400 border border-white/10 hover:text-white hover:bg-white/10'
-                                }`}
+                                className={`px-3 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${showJson
+                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                                    : 'bg-white/5 text-slate-400 border border-white/10 hover:text-white hover:bg-white/10'
+                                    }`}
                             >
                                 <Code className="w-4 h-4" />
                                 <span className="hidden sm:inline">JSON</span>
@@ -208,6 +207,69 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                                 <StatCard metric="Distance" value={result.ballStats.totalDistanceMeters || 0} target={20} unit=" m" />
                             </div>
                         )}
+
+                        {/* KEY MOMENTS STRIP (Dynamic) */}
+                        <div className="bg-slate-800/50 p-4 rounded-xl border border-white/10 backdrop-blur-sm shadow-lg">
+                            <h3 className="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                                <Activity className="w-3 h-3 text-cyan-400" /> Key Moments
+                            </h3>
+                            <div className="grid grid-cols-5 gap-2">
+                                {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+                                    // 1. Determine active stroke context
+                                    const activeStroke = result.strokes?.find(s => currentTime >= s.startSec && currentTime <= ((s.end_frame || 0) / 30));
+                                    const frames = result.frames || [];
+                                    if (frames.length === 0) return null;
+
+                                    // 2. Calculate target frame index
+                                    let targetFrameIdx = 0;
+                                    let label = "";
+
+                                    if (activeStroke) {
+                                        // If inside a stroke, show ITS phases
+                                        const start = activeStroke.start_frame || 0;
+                                        const end = activeStroke.end_frame || 0;
+                                        targetFrameIdx = Math.floor(start + (end - start) * ratio);
+
+                                        if (i === 2) {
+                                            targetFrameIdx = activeStroke.peak_frame_idx || targetFrameIdx;
+                                            label = "PEAK";
+                                        } else if (i === 0) label = "START";
+                                        else if (i === 4) label = "FINISH";
+                                    } else {
+                                        // Default: Whole video distribution
+                                        targetFrameIdx = Math.floor(frames.length * ratio);
+                                        if (targetFrameIdx >= frames.length) targetFrameIdx = frames.length - 1;
+                                    }
+
+                                    const frameData = frames.find(f => f.frame_idx === targetFrameIdx);
+
+                                    return (
+                                        <button
+                                            key={`thumb-${i}`}
+                                            onClick={() => frameData && setCurrentTime(frameData.timestampSec)}
+                                            className={`relative aspect-video rounded-lg overflow-hidden border transition-all group ${Math.abs(currentTime - (frameData?.timestampSec || 0)) < 0.1 ? 'border-cyan-400 ring-2 ring-cyan-400/20' : 'border-white/10 hover:border-white/30'}`}
+                                        >
+                                            {frameData && frameData.frameFilename ? (
+                                                <img
+                                                    src={frameData.frameFilename.startsWith('http') ? frameData.frameFilename : `/frames/${frameData.frameFilename}`}
+                                                    alt={`Frame ${targetFrameIdx}`}
+                                                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+                                                    <span className="text-[10px] text-slate-600">No Img</span>
+                                                </div>
+                                            )}
+                                            {label && (
+                                                <div className={`absolute bottom-1 right-1 text-[8px] font-bold px-1.5 py-0.5 rounded-sm ${label === 'PEAK' ? 'bg-emerald-500 text-black' : 'bg-black/60 text-white'}`}>
+                                                    {label}
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
 
                     {/* RIGHT COLUMN: INSIGHTS & METRICS (4 cols) */}
@@ -269,34 +331,59 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                             </div>
                         </div>
 
-                        {/* STROKE LOG */}
+                        {/* STROKE PERFORMANCE (Enhanced) */}
                         <div className="flex-1 min-h-0 overflow-y-auto bg-slate-800/50 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
-                            <h3 className="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider sticky top-0 bg-slate-800/90 z-10 py-2 -mt-2 -mx-1 px-1 backdrop-blur-sm">
-                                Detected Strokes
+                            <h3 className="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider sticky top-0 bg-slate-800/90 z-10 py-2 -mt-2 -mx-1 px-1 backdrop-blur-sm flex items-center justify-between">
+                                <span>Stroke Performance</span>
+                                <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-slate-300">
+                                    {result.strokes?.filter(s => s.type === result.stroke_type).length || 0} Detected
+                                </span>
                             </h3>
-                            <div className="space-y-2 pb-2">
-                                {result.strokes?.map((s, i) => (
+                            <div className="space-y-3 pb-2">
+                                {result.strokes?.filter(s => s.type === result.stroke_type).map((s, i) => (
                                     <button
                                         key={`stroke-log-${i}`}
                                         onClick={() => setCurrentTime(s.startSec)}
-                                        className="w-full flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-left transition-all duration-200 group"
+                                        className="w-full text-left p-3 rounded-xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 hover:border-cyan-500/50 hover:from-cyan-500/10 hover:to-cyan-900/10 transition-all duration-300 group relative overflow-hidden"
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${s.type === 'serve' ? 'bg-emerald-400' : s.type === 'groundstroke' ? 'bg-orange-400' : s.type === 'dink' ? 'bg-violet-400' : 'bg-blue-400'}`} />
-                                            <div>
-                                                <span className="text-[10px] font-mono font-bold text-slate-500 block mb-0.5">{s.startSec.toFixed(1)}s</span>
-                                                <span className="text-xs font-bold text-white capitalize block leading-none">{s.type}</span>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br ${getStrokeColor(s.type)} shadow-lg`}>
+                                                    <Zap className="w-4 h-4 text-white" />
+                                                </div>
+                                                <div>
+                                                    <span className="text-sm font-bold text-white capitalize block">{s.type}</span>
+                                                    <span className="text-[10px] text-slate-400 font-mono">
+                                                        {s.startSec.toFixed(2)}s - {((s.end_frame || 0) / 30).toFixed(2)}s
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-md border border-cyan-500/20">
+                                                    Peak: {s.peak_timestamp?.toFixed(2)}s
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="text-[10px] font-bold text-slate-400 bg-white/5 px-2 py-1 rounded-full">
-                                            {(s.confidence * 100).toFixed(0)}%
+
+                                        {/* Metrics Grid */}
+                                        <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-white/5">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] text-slate-500 uppercase">Max Speed</span>
+                                                <span className="text-xs font-bold text-white">{s.peak_velocity?.toFixed(2) || 'N/A'}</span>
+                                            </div>
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[10px] text-slate-500 uppercase">Confidence</span>
+                                                <span className="text-xs font-bold text-emerald-400">{(s.confidence * 100).toFixed(0)}%</span>
+                                            </div>
                                         </div>
                                     </button>
                                 ))}
-                                {(!result.strokes || result.strokes.length === 0) && (
-                                    <div className="text-center py-8 opacity-50">
-                                        <Activity className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                                        <p className="text-xs text-slate-500">No strokes detected.</p>
+
+                                {(!result.strokes || result.strokes.filter(s => s.type === result.stroke_type).length === 0) && (
+                                    <div className="text-center py-10 opacity-50 flex flex-col items-center">
+                                        <Activity className="w-10 h-10 text-slate-700 mb-3" />
+                                        <p className="text-sm font-medium text-slate-500">No {result.stroke_type}s detected.</p>
+                                        <p className="text-xs text-slate-600 mt-1">Try another analysis or upload a clearer video.</p>
                                     </div>
                                 )}
                             </div>

@@ -271,30 +271,80 @@ def handler(job):
         output_fps = max(1, 30 // step)
         video_encoded = encode_video_from_frames(output_dir, annotated_video_path, fps=output_fps)
         
-        # 5. Upload to Supabase
+        # 5. Upload to Supabase & Selective Frame Upload
         result_video_url = None
         frames_data = []
+        uploaded_frame_urls = {} # Map frame_idx -> public_url
         
         # Upload annotated video
         if video_encoded and os.path.exists(annotated_video_path):
+            print(f"Uploading video: {annotated_video_path}")
             result_video_url = uploader.upload_file(
                 bucket="analysis-results",
                 file_path=annotated_video_path,
                 destination_path=f"{job_id}/annotated.mp4",
                 content_type="video/mp4"
             )
+
+        # SELECTIVE FRAME UPLOAD
+        # We only upload frames needed for the UI filmstrip (Start, Q1, Peak, Q3, End)
+        key_indices = set()
+        detected_strokes = results.get("strokes", [])
         
-        # Build frames response with metrics only (no image upload - not used by UI)
+        for curr_s in detected_strokes:
+            start = curr_s.get("start_frame", 0)
+            end = curr_s.get("end_frame", 0)
+            
+            # Add Start/End
+            key_indices.add(start)
+            key_indices.add(end)
+            
+            # Add Peak if available
+            if "peak_frame_idx" in curr_s:
+                key_indices.add(curr_s["peak_frame_idx"])
+            
+            # Add Quarters (0.25 and 0.75) to match UI
+            if end > start:
+                q1 = int(start + (end - start) * 0.25)
+                q3 = int(start + (end - start) * 0.75)
+                key_indices.add(q1)
+                key_indices.add(q3)
+
+        print(f"Identified {len(key_indices)} unique key frames to upload.")
+        
+        # Upload the selected frames
+        for idx in key_indices:
+            frame_filename = f"frame_{idx:04d}.png"
+            local_frame_path = os.path.join(frames_dir, frame_filename)
+            
+            if os.path.exists(local_frame_path):
+                # Upload
+                public_url = uploader.upload_file(
+                    bucket="analysis-results",
+                    file_path=local_frame_path,
+                    destination_path=f"{job_id}/frames/{frame_filename}",
+                    content_type="image/png"
+                )
+                if public_url:
+                    uploaded_frame_urls[idx] = public_url
+        
+        print(f"Successfully uploaded {len(uploaded_frame_urls)} key frames.")
+        
+        # Build frames response
         raw_frames = results.get("frames", [])
-        print(f"Processing {len(raw_frames)} frames (no image upload)")
         
         for i, frame_data in enumerate(raw_frames):
+            # Check if this frame has an uploaded URL
+            frame_url = uploaded_frame_urls.get(i)
+            
             frames_data.append({
                 "frameIndex": i,
+                "frame_idx": i, # Ensure consistency
                 "timestampSec": frame_data.get("timestampSec", i * step / 30.0),
                 "bbox": frame_data.get("bbox", [0, 0, 0, 0]),
                 "confidence": frame_data.get("confidence", 0),
-                "metrics": frame_data.get("metrics", {})
+                "metrics": frame_data.get("metrics", {}),
+                "frameFilename": frame_url # Only present if uploaded
             })
         
         # 6. Calculate processing time
