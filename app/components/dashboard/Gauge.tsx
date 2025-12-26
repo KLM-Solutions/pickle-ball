@@ -52,7 +52,7 @@ export function Gauge({
                     <path
                         d="M 5 50 A 45 45 0 0 1 95 50"
                         fill="none"
-                        stroke="rgba(255,255,255,0.1)"
+                        stroke="#262626"
                         strokeWidth={strokeWidth}
                         strokeLinecap="round"
                     />
@@ -89,7 +89,7 @@ export function Gauge({
                         textAnchor="middle"
                         fontSize="8"
                         fontWeight="500"
-                        fill="#94a3b8"
+                        fill="#737373"
                         className="uppercase"
                     >
                         {label}
