@@ -404,9 +404,9 @@ export async function POST(request: NextRequest) {
     // Launch browser with @sparticuz/chromium
     browser = await puppeteer.launch({
       args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
+      defaultViewport: { width: 1200, height: 800 },
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: true,
     });
 
     const page = await browser.newPage();
