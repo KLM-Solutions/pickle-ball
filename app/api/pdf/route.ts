@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium";
+import chromium from "@sparticuz/chromium-min";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Allow up to 60 seconds for PDF generation
+
+// Remote chromium binary URL for serverless environments
+const CHROMIUM_REMOTE_URL = "https://github.com/Sparticuz/chromium/releases/download/v131.0.0/chromium-v131.0.0-pack.tar";
 
 // Generate HTML report from data
 function generateReportHTML(data: any): string {
@@ -401,11 +404,11 @@ export async function POST(request: NextRequest) {
     // Generate HTML from data
     const html = generateReportHTML(body);
 
-    // Launch browser with @sparticuz/chromium
+    // Launch browser with @sparticuz/chromium-min using remote binary
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: { width: 1200, height: 800 },
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(CHROMIUM_REMOTE_URL),
       headless: true,
     });
 

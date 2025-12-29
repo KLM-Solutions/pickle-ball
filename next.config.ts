@@ -5,9 +5,9 @@ const nextConfig: NextConfig = {
     // Ensure the correct project root to avoid stale caches when multiple lockfiles exist
     root: __dirname,
   },
-  // Opt-in to stricter dev origin to silence warning (adjust as needed)
   experimental: {
-    // Nothing else for now
+    // Include puppeteer packages in server components for PDF generation
+    serverComponentsExternalPackages: ['puppeteer-core', '@sparticuz/chromium-min'],
   },
 };
 
