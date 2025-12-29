@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense, useRef } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft, Activity, TrendingUp, Award,
@@ -9,8 +9,6 @@ import {
     Download, Loader2
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +21,6 @@ function AnalysisContent() {
     
     const [llmResponse, setLlmResponse] = useState<string | null>(null);
     const [pdfLoading, setPdfLoading] = useState(false);
-    const reportRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const storedResult = sessionStorage.getItem('analysisResult');
@@ -106,70 +103,52 @@ function AnalysisContent() {
     const grade = getGrade(overallScore);
 
     const handleDownloadPDF = async () => {
-        if (!reportRef.current) return;
-        
         setPdfLoading(true);
         try {
-            // Capture the report content as canvas
-            const canvas = await html2canvas(reportRef.current, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: '#ffffff',
-                logging: false,
+            const response = await fetch('/api/pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    strokeType,
+                    grade,
+                    overallScore,
+                    frames: frames.length,
+                    duration: summary.duration_sec || 0,
+                    riskScore,
+                    riskCounts,
+                    shoulderScore: Math.round(shoulderScore),
+                    hipScore: Math.round(hipScore),
+                    kneeScore: Math.round(kneeScore),
+                    elbowScore: elbowAngles.length > 0 ? Math.round(calculateScore(elbowAngles, 90, 150)) : 80,
+                    avgShoulder: getAverage(shoulderAngles),
+                    avgHip: getAverage(hipRotations),
+                    avgKnee: getAverage(kneeFlexions),
+                    avgElbow: getAverage(elbowAngles),
+                    llmResponse,
+                    generatedAt: new Date().toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                }),
             });
-            
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4',
-            });
-            
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const imgWidth = canvas.width;
-            const imgHeight = canvas.height;
-            const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-            const imgX = (pdfWidth - imgWidth * ratio) / 2;
-            const imgY = 10;
-            
-            // Calculate total height needed
-            const scaledHeight = imgHeight * ratio;
-            const pageHeight = pdfHeight - 20; // Account for margins
-            
-            if (scaledHeight <= pageHeight) {
-                // Content fits on one page
-                pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, scaledHeight);
-            } else {
-                // Multi-page handling
-                let position = 0;
-                const pageCount = Math.ceil(scaledHeight / pageHeight);
-                
-                for (let i = 0; i < pageCount; i++) {
-                    if (i > 0) {
-                        pdf.addPage();
-                    }
-                    
-                    const srcY = (position / ratio);
-                    const srcHeight = Math.min(pageHeight / ratio, imgHeight - srcY);
-                    
-                    // Create a temporary canvas for this page section
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = imgWidth;
-                    tempCanvas.height = srcHeight;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    
-                    if (tempCtx) {
-                        tempCtx.drawImage(canvas, 0, srcY, imgWidth, srcHeight, 0, 0, imgWidth, srcHeight);
-                        const pageImgData = tempCanvas.toDataURL('image/png');
-                        pdf.addImage(pageImgData, 'PNG', imgX, imgY, imgWidth * ratio, srcHeight * ratio);
-                    }
-                    
-                    position += pageHeight;
-                }
+
+            if (!response.ok) {
+                throw new Error('Failed to generate PDF');
             }
-            
-            pdf.save(`strikesense-report-${strokeType}-${Date.now()}.pdf`);
+
+            // Download the PDF
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `strikesense-report-${strokeType}-${Date.now()}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
         } catch (error) {
             console.error('PDF download error:', error);
             alert('Failed to generate PDF. Please try again.');
@@ -218,8 +197,6 @@ function AnalysisContent() {
                     </div>
                 </div>
 
-                {/* Report Content - for PDF capture */}
-                <div ref={reportRef} className="bg-white">
                 {/* Hero Section */}
                 <div className="text-center mb-10">
                     <div className="inline-flex items-center px-3 py-1 rounded-full bg-neutral-100 text-neutral-700 text-xs font-semibold tracking-wide uppercase mb-4 border border-neutral-200">
@@ -382,7 +359,6 @@ function AnalysisContent() {
                         </div>
                     )}
                 </div>
-                </div> {/* End of report ref */}
 
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-3">
