@@ -24,6 +24,7 @@ export interface AnalysisJob {
   input_json: any | null;
   processing_time_sec: number | null;
   total_frames: number | null;
+  llm_response: string | null;
 }
 
 // Create Supabase client

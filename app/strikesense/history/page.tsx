@@ -46,6 +46,7 @@ export default function HistoryPage() {
         ...job.result_json,
         videoUrl: job.result_video_url,
         stroke_type: job.stroke_type,
+        llm_response: job.llm_response, // Include cached LLM response
       };
       sessionStorage.setItem("analysisResult", JSON.stringify(analysisResult));
       router.push(`/strikesense/player?stroke=${job.stroke_type}&job_id=${job.id}`);

@@ -22,6 +22,17 @@ export * from './types';
 export { calculateMetrics } from './angles';
 export { detectRisks } from './risk';
 export { generateFeedback } from './feedback';
+export { 
+  filterFramesForIssues, 
+  getKeyFramesByIssue, 
+  getFilterSummary, 
+  getTopIssues,
+  type FilteredFrame,
+  type FrameIssue,
+  type FilterSummary,
+  type KeyIssue,
+  type IssueType,
+} from './filter';
 
 /**
  * Analyze all frames and generate complete analysis result

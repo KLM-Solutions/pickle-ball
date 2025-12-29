@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Award, ChevronRight, Home, BarChart3 } from "lucide-react";
+import { ArrowLeft, Award, ChevronRight, BarChart3, AlertTriangle, TrendingUp, Play, Lightbulb } from "lucide-react";
 import VideoPanel from "../../components/VideoPanel";
 import { BiomechanicalMetrics } from "../../components/dashboard/BiomechanicalMetrics";
+import { filterFramesForIssues, getTopIssues, getFilterSummary, FilteredFrame, FilterSummary } from "@/lib/analysis";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,7 @@ function PlayerContent() {
     const [analysisData, setAnalysisData] = useState<any>(null);
     const [playbackSpeed, setPlaybackSpeed] = useState(1);
     const [showMetrics, setShowMetrics] = useState(true);
+    const [activeTab, setActiveTab] = useState<'metrics' | 'issues'>('metrics');
 
     useEffect(() => {
         if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
@@ -67,6 +69,42 @@ function PlayerContent() {
             knee: validKnee.length > 0 ? Math.round(Math.min(...validKnee.map((f: any) => f.metrics.right_knee_flexion))) : 0,
         };
     }, [analysisData]);
+
+    // Filter frames for issues based on stroke type
+    const { filteredFrames, filterSummary, topIssues } = useMemo(() => {
+        if (!analysisData?.frames || analysisData.frames.length === 0) {
+            return { filteredFrames: [], filterSummary: null, topIssues: [] };
+        }
+        
+        const filtered = filterFramesForIssues(analysisData.frames, strokeType);
+        const summary = getFilterSummary(analysisData.frames, filtered);
+        const top = getTopIssues(filtered, 5);
+        
+        return { filteredFrames: filtered, filterSummary: summary, topIssues: top };
+    }, [analysisData, strokeType]);
+
+    // Jump to frame
+    const jumpToFrame = (frame: any) => {
+        const time = frame.timestampSec ?? frame.timestamp_sec ?? 0;
+        setCurrentTime(time);
+    };
+
+    // Get issue label
+    const getIssueLabel = (type: string) => {
+        const labels: Record<string, string> = {
+            shoulder_overuse: 'Shoulder Overuse',
+            shoulder_over_rotation: 'Over-Rotation',
+            shoulder_under_rotation: 'Under-Rotation',
+            poor_kinetic_chain: 'Poor Kinetic Chain',
+            insufficient_hip_rotation: 'Low Hip Power',
+            knee_stress: 'Knee Stress',
+            excessive_knee_bend: 'Deep Knee Bend',
+            insufficient_knee_bend: 'Straight Knees',
+            elbow_form: 'Elbow Position',
+            elbow_strain: 'Elbow Strain',
+        };
+        return labels[type] || type.replace(/_/g, ' ');
+    };
 
     return (
         <div className="min-h-screen bg-white">
@@ -138,113 +176,282 @@ function PlayerContent() {
                     {/* Metrics Sidebar */}
                     <div className={`lg:col-span-4 space-y-4 ${showMetrics ? 'block' : 'hidden lg:block'}`}>
 
-                        {/* Real-time Metrics */}
-                        <BiomechanicalMetrics
-                            currentFrameMetrics={currentFrame?.metrics}
-                            aggregates={aggregates}
-                        />
-
-                        {/* Current Frame Info */}
-                        <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
-                            <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide">
-                                Current Frame
-                            </h3>
-                            
-                            <div className="grid grid-cols-2 gap-2 mb-3">
-                                <div className="bg-white rounded-lg p-3 border border-neutral-200">
-                                    <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Frame</div>
-                                    <div className="text-lg font-bold text-black">
-                                        {currentFrame ? (currentFrame.frameIdx ?? currentFrame._calculatedIdx ?? 0) : '--'}
-                                    </div>
-                                </div>
-                                <div className="bg-white rounded-lg p-3 border border-neutral-200">
-                                    <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Time</div>
-                                    <div className="text-lg font-bold text-black">
-                                        {currentFrame ? `${(currentFrame.timestampSec ?? currentFrame._calculatedTime ?? 0).toFixed(2)}s` : '--'}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Risk Status - Fixed height container */}
-                            <div className={`rounded-lg p-3 border min-h-[72px] ${
-                                !currentFrame 
-                                    ? 'bg-neutral-100 border-neutral-200'
-                                    : currentFrame.injury_risk === 'high' 
-                                        ? 'bg-red-50 border-red-200' 
-                                        : currentFrame.injury_risk === 'medium'
-                                            ? 'bg-amber-50 border-amber-200'
-                                            : 'bg-green-50 border-green-200'
-                            }`}>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-neutral-500">Form Status</span>
-                                    <span className={`text-sm font-bold uppercase ${
-                                        !currentFrame
-                                            ? 'text-neutral-400'
-                                            : currentFrame.injury_risk === 'high'
-                                                ? 'text-red-600'
-                                                : currentFrame.injury_risk === 'medium'
-                                                    ? 'text-amber-600'
-                                                    : 'text-green-600'
-                                    }`}>
-                                        {!currentFrame 
-                                            ? '-- Waiting'
-                                            : currentFrame.injury_risk === 'high' 
-                                                ? '⚠️ High Risk' 
-                                                : currentFrame.injury_risk === 'medium' 
-                                                    ? '⚡ Medium' 
-                                                    : '✓ Good'}
+                        {/* Tab Switcher */}
+                        <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg border border-neutral-200">
+                            <button
+                                onClick={() => setActiveTab('metrics')}
+                                className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 ${
+                                    activeTab === 'metrics' 
+                                        ? 'bg-white text-black shadow-sm border border-neutral-200' 
+                                        : 'text-neutral-500 hover:text-black'
+                                }`}
+                            >
+                                <BarChart3 className="w-3.5 h-3.5" />
+                                Metrics
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('issues')}
+                                className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 ${
+                                    activeTab === 'issues' 
+                                        ? 'bg-white text-black shadow-sm border border-neutral-200' 
+                                        : 'text-neutral-500 hover:text-black'
+                                }`}
+                            >
+                                <Lightbulb className="w-3.5 h-3.5" />
+                                Issues
+                                {filterSummary && filterSummary.injury_risk_frames > 0 && (
+                                    <span className="ml-1 px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full text-[10px]">
+                                        {filterSummary.injury_risk_frames}
                                     </span>
-                                </div>
-                                <p className={`text-xs mt-2 leading-relaxed min-h-[16px] ${
-                                    !currentFrame
-                                        ? 'text-neutral-400'
-                                        : currentFrame.injury_risk === 'high'
-                                            ? 'text-red-600'
-                                            : currentFrame.injury_risk === 'medium'
-                                                ? 'text-amber-600'
-                                                : 'text-green-600'
-                                }`}>
-                                    {!currentFrame 
-                                        ? 'Play video to see form analysis'
-                                        : currentFrame.feedback && currentFrame.feedback.length > 0 
-                                            ? currentFrame.feedback[0] 
-                                            : 'No feedback for this frame'}
-                                </p>
-                            </div>
+                                )}
+                            </button>
                         </div>
 
-                        {/* Session Summary */}
-                        <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
-                            <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide">
-                                Session Summary
-                            </h3>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="bg-white rounded-lg p-3 border border-neutral-200">
-                                    <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Frames</div>
-                                    <div className="text-lg font-bold text-black">
-                                        {analysisData?.summary?.total_frames || analysisData?.frames?.length || '--'}
+                        {/* Metrics Tab */}
+                        {activeTab === 'metrics' && (
+                            <>
+                                {/* Real-time Metrics */}
+                                <BiomechanicalMetrics
+                                    currentFrameMetrics={currentFrame?.metrics}
+                                    aggregates={aggregates}
+                                />
+
+                                {/* Current Frame Info */}
+                                <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
+                                    <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide">
+                                        Current Frame
+                                    </h3>
+                                    
+                                    <div className="grid grid-cols-2 gap-2 mb-3">
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Frame</div>
+                                            <div className="text-lg font-bold text-black">
+                                                {currentFrame ? (currentFrame.frameIdx ?? currentFrame._calculatedIdx ?? 0) : '--'}
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Time</div>
+                                            <div className="text-lg font-bold text-black">
+                                                {currentFrame ? `${(currentFrame.timestampSec ?? currentFrame._calculatedTime ?? 0).toFixed(2)}s` : '--'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Risk Status */}
+                                    <div className={`rounded-lg p-3 border min-h-[72px] ${
+                                        !currentFrame 
+                                            ? 'bg-neutral-100 border-neutral-200'
+                                            : currentFrame.injury_risk === 'high' 
+                                                ? 'bg-red-50 border-red-200' 
+                                                : currentFrame.injury_risk === 'medium'
+                                                    ? 'bg-amber-50 border-amber-200'
+                                                    : 'bg-green-50 border-green-200'
+                                    }`}>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-neutral-500">Form Status</span>
+                                            <span className={`text-sm font-bold uppercase ${
+                                                !currentFrame
+                                                    ? 'text-neutral-400'
+                                                    : currentFrame.injury_risk === 'high'
+                                                        ? 'text-red-600'
+                                                        : currentFrame.injury_risk === 'medium'
+                                                            ? 'text-amber-600'
+                                                            : 'text-green-600'
+                                            }`}>
+                                                {!currentFrame 
+                                                    ? '-- Waiting'
+                                                    : currentFrame.injury_risk === 'high' 
+                                                        ? '⚠️ High Risk' 
+                                                        : currentFrame.injury_risk === 'medium' 
+                                                            ? '⚡ Medium' 
+                                                            : '✓ Good'}
+                                            </span>
+                                        </div>
+                                        <p className={`text-xs mt-2 leading-relaxed min-h-[16px] ${
+                                            !currentFrame
+                                                ? 'text-neutral-400'
+                                                : currentFrame.injury_risk === 'high'
+                                                    ? 'text-red-600'
+                                                    : currentFrame.injury_risk === 'medium'
+                                                        ? 'text-amber-600'
+                                                        : 'text-green-600'
+                                        }`}>
+                                            {!currentFrame 
+                                                ? 'Play video to see form analysis'
+                                                : currentFrame.feedback && currentFrame.feedback.length > 0 
+                                                    ? currentFrame.feedback[0] 
+                                                    : 'No feedback for this frame'}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="bg-white rounded-lg p-3 border border-neutral-200">
-                                    <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Duration</div>
-                                    <div className="text-lg font-bold text-black">
-                                        {analysisData?.summary?.duration_sec?.toFixed(1) || '--'}s
+
+                                {/* Session Summary */}
+                                <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
+                                    <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide">
+                                        Session Summary
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Frames</div>
+                                            <div className="text-lg font-bold text-black">
+                                                {analysisData?.summary?.total_frames || analysisData?.frames?.length || '--'}
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Duration</div>
+                                            <div className="text-lg font-bold text-black">
+                                                {analysisData?.summary?.duration_sec?.toFixed(1) || '--'}s
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">FPS</div>
+                                            <div className="text-lg font-bold text-black">
+                                                {analysisData?.summary?.fps || '--'}
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Stroke</div>
+                                            <div className="text-lg font-bold text-black capitalize">
+                                                {strokeType}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="bg-white rounded-lg p-3 border border-neutral-200">
-                                    <div className="text-[10px] text-neutral-400 uppercase mb-0.5">FPS</div>
-                                    <div className="text-lg font-bold text-black">
-                                        {analysisData?.summary?.fps || '--'}
+                            </>
+                        )}
+
+                        {/* Issues Tab */}
+                        {activeTab === 'issues' && (
+                            <>
+                                {/* Issues Summary */}
+                                {filterSummary && (
+                                    <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
+                                        <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide">
+                                            Issues Found for {strokeType}
+                                        </h3>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="bg-red-50 rounded-lg p-3 border border-red-200 text-center">
+                                                <div className="text-lg font-bold text-red-600">{filterSummary.injury_risk_frames}</div>
+                                                <div className="text-[10px] text-red-500 uppercase">High Risk</div>
+                                            </div>
+                                            <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 text-center">
+                                                <div className="text-lg font-bold text-amber-600">{filterSummary.improvement_frames}</div>
+                                                <div className="text-[10px] text-amber-500 uppercase">Improve</div>
+                                            </div>
+                                            <div className="bg-green-50 rounded-lg p-3 border border-green-200 text-center">
+                                                <div className="text-lg font-bold text-green-600">{filterSummary.good_form_frames}</div>
+                                                <div className="text-[10px] text-green-500 uppercase">Good</div>
+                                            </div>
+                                        </div>
                                     </div>
+                                )}
+
+                                {/* Top Issues */}
+                                <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
+                                    <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide flex items-center gap-2">
+                                        <TrendingUp className="w-3.5 h-3.5" />
+                                        Key Issues to Address
+                                    </h3>
+                                    
+                                    {topIssues.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {topIssues.map((issue, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => jumpToFrame(issue.firstFrame)}
+                                                    className={`w-full text-left p-3 rounded-lg border transition hover:scale-[1.01] active:scale-[0.99] ${
+                                                        issue.severity === 'high' 
+                                                            ? 'bg-red-50 border-red-200 hover:bg-red-100' 
+                                                            : issue.severity === 'medium'
+                                                                ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                                                                : 'bg-white border-neutral-200 hover:bg-neutral-100'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex items-start gap-2">
+                                                            {issue.severity === 'high' ? (
+                                                                <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                                                            ) : issue.severity === 'medium' ? (
+                                                                <TrendingUp className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                                                            ) : (
+                                                                <Lightbulb className="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                                                            )}
+                                                            <div>
+                                                                <div className={`text-xs font-semibold ${
+                                                                    issue.severity === 'high' ? 'text-red-700' 
+                                                                        : issue.severity === 'medium' ? 'text-amber-700' 
+                                                                        : 'text-neutral-700'
+                                                                }`}>
+                                                                    {getIssueLabel(issue.issue)}
+                                                                </div>
+                                                                <div className="text-[10px] text-neutral-500 mt-0.5">
+                                                                    {issue.frameCount} frame{issue.frameCount !== 1 ? 's' : ''} affected
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 text-[10px] text-neutral-400">
+                                                            <Play className="w-3 h-3" />
+                                                            Jump
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-6">
+                                            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                <span className="text-2xl">✓</span>
+                                            </div>
+                                            <p className="text-sm font-medium text-green-700">Great Form!</p>
+                                            <p className="text-xs text-neutral-500 mt-1">No significant issues detected</p>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="bg-white rounded-lg p-3 border border-neutral-200">
-                                    <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Stroke</div>
-                                    <div className="text-lg font-bold text-black capitalize">
-                                        {strokeType}
+
+                                {/* Problem Frames List */}
+                                {filteredFrames.length > 0 && (
+                                    <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl max-h-[300px] overflow-y-auto">
+                                        <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide sticky top-0 bg-neutral-50 py-1">
+                                            Problem Frames ({filteredFrames.filter(f => f.category !== 'good_form').length})
+                                        </h3>
+                                        <div className="space-y-1.5">
+                                            {filteredFrames
+                                                .filter(f => f.category !== 'good_form')
+                                                .slice(0, 20)
+                                                .map((ff, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => jumpToFrame(ff.frame)}
+                                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition ${
+                                                            ff.category === 'injury_risk' 
+                                                                ? 'bg-red-50 hover:bg-red-100 border border-red-200' 
+                                                                : ff.category === 'form_improvement'
+                                                                    ? 'bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                                                                    : 'bg-white hover:bg-neutral-100 border border-neutral-200'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-xs font-mono font-bold ${
+                                                                ff.category === 'injury_risk' ? 'text-red-600' 
+                                                                    : ff.category === 'form_improvement' ? 'text-amber-600' 
+                                                                    : 'text-neutral-600'
+                                                            }`}>
+                                                                #{ff.frame.frameIdx}
+                                                            </span>
+                                                            <span className="text-[10px] text-neutral-500">
+                                                                {ff.frame.timestampSec.toFixed(2)}s
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-[10px] text-neutral-500">
+                                                            {ff.issues.length} issue{ff.issues.length !== 1 ? 's' : ''}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
 

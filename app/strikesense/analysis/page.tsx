@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft, Activity, TrendingUp, Award,
-    Zap, Target, MessageSquare, Loader2, Clock, Home,
+    Zap, Target, MessageSquare, Clock, Home,
     ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Shield
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -19,36 +19,6 @@ function AnalysisContent() {
     const [expandedCoach, setExpandedCoach] = useState(true);
     
     const [llmResponse, setLlmResponse] = useState<string | null>(null);
-    const [llmLoading, setLlmLoading] = useState(false);
-    const [llmError, setLlmError] = useState<string | null>(null);
-
-    const fetchLlmResponse = async (data: any) => {
-        setLlmLoading(true);
-        setLlmError(null);
-        try {
-            const response = await fetch('/api/response', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    stroke_type: data.stroke_type || strokeType,
-                    frames: data.frames,
-                    summary: data.summary,
-                    job_id: data.job_id
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to generate coaching feedback');
-            }
-
-            const result = await response.json();
-            setLlmResponse(result.response);
-        } catch (err: any) {
-            setLlmError(err.message);
-        } finally {
-            setLlmLoading(false);
-        }
-    };
 
     useEffect(() => {
         const storedResult = sessionStorage.getItem('analysisResult');
@@ -56,14 +26,18 @@ function AnalysisContent() {
             try {
                 const parsed = JSON.parse(storedResult);
                 setAnalysisData(parsed);
-                fetchLlmResponse(parsed);
+                
+                // Use cached LLM response from database
+                if (parsed.llm_response) {
+                    setLlmResponse(parsed.llm_response);
+                }
             } catch (e) {
                 router.push('/strikesense/upload');
             }
         } else {
             setTimeout(() => router.push('/strikesense/upload'), 1000);
         }
-    }, [router, strokeType]);
+    }, [router]);
 
     if (!analysisData) {
         return (
@@ -271,34 +245,13 @@ function AnalysisContent() {
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            {llmLoading && <Loader2 className="w-4 h-4 text-neutral-500 animate-spin" />}
                             {expandedCoach ? <ChevronUp className="w-5 h-5 text-neutral-500" /> : <ChevronDown className="w-5 h-5 text-neutral-500" />}
                         </div>
                     </button>
 
                     {expandedCoach && (
                         <div className="px-5 md:px-6 pb-5 md:pb-6">
-                            {llmLoading && (
-                                <div className="flex flex-col items-center justify-center py-10">
-                                    <Loader2 className="w-10 h-10 text-neutral-500 animate-spin mb-3" />
-                                    <p className="text-neutral-500 text-sm">Analyzing your technique...</p>
-                                </div>
-                            )}
-
-                            {llmError && (
-                                <div className="bg-neutral-100 border border-neutral-200 rounded-xl p-4 text-center">
-                                    <AlertCircle className="w-6 h-6 text-neutral-500 mx-auto mb-2" />
-                                    <p className="text-neutral-600 text-sm mb-3">{llmError}</p>
-                                    <button
-                                        onClick={() => fetchLlmResponse(analysisData)}
-                                        className="px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-lg text-sm font-medium transition"
-                                    >
-                                        Retry
-                                            </button>
-                                </div>
-                            )}
-
-                            {llmResponse && !llmLoading && (
+                            {llmResponse ? (
                                 <div className="bg-white rounded-xl p-5 border border-neutral-200">
                                     <ReactMarkdown
                                         components={{
@@ -325,6 +278,13 @@ function AnalysisContent() {
                                     >
                                         {llmResponse}
                                     </ReactMarkdown>
+                                </div>
+                            ) : (
+                                <div className="bg-neutral-100 border border-neutral-200 rounded-xl p-4 text-center">
+                                    <AlertCircle className="w-6 h-6 text-neutral-400 mx-auto mb-2" />
+                                    <p className="text-neutral-500 text-sm">
+                                        AI coaching feedback will be available once the analysis is complete.
+                                    </p>
                                 </div>
                             )}
                         </div>
