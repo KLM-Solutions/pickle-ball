@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, ChevronRight, Zap, Target, Shield } from "lucide-react";
-import { StrokeType, AnalyzeResponse } from "./types";
-import ResultsDashboard from "./components/dashboard/ResultsDashboard";
 
 const STROKE_OPTIONS = [
   {
@@ -35,12 +33,17 @@ const STROKE_OPTIONS = [
     icon: "⚡",
     stats: "Extension • Timing • Power"
   },
+  {
+    id: "volley",
+    title: "Volley",
+    description: "Analyze your net game with ready position, compact swing, and quick recovery",
+    icon: "🏸",
+    stats: "Position • Reflexes • Control"
+  },
 ] as const;
 
 export default function Home() {
   const router = useRouter();
-  const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
 
   const handleStrokeSelect = (strokeId: string) => {
@@ -53,9 +56,10 @@ export default function Home() {
       if (!response.ok) throw new Error("Failed to load demo data");
       const data = await response.json();
 
-      const demoResult: AnalyzeResponse = {
+      const demoResult = {
         ...data,
         videoUrl: "/demo/annotated.mp4",
+        stroke_type: "groundstroke",
         frames: (data.frames || []).map((r: any, i: number) => {
           const fakeMetrics = { ...(r.metrics || {}) };
           if (i === 15) {
@@ -76,26 +80,42 @@ export default function Home() {
             metrics: fakeMetrics,
             timestampSec: r.timestampSec || r.metrics?.time_sec || 0
           };
-        })
+        }),
+        llm_response: `## Overall Assessment
+
+Your groundstroke technique shows solid fundamentals with good hip rotation and shoulder mechanics. There are a few areas where timing and form can be improved to reduce injury risk.
+
+## Key Strengths
+
+- Good baseline hip rotation for power generation
+- Consistent follow-through motion
+- Stable ready position between shots
+
+## Priority Areas for Improvement
+
+1. **Contact Point Height** - Keep paddle contact below waist level for legal shots
+2. **Knee Stability** - Maintain athletic stance, avoid deep flexion during strokes
+3. **Trunk Rotation** - Smooth out rotation to reduce strain
+
+## Drill Recommendations
+
+1. **Shadow Swings** - Practice full motion without ball, focus on smooth rotation
+2. **Wall Drills** - Work on contact point consistency at waist height
+3. **Balance Board** - Improve stability during weight transfer
+
+## Injury Prevention Notes
+
+Monitor shoulder abduction angle during aggressive shots. Consider dynamic stretching before play.`
       };
 
-      setResult(demoResult);
-      setVideoFile(null);
+      // Store in session and navigate to player page
+      sessionStorage.setItem('analysisResult', JSON.stringify(demoResult));
+      router.push('/strikesense/player?stroke=groundstroke&demo=true');
     } catch (error) {
       console.error("Demo load failed:", error);
       alert("Could not load demo analysis.");
     }
   };
-
-  if (result) {
-    return (
-      <ResultsDashboard
-        result={result}
-        onReset={() => setResult(null)}
-        videoFile={videoFile}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden">
@@ -176,7 +196,7 @@ export default function Home() {
             Select Your Stroke Type
           </h3>
           
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
             {STROKE_OPTIONS.map((stroke) => (
               <button
                 key={stroke.id}

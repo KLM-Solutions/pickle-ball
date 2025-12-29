@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft, Activity, TrendingUp, Award,
     Zap, Target, MessageSquare, Clock, Home,
-    ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Shield
+    ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Shield,
+    Download, Loader2
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -19,6 +20,7 @@ function AnalysisContent() {
     const [expandedCoach, setExpandedCoach] = useState(true);
     
     const [llmResponse, setLlmResponse] = useState<string | null>(null);
+    const [pdfLoading, setPdfLoading] = useState(false);
 
     useEffect(() => {
         const storedResult = sessionStorage.getItem('analysisResult');
@@ -100,6 +102,61 @@ function AnalysisContent() {
 
     const grade = getGrade(overallScore);
 
+    const handleDownloadPDF = async () => {
+        setPdfLoading(true);
+        try {
+            const response = await fetch('/api/pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    strokeType,
+                    grade,
+                    overallScore,
+                    frames: frames.length,
+                    duration: summary.duration_sec || 0,
+                    riskScore,
+                    riskCounts,
+                    shoulderScore: Math.round(shoulderScore),
+                    hipScore: Math.round(hipScore),
+                    kneeScore: Math.round(kneeScore),
+                    elbowScore: elbowAngles.length > 0 ? Math.round(calculateScore(elbowAngles, 90, 150)) : 80,
+                    avgShoulder: getAverage(shoulderAngles),
+                    avgHip: getAverage(hipRotations),
+                    avgKnee: getAverage(kneeFlexions),
+                    avgElbow: getAverage(elbowAngles),
+                    llmResponse,
+                    generatedAt: new Date().toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate PDF');
+            }
+
+            // Download the PDF
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `strikesense-report-${strokeType}-${Date.now()}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('PDF download error:', error);
+            alert('Failed to generate PDF. Please try again.');
+        } finally {
+            setPdfLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-white">
             <div className="relative z-10 max-w-4xl mx-auto px-4 py-6 md:py-10">
@@ -113,6 +170,18 @@ function AnalysisContent() {
                         <span className="text-sm">Back to Video</span>
                     </button>
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleDownloadPDF}
+                            disabled={pdfLoading}
+                            className="p-2.5 bg-black hover:bg-neutral-800 disabled:bg-neutral-300 rounded-lg text-white transition flex items-center gap-1.5"
+                            title="Download PDF Report"
+                        >
+                            {pdfLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Download className="w-4 h-4" />
+                            )}
+                        </button>
                         <button
                             onClick={() => router.push('/strikesense/history')}
                             className="p-2.5 bg-neutral-100 border border-neutral-200 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-black transition"

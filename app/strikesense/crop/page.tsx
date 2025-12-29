@@ -11,6 +11,7 @@ function CropContent() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const animationRef = useRef<number | null>(null);
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
@@ -26,6 +27,15 @@ function CropContent() {
   const [showHelp, setShowHelp] = useState(true);
   const [videoLoading, setVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+
+  // Refs for smooth animation (avoid re-renders during drag)
+  const cropBoxRef = useRef(cropBox);
+  const pendingUpdate = useRef<{ x: number, y: number, width: number, height: number } | null>(null);
+
+  useEffect(() => {
+    cropBoxRef.current = cropBox;
+  }, [cropBox]);
 
   useEffect(() => {
     const storedUrl = sessionStorage.getItem('videoUrl');
@@ -33,6 +43,7 @@ function CropContent() {
       setVideoUrl(storedUrl);
       setVideoLoading(true);
       setVideoError(false);
+      setVideoReady(false);
     }
   }, []);
 
@@ -42,48 +53,69 @@ function CropContent() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleVideoLoad = () => {
-    if (videoRef.current) {
-      setVideoDimensions({
-        width: videoRef.current.videoWidth,
-        height: videoRef.current.videoHeight
-      });
-      setVideoLoading(false);
-      setVideoError(false);
-      
-      // iOS fix: seek to first frame to show video
-      videoRef.current.currentTime = 0.001;
-    }
-  };
-
-  const handleVideoError = () => {
-    setVideoLoading(false);
-    setVideoError(true);
-    console.error('Video failed to load:', videoUrl);
-  };
-
-  // iOS fix: Force video to load when URL changes
+  // iOS-optimized video initialization
   useEffect(() => {
-    if (videoUrl && videoRef.current) {
-      const video = videoRef.current;
-      
-      // iOS requires explicit load() call
-      video.load();
-      
-      // iOS fix: Try to play briefly then pause to render first frame
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            video.pause();
-            video.currentTime = 0;
-          })
-          .catch(() => {
-            // Autoplay was prevented, that's okay
-            video.currentTime = 0.001;
-          });
+    if (!videoUrl || !videoRef.current) return;
+    
+    const video = videoRef.current;
+    
+    setVideoLoading(true);
+    setVideoReady(false);
+    setVideoError(false);
+    
+    const initVideo = async () => {
+      try {
+        video.load();
+        
+        await new Promise<void>((resolve, reject) => {
+          const onLoadedMetadata = () => {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('error', onError);
+            resolve();
+          };
+          const onError = () => {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('error', onError);
+            reject(new Error('Video load failed'));
+          };
+          video.addEventListener('loadedmetadata', onLoadedMetadata);
+          video.addEventListener('error', onError);
+          
+          setTimeout(() => {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('error', onError);
+            reject(new Error('Video load timeout'));
+          }, 10000);
+        });
+        
+        setVideoDimensions({
+          width: video.videoWidth,
+          height: video.videoHeight
+        });
+        
+        // iOS trick: seek to show first frame
+        video.currentTime = 0.01;
+        
+        await new Promise<void>((resolve) => {
+          const onSeeked = () => {
+            video.removeEventListener('seeked', onSeeked);
+            resolve();
+          };
+          video.addEventListener('seeked', onSeeked);
+          setTimeout(resolve, 500);
+        });
+        
+        setVideoLoading(false);
+        setVideoReady(true);
+        
+      } catch (error) {
+        console.error('Video init error:', error);
+        setVideoLoading(false);
+        setVideoError(true);
       }
-    }
+    };
+    
+    initVideo();
   }, [videoUrl]);
 
   const screenToNormalized = useCallback((clientX: number, clientY: number) => {
@@ -111,10 +143,24 @@ function CropContent() {
     return { x, y };
   }, []);
 
+  const getEventCoords = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
+    if ('touches' in e && e.touches.length > 0) {
+      return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+    }
+    if ('changedTouches' in e && e.changedTouches.length > 0) {
+      return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
+    }
+    if ('clientX' in e) {
+      return { clientX: e.clientX, clientY: e.clientY };
+    }
+    return { clientX: 0, clientY: 0 };
+  };
+
   const handleInteractionStart = (e: React.MouseEvent | React.TouchEvent, action: 'drawing' | 'moving' | 'resizing' = 'drawing', handle: string | null = null) => {
+    e.preventDefault();
     e.stopPropagation();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    const { clientX, clientY } = getEventCoords(e);
     const { x, y } = screenToNormalized(clientX, clientY);
 
     setActiveAction(action);
@@ -124,71 +170,109 @@ function CropContent() {
     if (action === 'drawing') {
       setDrawStart({ x, y });
       setCropBox({ x, y, width: 0.1, height: 0.1 });
-    } else if (action === 'moving' && cropBox) {
-      setOffset({ x: x - cropBox.x, y: y - cropBox.y });
+    } else if (action === 'moving' && cropBoxRef.current) {
+      setOffset({ x: x - cropBoxRef.current.x, y: y - cropBoxRef.current.y });
     }
   };
 
+  // Optimized move handler using requestAnimationFrame
   const handleInteractionMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!activeAction) return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    // Prevent scrolling on iOS
+    if ('touches' in e) {
+      e.preventDefault();
+    }
+    
+    const { clientX, clientY } = getEventCoords(e);
     const { x, y } = screenToNormalized(clientX, clientY);
 
-    setCropBox(prev => {
-      if (!prev) return null;
-      if (activeAction === 'drawing') {
-        return {
-          x: Math.min(x, drawStart.x),
-          y: Math.min(y, drawStart.y),
-          width: Math.abs(x - drawStart.x),
-          height: Math.abs(y - drawStart.y)
-        };
+    // Calculate new crop box position
+    const prev = cropBoxRef.current;
+    if (!prev) return;
+
+    let newBox: { x: number, y: number, width: number, height: number } | null = null;
+
+    if (activeAction === 'drawing') {
+      newBox = {
+        x: Math.min(x, drawStart.x),
+        y: Math.min(y, drawStart.y),
+        width: Math.max(2, Math.abs(x - drawStart.x)),
+        height: Math.max(2, Math.abs(y - drawStart.y))
+      };
+    } else if (activeAction === 'moving') {
+      newBox = {
+        ...prev,
+        x: Math.max(0, Math.min(100 - prev.width, x - offset.x)),
+        y: Math.max(0, Math.min(100 - prev.height, y - offset.y))
+      };
+    } else if (activeAction === 'resizing' && activeHandle) {
+      let newX = prev.x, newY = prev.y, newW = prev.width, newH = prev.height;
+      if (activeHandle.includes('left')) {
+        newX = Math.max(0, Math.min(prev.x + prev.width - 5, x));
+        newW = prev.x + prev.width - newX;
+      } else if (activeHandle.includes('right')) {
+        newW = Math.max(5, Math.min(100 - prev.x, x - prev.x));
       }
-      if (activeAction === 'moving') {
-        return {
-          ...prev,
-          x: Math.max(0, Math.min(100 - prev.width, x - offset.x)),
-          y: Math.max(0, Math.min(100 - prev.height, y - offset.y))
-        };
+      if (activeHandle.includes('top')) {
+        newY = Math.max(0, Math.min(prev.y + prev.height - 5, y));
+        newH = prev.y + prev.height - newY;
+      } else if (activeHandle.includes('bottom')) {
+        newH = Math.max(5, Math.min(100 - prev.y, y - prev.y));
       }
-      if (activeAction === 'resizing' && activeHandle) {
-        let newX = prev.x, newY = prev.y, newW = prev.width, newH = prev.height;
-        if (activeHandle.includes('left')) {
-          newX = Math.max(0, Math.min(prev.x + prev.width - 2, x));
-          newW = prev.x + prev.width - newX;
-        } else if (activeHandle.includes('right')) {
-          newW = Math.max(2, Math.min(100 - prev.x, x - prev.x));
-        }
-        if (activeHandle.includes('top')) {
-          newY = Math.max(0, Math.min(prev.y + prev.height - 2, y));
-          newH = prev.y + prev.height - newY;
-        } else if (activeHandle.includes('bottom')) {
-          newH = Math.max(2, Math.min(100 - prev.y, y - prev.y));
-        }
-        return { x: newX, y: newY, width: newW, height: newH };
+      newBox = { x: newX, y: newY, width: newW, height: newH };
+    }
+
+    if (newBox) {
+      pendingUpdate.current = newBox;
+      
+      // Use requestAnimationFrame for smooth updates
+      if (!animationRef.current) {
+        animationRef.current = requestAnimationFrame(() => {
+          if (pendingUpdate.current) {
+            setCropBox(pendingUpdate.current);
+            pendingUpdate.current = null;
+          }
+          animationRef.current = null;
+        });
       }
-      return prev;
-    });
+    }
   }, [activeAction, activeHandle, drawStart, offset, screenToNormalized]);
 
   const handleInteractionEnd = useCallback(() => {
     setActiveAction(null);
     setActiveHandle(null);
-    setCropBox(prev => (prev && (prev.width < 1 || prev.height < 1)) ? null : prev);
+    
+    // Cancel any pending animation frame
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    
+    // Apply any pending update
+    if (pendingUpdate.current) {
+      setCropBox(pendingUpdate.current);
+      pendingUpdate.current = null;
+    }
+    
+    setCropBox(prev => (prev && (prev.width < 3 || prev.height < 3)) ? null : prev);
   }, []);
 
   useEffect(() => {
     if (activeAction) {
+      const options = { passive: false } as AddEventListenerOptions;
       window.addEventListener('mousemove', handleInteractionMove);
       window.addEventListener('mouseup', handleInteractionEnd);
-      window.addEventListener('touchmove', handleInteractionMove, { passive: false });
+      window.addEventListener('touchmove', handleInteractionMove, options);
       window.addEventListener('touchend', handleInteractionEnd);
+      window.addEventListener('touchcancel', handleInteractionEnd);
+      
       return () => {
         window.removeEventListener('mousemove', handleInteractionMove);
         window.removeEventListener('mouseup', handleInteractionEnd);
         window.removeEventListener('touchmove', handleInteractionMove);
         window.removeEventListener('touchend', handleInteractionEnd);
+        window.removeEventListener('touchcancel', handleInteractionEnd);
       };
     }
   }, [activeAction, handleInteractionMove, handleInteractionEnd]);
@@ -219,7 +303,7 @@ function CropContent() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-white text-neutral-900 overflow-hidden">
+    <div className="h-screen flex flex-col bg-white text-neutral-900 overflow-hidden select-none">
       {/* Header */}
       <header className="relative z-50 h-14 md:h-16 flex items-center justify-between px-3 md:px-4 border-b border-neutral-200 flex-shrink-0">
         <button
@@ -243,7 +327,7 @@ function CropContent() {
 
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* Help Tooltip */}
-        {showHelp && videoUrl && !cropBox && (
+        {showHelp && videoUrl && !cropBox && videoReady && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-black text-white px-4 py-2 rounded-xl text-xs md:text-sm font-medium flex items-center gap-2 shadow-lg animate-bounce">
             <Info className="w-4 h-4" />
             Draw a box around the player
@@ -254,17 +338,23 @@ function CropContent() {
         <div className="flex-1 relative overflow-hidden flex items-center justify-center p-2 md:p-4 min-h-0">
           <div 
             ref={containerRef} 
-            className="relative w-full h-full min-h-[200px] flex items-center justify-center cursor-crosshair bg-neutral-100 rounded-xl md:rounded-2xl overflow-hidden border border-neutral-200"
-            onMouseDown={(e) => handleInteractionStart(e, 'drawing')}
-            onTouchStart={(e) => handleInteractionStart(e, 'drawing')}
-            style={{ transform: `scale(${zoom})`, transition: activeAction ? 'none' : 'transform 0.2s ease-out' }}
+            className="relative w-full h-full min-h-[200px] flex items-center justify-center bg-neutral-100 rounded-xl md:rounded-2xl overflow-hidden border border-neutral-200 touch-none"
+            onMouseDown={(e) => !activeAction && handleInteractionStart(e, 'drawing')}
+            onTouchStart={(e) => !activeAction && handleInteractionStart(e, 'drawing')}
+            style={{ 
+              transform: `scale3d(${zoom}, ${zoom}, 1)`, 
+              transition: activeAction ? 'none' : 'transform 0.2s ease-out',
+              cursor: cropBox ? 'default' : 'crosshair',
+              willChange: activeAction ? 'transform' : 'auto',
+              WebkitTapHighlightColor: 'transparent',
+            }}
           >
 
             {videoUrl ? (
               <>
                 {/* Loading Spinner */}
                 {videoLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/90 z-20">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-10 h-10 border-4 border-neutral-300 border-t-black rounded-full animate-spin" />
                       <p className="text-xs text-neutral-500">Loading video...</p>
@@ -274,13 +364,14 @@ function CropContent() {
                 
                 {/* Error State */}
                 {videoError && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/90 z-20">
                     <div className="text-center p-4">
                       <p className="text-sm text-neutral-600 mb-2">Failed to load video</p>
                       <button
                         onClick={() => {
                           setVideoLoading(true);
                           setVideoError(false);
+                          setVideoReady(false);
                           if (videoRef.current) {
                             videoRef.current.load();
                           }
@@ -297,11 +388,13 @@ function CropContent() {
                   ref={videoRef}
                   src={videoUrl}
                   className="w-full h-full object-contain pointer-events-none"
-                  style={{ maxWidth: '100%', maxHeight: '100%' }}
-                  onLoadedMetadata={handleVideoLoad}
-                  onLoadedData={() => setVideoLoading(false)}
-                  onCanPlay={() => setVideoLoading(false)}
-                  onError={handleVideoError}
+                  style={{ 
+                    maxWidth: '100%', 
+                    maxHeight: '100%',
+                    opacity: videoReady ? 1 : 0,
+                    transition: 'opacity 0.3s ease',
+                    WebkitTransform: 'translateZ(0)', // Force GPU acceleration on iOS
+                  }}
                   preload="auto"
                   playsInline
                   // @ts-ignore - iOS specific attribute
@@ -326,20 +419,36 @@ function CropContent() {
               </div>
             )}
 
-            {videoUrl && cropBox && (
-              <div className="absolute inset-0 pointer-events-none">
+            {videoUrl && videoReady && cropBox && (
+              <div 
+                className="absolute inset-0 pointer-events-none"
+                style={{ willChange: activeAction ? 'contents' : 'auto' }}
+              >
+                {/* Dimmed overlay - using CSS mask for better performance */}
                 <div 
                   className="absolute inset-0 bg-black/50" 
-                  style={{ clipPath: `polygon(0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%, ${cropBox.x}% ${cropBox.y}%, ${cropBox.x}% ${cropBox.y + cropBox.height}%, ${cropBox.x + cropBox.width}% ${cropBox.y + cropBox.height}%, ${cropBox.x + cropBox.width}% ${cropBox.y}%, ${cropBox.x}% ${cropBox.y}%)` }} 
+                  style={{ 
+                    clipPath: `polygon(0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%, ${cropBox.x}% ${cropBox.y}%, ${cropBox.x}% ${cropBox.y + cropBox.height}%, ${cropBox.x + cropBox.width}% ${cropBox.y + cropBox.height}%, ${cropBox.x + cropBox.width}% ${cropBox.y}%, ${cropBox.x}% ${cropBox.y}%)`,
+                  }} 
                 />
+                
+                {/* Crop box */}
                 <div 
-                  className="absolute border-2 border-black pointer-events-auto bg-black/10 shadow-lg flex items-center justify-center"
+                  className="absolute border-2 border-black pointer-events-auto bg-transparent shadow-lg"
                   onMouseDown={(e) => handleInteractionStart(e, 'moving')}
                   onTouchStart={(e) => handleInteractionStart(e, 'moving')}
-                  style={{ left: `${cropBox.x}%`, top: `${cropBox.y}%`, width: `${cropBox.width}%`, height: `${cropBox.height}%` }}
+                  style={{ 
+                    left: `${cropBox.x}%`, 
+                    top: `${cropBox.y}%`, 
+                    width: `${cropBox.width}%`, 
+                    height: `${cropBox.height}%`,
+                    cursor: 'move',
+                    transform: 'translateZ(0)', // Force GPU layer
+                    willChange: activeAction === 'moving' ? 'left, top' : 'auto',
+                  }}
                 >
 
-                  {/* Resizing Handles */}
+                  {/* Resizing Handles - Larger touch targets for mobile */}
                   {[
                     { id: 'top-left', class: 'top-0 left-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize' },
                     { id: 'top-right', class: 'top-0 right-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize' },
@@ -352,11 +461,12 @@ function CropContent() {
                   ].map(h => (
                     <div 
                       key={h.id} 
-                      className={`absolute w-8 h-8 md:w-6 md:h-6 flex items-center justify-center z-10 ${h.class}`}
+                      className={`absolute w-12 h-12 md:w-10 md:h-10 flex items-center justify-center z-10 ${h.class}`}
                       onMouseDown={(e) => handleInteractionStart(e, 'resizing', h.id)}
                       onTouchStart={(e) => handleInteractionStart(e, 'resizing', h.id)}
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
                     >
-                      <div className="w-3.5 h-3.5 md:w-3 md:h-3 bg-white border-2 border-black rounded-full shadow-lg" />
+                      <div className="w-5 h-5 md:w-4 md:h-4 bg-white border-2 border-black rounded-full shadow-lg" />
                     </div>
                   ))}
 
@@ -371,8 +481,8 @@ function CropContent() {
                   )}
 
                   {/* Label */}
-                  <div className="absolute -top-7 md:-top-8 left-0 bg-black text-white px-2 md:px-3 py-0.5 md:py-1 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-widest shadow-lg flex items-center gap-1 md:gap-1.5">
-                    <User className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                  <div className="absolute -top-9 md:-top-10 left-0 bg-black text-white px-3 py-1.5 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest shadow-lg flex items-center gap-1.5">
+                    <User className="w-3 h-3" />
                     Target
                   </div>
                 </div>
@@ -381,15 +491,27 @@ function CropContent() {
           </div>
 
           {/* Floating Zoom Controls */}
-          <div className="absolute bottom-4 md:bottom-6 right-4 md:right-6 flex flex-col gap-1.5 md:gap-2 z-20">
-            <button onClick={() => setZoom(Math.min(2, zoom + 0.25))} className="w-9 h-9 md:w-10 md:h-10 bg-white border border-neutral-200 text-black rounded-lg md:rounded-xl flex items-center justify-center hover:bg-neutral-100 active:scale-95 transition-all shadow-sm">
-              <ZoomIn className="w-4 h-4 md:w-5 md:h-5" />
+          <div className="absolute bottom-4 md:bottom-6 right-4 md:right-6 flex flex-col gap-2 z-20">
+            <button 
+              onClick={() => setZoom(Math.min(2, zoom + 0.25))} 
+              className="w-11 h-11 md:w-10 md:h-10 bg-white border border-neutral-200 text-black rounded-xl flex items-center justify-center hover:bg-neutral-100 active:scale-95 transition-all shadow-sm"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <ZoomIn className="w-5 h-5" />
             </button>
-            <button onClick={() => setZoom(Math.max(0.5, zoom - 0.25))} className="w-9 h-9 md:w-10 md:h-10 bg-white border border-neutral-200 text-black rounded-lg md:rounded-xl flex items-center justify-center hover:bg-neutral-100 active:scale-95 transition-all shadow-sm">
-              <ZoomOut className="w-4 h-4 md:w-5 md:h-5" />
+            <button 
+              onClick={() => setZoom(Math.max(0.5, zoom - 0.25))} 
+              className="w-11 h-11 md:w-10 md:h-10 bg-white border border-neutral-200 text-black rounded-xl flex items-center justify-center hover:bg-neutral-100 active:scale-95 transition-all shadow-sm"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <ZoomOut className="w-5 h-5" />
             </button>
-            <button onClick={resetCrop} className="w-9 h-9 md:w-10 md:h-10 bg-white border border-neutral-200 text-black rounded-lg md:rounded-xl flex items-center justify-center hover:bg-neutral-100 active:scale-95 transition-all shadow-sm">
-              <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
+            <button 
+              onClick={resetCrop} 
+              className="w-11 h-11 md:w-10 md:h-10 bg-white border border-neutral-200 text-black rounded-xl flex items-center justify-center hover:bg-neutral-100 active:scale-95 transition-all shadow-sm"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <RotateCcw className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -404,20 +526,21 @@ function CropContent() {
                 <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest text-neutral-400">Quick Zones</span>
                 {cropBox && <span className="text-[9px] md:text-[10px] font-bold text-black">{Math.round(cropBox.width)}% x {Math.round(cropBox.height)}%</span>}
               </div>
-              <div className="grid grid-cols-4 gap-1.5 md:gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {[
-                  { id: 'left', label: 'Left', icon: <div className="w-1 md:w-1.5 h-2.5 md:h-3 border-l-2 border-current" /> },
-                  { id: 'center', label: 'Center', icon: <div className="w-2.5 md:w-3 h-2.5 md:h-3 border-x-2 border-current" /> },
-                  { id: 'right', label: 'Right', icon: <div className="w-1 md:w-1.5 h-2.5 md:h-3 border-r-2 border-current" /> },
-                  { id: 'full', label: 'Full', icon: <Maximize2 className="w-2.5 h-2.5 md:w-3 md:h-3" /> }
+                  { id: 'left', label: 'Left', icon: <div className="w-1.5 h-3 border-l-2 border-current" /> },
+                  { id: 'center', label: 'Center', icon: <div className="w-3 h-3 border-x-2 border-current" /> },
+                  { id: 'right', label: 'Right', icon: <div className="w-1.5 h-3 border-r-2 border-current" /> },
+                  { id: 'full', label: 'Full', icon: <Maximize2 className="w-3 h-3" /> }
                 ].map(p => (
                   <button 
                     key={p.id} 
                     onClick={() => applyPreset(p.id as any)}
-                    className="bg-white border border-neutral-200 hover:border-black hover:bg-neutral-100 text-black py-2.5 md:py-3 rounded-lg md:rounded-xl transition-all flex flex-col items-center gap-1 active:scale-95"
+                    className="bg-white border border-neutral-200 hover:border-black hover:bg-neutral-100 text-black py-3.5 rounded-xl transition-all flex flex-col items-center gap-1 active:scale-95"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     <div className="text-black">{p.icon}</div>
-                    <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-tight text-neutral-500">{p.label}</span>
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-tight text-neutral-500">{p.label}</span>
                   </button>
                 ))}
               </div>
@@ -426,17 +549,18 @@ function CropContent() {
             <div className="hidden md:block w-px h-16 bg-neutral-200 mx-2" />
 
             {/* CTA */}
-            <div className="flex flex-col gap-1.5 md:gap-2 w-full md:w-64">
+            <div className="flex flex-col gap-2 w-full md:w-64">
               <button 
                 onClick={handleStartAnalysis} 
-                disabled={!videoUrl || !cropBox}
-                className="w-full bg-black hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed text-white py-3.5 md:py-4 rounded-xl font-bold text-xs md:text-sm uppercase tracking-widest active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                disabled={!videoUrl || !cropBox || !videoReady}
+                className="w-full bg-black hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed text-white py-4 rounded-xl font-bold text-sm uppercase tracking-widest active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
-                <Play className="w-3.5 h-3.5 md:w-4 md:h-4 fill-white" />
+                <Play className="w-4 h-4 fill-white" />
                 Analyze
               </button>
-              {!cropBox && (
-                <p className="text-[9px] md:text-[10px] text-center text-neutral-400 font-medium">
+              {!cropBox && videoReady && (
+                <p className="text-[10px] text-center text-neutral-400 font-medium">
                   Draw a box around the player
                 </p>
               )}
