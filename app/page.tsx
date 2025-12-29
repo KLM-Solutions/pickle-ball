@@ -33,13 +33,6 @@ const STROKE_OPTIONS = [
     icon: "⚡",
     stats: "Extension • Timing • Power"
   },
-  {
-    id: "volley",
-    title: "Volley",
-    description: "Analyze your net game with ready position, compact swing, and quick recovery",
-    icon: "🏸",
-    stats: "Position • Reflexes • Control"
-  },
 ] as const;
 
 export default function Home() {
@@ -56,31 +49,87 @@ export default function Home() {
       if (!response.ok) throw new Error("Failed to load demo data");
       const data = await response.json();
 
+      // Build properly structured frames
+      const frames = (data.frames || []).map((r: any, i: number) => {
+        // Base metrics
+        const metrics = {
+          hip_rotation_deg: 35 + Math.random() * 20,
+          right_shoulder_abduction: 80 + Math.random() * 30,
+          right_knee_flexion: 130 + Math.random() * 20,
+          right_elbow_flexion: 110 + Math.random() * 30,
+          ...(r.metrics || {})
+        };
+        
+        // Build injury_risks array and risk level
+        let injury_risk: 'low' | 'medium' | 'high' = 'low';
+        const injury_risks: any[] = [];
+        const feedback: string[] = [];
+        
+        if (i === 15 || i === 45 || i === 130) {
+          injury_risk = 'high';
+          injury_risks.push({
+            type: i === 15 ? 'shoulder_overuse' : i === 45 ? 'knee_stress' : 'poor_kinetic_chain',
+            severity: 'high',
+            angle: i === 15 ? 145 : i === 45 ? 85 : 20,
+            message: i === 15 ? 'Shoulder abduction 145° exceeds safe range' 
+                   : i === 45 ? 'Deep knee flexion (85°) detected'
+                   : 'Insufficient hip rotation (20°)',
+            recommendation: i === 15 ? 'Reduce shoulder abduction to <140°' 
+                          : i === 45 ? 'Avoid excessive squatting'
+                          : 'Engage hips and core for power'
+          });
+          feedback.push(
+            i === 15 ? 'Contact point too high - reduce shoulder extension'
+            : i === 45 ? 'Deep flexion detected - maintain athletic stance'
+            : 'Improve hip rotation for power generation'
+          );
+          metrics.right_shoulder_abduction = i === 15 ? 145 : metrics.right_shoulder_abduction;
+          metrics.right_knee_flexion = i === 45 ? 85 : metrics.right_knee_flexion;
+          metrics.hip_rotation_deg = i === 130 ? 20 : metrics.hip_rotation_deg;
+        } else if (i === 80) {
+          injury_risk = 'medium';
+          injury_risks.push({
+            type: 'elbow_strain',
+            severity: 'medium',
+            angle: 75,
+            message: 'Elbow angle (75°) outside optimal range',
+            recommendation: 'Optimal elbow angle: 90-130°'
+          });
+          feedback.push('Adjust elbow position for better form');
+          metrics.right_elbow_flexion = 75;
+        }
+        
+        return {
+          frameIdx: i,
+          timestampSec: (r.timestampSec || r.metrics?.time_sec || i * 0.033),
+          bbox: r.bbox || [100, 100, 300, 400],
+          confidence: r.confidence || 0.95,
+          track_id: 0,
+          metrics,
+          injury_risk,
+          injury_risks,
+          feedback
+        };
+      });
+
       const demoResult = {
         ...data,
         videoUrl: "/demo/annotated.mp4",
         stroke_type: "groundstroke",
-        frames: (data.frames || []).map((r: any, i: number) => {
-          const fakeMetrics = { ...(r.metrics || {}) };
-          if (i === 15) {
-            fakeMetrics.injury_risk = 'high';
-            fakeMetrics.feedback = ['Contact point too high (Above waist)'];
-          } else if (i === 45) {
-            fakeMetrics.injury_risk = 'high';
-            fakeMetrics.feedback = ['Deep flexion instability'];
-          } else if (i === 80) {
-            fakeMetrics.injury_risk = 'medium';
-            fakeMetrics.feedback = ['Unstable landing mechanics'];
-          } else if (i === 130) {
-            fakeMetrics.injury_risk = 'high';
-            fakeMetrics.feedback = ['Rapid trunk rotation risk'];
+        frames,
+        summary: {
+          total_frames: frames.length,
+          analyzed_frames: frames.length,
+          fps: 30,
+          duration_sec: frames.length * 0.033,
+          stroke_type: "groundstroke",
+          overall_risk: "medium",
+          risk_percentages: {
+            shoulder_overuse: 2.5,
+            poor_kinetic_chain: 1.5,
+            knee_stress: 1.0
           }
-          return {
-            ...r,
-            metrics: fakeMetrics,
-            timestampSec: r.timestampSec || r.metrics?.time_sec || 0
-          };
-        }),
+        },
         llm_response: `## Overall Assessment
 
 Your groundstroke technique shows solid fundamentals with good hip rotation and shoulder mechanics. There are a few areas where timing and form can be improved to reduce injury risk.
@@ -196,7 +245,7 @@ Monitor shoulder abduction angle during aggressive shots. Consider dynamic stret
             Select Your Stroke Type
           </h3>
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             {STROKE_OPTIONS.map((stroke) => (
               <button
                 key={stroke.id}
