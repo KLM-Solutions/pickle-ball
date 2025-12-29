@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate PDF
-    const pdf = await page.pdf({
+    const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
       margin: {
@@ -263,6 +263,9 @@ export async function POST(request: NextRequest) {
     });
 
     await browser.close();
+
+    // Convert Uint8Array to Buffer for NextResponse
+    const pdf = Buffer.from(pdfBuffer);
 
     // Return PDF
     return new NextResponse(pdf, {
