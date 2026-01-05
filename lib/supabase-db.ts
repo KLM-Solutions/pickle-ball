@@ -45,7 +45,7 @@ function getSupabaseClient() {
 export async function getAnalysisHistory(limit: number = 20): Promise<AnalysisJob[]> {
   try {
     const supabase = getSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from("analysis_jobs")
       .select("*")
@@ -70,7 +70,7 @@ export async function getAnalysisHistory(limit: number = 20): Promise<AnalysisJo
 export async function getAnalysisJob(jobId: string): Promise<AnalysisJob | null> {
   try {
     const supabase = getSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from("analysis_jobs")
       .select("*")
@@ -95,7 +95,7 @@ export async function getAnalysisJob(jobId: string): Promise<AnalysisJob | null>
 export async function getCompletedAnalyses(limit: number = 20): Promise<AnalysisJob[]> {
   try {
     const supabase = getSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from("analysis_jobs")
       .select("*")
@@ -121,7 +121,7 @@ export async function getCompletedAnalyses(limit: number = 20): Promise<Analysis
 export async function getAllAnalyses(limit: number = 50): Promise<AnalysisJob[]> {
   try {
     const supabase = getSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from("analysis_jobs")
       .select("*")
@@ -146,7 +146,7 @@ export async function getAllAnalyses(limit: number = 50): Promise<AnalysisJob[]>
 export async function getAnalysisCounts(): Promise<Record<string, number>> {
   try {
     const supabase = getSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from("analysis_jobs")
       .select("status");
@@ -189,7 +189,7 @@ export function formatDate(dateString: string): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  
+
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
