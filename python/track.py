@@ -143,8 +143,8 @@ def main():
             tracker = create_tracker(
                 tracker_type='deepocsort', 
                 reid_weights=reid_weights,
-                device='cpu',
-                half=False
+                device='cuda',
+                half=True
             )
         except Exception as e:
             print(f"Tracker init failed: {e}. Proceeding without tracker.")
@@ -261,7 +261,7 @@ def main():
             # YOLO Inference ONLY on analysis frames to maintain speed
             try:
                 # classes=[0] for person only, lower conf to 0.2
-                yolo_preds = model.predict(img, classes=[0], conf=0.2, verbose=False, device='cpu')[0]
+                yolo_preds = model.predict(img, classes=[0], conf=0.2, verbose=False, device=0)[0]
                 if yolo_preds.boxes is not None:
                     ds = yolo_preds.boxes.data.cpu().numpy()
                     detections = ds if len(ds) > 0 else np.empty((0, 6))
