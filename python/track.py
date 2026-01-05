@@ -130,9 +130,10 @@ def main():
             print(f"Loading DeepOCSORT via create_tracker: {args.reid_model}")
             reid_weights = Path(args.reid_model)
             tracker = create_tracker(
-                tracker_type='ocsort', # More stable than deepocsort for this use case
-                reid_weights=None,     # Disable Re-ID to see if it fixes the crash
-                device='cpu',
+                tracker_type='deepocsort', 
+                reid_weights=reid_weights,
+                device='cuda',
+                half=True
             )
         except Exception as e:
             print(f"Tracker init failed: {e}. Proceeding without tracker.")
@@ -245,7 +246,7 @@ def main():
             # YOLO Inference ONLY on analysis frames to maintain speed
             try:
                 # classes=[0] for person only, lower conf to 0.2
-                yolo_preds = model.predict(img, classes=[0], conf=0.2, verbose=False, device='cpu')[0]
+                yolo_preds = model.predict(img, classes=[0], conf=0.2, verbose=False, device=0)[0]
                 if yolo_preds.boxes is not None:
                     ds = yolo_preds.boxes.data.cpu().numpy()
                     detections = ds if len(ds) > 0 else np.empty((0, 6))
@@ -503,8 +504,8 @@ def main():
                         lost_frames = 0
 
                 if not found and target_track_id is not None and prev_center is not None:
-                    # FIX: STRICT RE-LOCK - Only re-lock if candidate is INSIDE crop region
-                    margin = 50  # pixels
+                    # FIX: RELAXED RE-LOCK - Allow larger jumps for re-entry
+                    margin = 100  # pixels (increased from 50)
                     px, py = prev_center
                     is_near_edge = (px < margin or px > width - margin or 
                                     py < margin or py > height - margin)
@@ -512,7 +513,8 @@ def main():
                     # Initialize variables before conditional
                     new_id = None
                     best_candidate = None
-                    min_dist = 30  # STRICT: Max 30px distance for re-lock
+                    # RELAXED: Allow up to 200px jump if near edge or lost for a while
+                    min_dist = 200 if (is_near_edge or lost_frames > 15) else 50
                     
                     if is_near_edge:
                         if i % 30 == 0:
@@ -527,22 +529,18 @@ def main():
                         bbox_size = (x2 - x1) * (y2 - y1)
                         confidence = float(conf)
                         
-                        # STRICT: Must be inside crop region if one was provided
-                        is_in_crop = True
-                        if crop_region_norm is not None:
-                            rx1, ry1, rx2, ry2 = crop_region_norm
-                            crop_x1, crop_y1 = rx1 * width, ry1 * height
-                            crop_x2, crop_y2 = rx2 * width, ry2 * height
-                            is_in_crop = (crop_x1 <= cx <= crop_x2 and crop_y1 <= cy <= crop_y2)
+                        # RELAXED: Ignore crop region for re-lock (trust the tracker/proximity)
+                        # We want to catch them even if they re-enter slightly outside the initial box
                         
-                        # Only consider high-confidence, reasonably-sized detections INSIDE crop
-                        if dist < min_dist and confidence > 0.5 and bbox_size > 1000 and is_in_crop:
+                        # Only consider reasonable detections
+                        # Lowered bbox_size to 500 to catch partial bodies at edge
+                        if dist < min_dist and confidence > 0.3 and bbox_size > 500:
                             min_dist = dist
                             new_id = int(tid)
                             best_candidate = t
                     
-                    if new_id is not None and best_candidate is not None and min_dist < 30:  # STRICT: 30px max
-                        log_debug(f"--> STRICT RE-LOCK: Lost ID {int(target_track_id)}, switched to {new_id} (Dist: {min_dist:.1f}px, IN CROP)")
+                    if new_id is not None and best_candidate is not None:
+                        log_debug(f"--> RELAXED RE-LOCK: Lost ID {int(target_track_id)}, switched to {new_id} (Dist: {min_dist:.1f}px)")
                         target_track_id = new_id
                         # Re-search with new ID
                         for t in tracks:
