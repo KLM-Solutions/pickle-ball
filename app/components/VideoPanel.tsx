@@ -514,10 +514,10 @@ export default function VideoPanel({
 
                     {/* CUSTOM CONTROLS OVERLAY - ONLY SHOW IF NOT PROCESSING & VIDEO LOADED */}
                     {(videoFile || videoUrl) && !isProcessing && !isTagMode && (
-                        <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/60 to-transparent transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+                        <div className={`absolute bottom-0 left-0 right-0 p-2 md:p-4 bg-gradient-to-t from-black/90 via-black/60 to-transparent transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
 
                             {/* Timeline Slider */}
-                            <div className="relative w-full h-1.5 bg-white/20 rounded-full mb-4 cursor-pointer group/timeline hover:h-2 transition-all">
+                            <div className="relative w-full h-1 md:h-1.5 bg-white/20 rounded-full mb-2 md:mb-4 cursor-pointer group/timeline hover:h-2 transition-all">
                                 {/* Buffered/Background */}
                                 <div className="absolute inset-0 rounded-full overflow-hidden">
                                     {/* Stroke markers if available; fallback to frame markers */}
@@ -571,12 +571,12 @@ export default function VideoPanel({
                             </div>
 
                             <div className="flex items-center justify-between text-white">
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2 md:gap-4">
                                     <button onClick={togglePlay} className="hover:text-accent transition">
-                                        {isPlaying ? <Pause className="h-6 w-6 fill-current" /> : <Play className="h-6 w-6 fill-current" />}
+                                        {isPlaying ? <Pause className="h-5 w-5 md:h-6 md:w-6 fill-current" /> : <Play className="h-5 w-5 md:h-6 md:w-6 fill-current" />}
                                     </button>
 
-                                    <div className="flex items-center gap-1">
+                                    <div className="hidden sm:flex items-center gap-1">
                                         <button onClick={() => stepFrame(-1)} className="p-1 hover:text-white text-white/70 transition" title="Previous Frame">
                                             <SkipBack className="h-4 w-4 fill-current" />
                                         </button>
@@ -585,19 +585,19 @@ export default function VideoPanel({
                                         </button>
                                     </div>
 
-                                    <span className="text-xs font-mono opacity-80">
+                                    <span className="text-[10px] md:text-xs font-mono opacity-80">
                                         {formatTime(currentTime || 0)} / {formatTime(duration)}
                                     </span>
                                 </div>
 
-                                <div className="flex items-center gap-3">
-                                    <button onClick={onToggleOverlay} className={`p-1.5 rounded transition ${showOverlay ? 'text-accent bg-white/10' : 'text-gray-400'}`} title="Toggle Overlay">
-                                        <Zap className="h-4 w-4" />
+                                <div className="flex items-center gap-1 md:gap-3">
+                                    <button onClick={onToggleOverlay} className={`p-1 md:p-1.5 rounded transition ${showOverlay ? 'text-accent bg-white/10' : 'text-gray-400'}`} title="Toggle Overlay">
+                                        <Zap className="h-3.5 w-3.5 md:h-4 md:w-4" />
                                     </button>
 
-                                    <div className="flex items-center bg-white/10 rounded-lg p-1">
+                                    <div className="flex items-center bg-white/10 rounded-lg p-0.5 md:p-1">
                                         {[0.5, 1.0, 1.5].map(s => (
-                                            <button key={s} onClick={() => onSpeedChange?.(s)} className={`px-2 py-0.5 text-[10px] rounded ${playbackSpeed === s ? 'bg-accent text-white' : 'text-gray-400 hover:text-white'}`}>
+                                            <button key={s} onClick={() => onSpeedChange?.(s)} className={`px-1.5 md:px-2 py-0.5 text-[9px] md:text-[10px] rounded ${playbackSpeed === s ? 'bg-accent text-white' : 'text-gray-400 hover:text-white'}`}>
                                                 {s}x
                                             </button>
                                         ))}
@@ -613,7 +613,7 @@ export default function VideoPanel({
                                             a.click();
                                             document.body.removeChild(a);
                                         }}
-                                        className="p-1.5 rounded transition text-gray-400 hover:text-white hover:bg-white/10"
+                                        className="hidden sm:block p-1.5 rounded transition text-gray-400 hover:text-white hover:bg-white/10"
                                         title="Download Video"
                                     >
                                         <Upload className="h-4 w-4 rotate-180" />

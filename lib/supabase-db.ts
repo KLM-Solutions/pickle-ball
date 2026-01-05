@@ -24,6 +24,7 @@ export interface AnalysisJob {
   input_json: any | null;
   processing_time_sec: number | null;
   total_frames: number | null;
+  llm_response: string | null;
 }
 
 // Create Supabase client
@@ -110,6 +111,31 @@ export async function getCompletedAnalyses(limit: number = 20): Promise<Analysis
     return data || [];
   } catch (error) {
     console.error("Failed to fetch completed analyses:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch all analyses (including processing, pending, completed, failed)
+ */
+export async function getAllAnalyses(limit: number = 50): Promise<AnalysisJob[]> {
+  try {
+    const supabase = getSupabaseClient();
+    
+    const { data, error } = await supabase
+      .from("analysis_jobs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("Error fetching all analyses:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Failed to fetch all analyses:", error);
     return [];
   }
 }

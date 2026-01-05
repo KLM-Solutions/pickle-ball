@@ -14,6 +14,9 @@ SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 RUNPOD_API_KEY=your-runpod-api-key
 RUNPOD_ENDPOINT_ID=your-endpoint-id
 
+# OpenAI Configuration (for AI coaching feedback)
+OPENAI_API_KEY=sk-your-openai-api-key
+
 # App URL (for webhook callbacks) - Set automatically on Vercel
 NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 ```
@@ -27,6 +30,7 @@ NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 | `SUPABASE_SERVICE_KEY` | Supabase Dashboard → Settings → API → service_role secret |
 | `RUNPOD_API_KEY` | RunPod Console → Settings → API Keys |
 | `RUNPOD_ENDPOINT_ID` | RunPod Console → Serverless → Your Endpoint → ID (in URL) |
+| `OPENAI_API_KEY` | OpenAI Platform → API Keys → Create new secret key |
 | `NEXT_PUBLIC_APP_URL` | Your deployed app URL (auto-set by VERCEL_URL on Vercel) |
 
 ⚠️ **IMPORTANT**: `SUPABASE_SERVICE_KEY` is used server-side only for webhook handling. Never expose it in frontend code!

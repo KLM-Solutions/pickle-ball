@@ -4,7 +4,11 @@
  * Receives video URL and parameters, calls RunPod serverless worker with webhook,
  * returns immediately. Results are delivered via webhook to /api/webhook/runpod.
  * 
- * ALL database storage is handled in TypeScript (webhook handler updates on completion).
+ * Flow:
+ * 1. Create job in DB
+ * 2. Call RunPod (async with webhook or sync)
+ * 3. For sync: Run TypeScript analysis on raw frames, store in DB
+ * 4. For async: Webhook handles analysis and storage
  */
 
 import { NextResponse } from "next/server";
@@ -15,6 +19,7 @@ import {
   updateJobCompleted, 
   updateJobFailed 
 } from "@/lib/supabase";
+import { analyzeFrames, RawFrame } from "@/lib/analysis";
 
 export const maxDuration = 300; // This function can run for a maximum of 5 minutes
 
@@ -138,37 +143,40 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       const result = await runAnalysisSync(runpodInput, 600000);
 
-      // Transform response
-      const transformedResult = {
-        job_id: jobId,
-        stroke_type: strokeType,
-        videoUrl: result.video_url,
-        frames: result.frames.map((frame: any, index: number) => ({
-          frameIndex: index,
-          timestampSec: frame.timestampSec,
-          bbox: frame.bbox,
-          confidence: frame.confidence,
-          metrics: frame.metrics,
-        })),
-        strokes: result.strokes,
-        playerStats: result.summary ? {
-          totalDistanceMeters: result.summary.total_distance_m,
-          avgSpeedKmh: result.summary.avg_speed_kmh,
-          trackedDurationSec: result.summary.tracked_duration_sec,
-        } : undefined,
-        injuryRiskSummary: result.injury_risk_summary,
-        processingTime: result.processing_time_sec,
-      };
+      // Convert raw frames from Python output
+      const rawFrames: RawFrame[] = (result.frames || []).map((frame: any) => ({
+        frameIdx: frame.frameIdx ?? frame.frame_idx ?? 0,
+        timestampSec: frame.timestampSec ?? frame.timestamp_sec ?? 0,
+        bbox: frame.bbox || [],
+        confidence: frame.confidence ?? 1,
+        track_id: frame.track_id ?? 0,
+        landmarks: frame.landmarks || null,
+      }));
+
+      console.log(`Processing ${rawFrames.length} frames with TypeScript analysis...`);
+
+      // Run TypeScript biomechanics analysis
+      const analysisResult = analyzeFrames(
+        rawFrames,
+        strokeType,
+        jobId,
+        result.video_url || ''
+      );
+
+      // Add processing time from RunPod
+      analysisResult.processingTime = result.processing_time_sec;
+
+      console.log(`Analysis complete. Overall risk: ${analysisResult.summary.overall_risk}`);
 
       // Store results in database
       await updateJobCompleted(jobId, {
         resultVideoUrl: result.video_url || undefined,
-        resultJson: transformedResult,
+        resultJson: analysisResult,
         processingTimeSec: result.processing_time_sec,
-        totalFrames: result.frames?.length || 0,
+        totalFrames: rawFrames.length,
       });
 
-      return NextResponse.json(transformedResult);
+      return NextResponse.json(analysisResult);
     }
 
   } catch (error: any) {

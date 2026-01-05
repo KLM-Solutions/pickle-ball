@@ -107,8 +107,9 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
   
   -- Output (populated after analysis)
   result_video_url TEXT,                   -- Annotated video URL
-  result_json JSONB,                       -- Full output: {frames, strokes, summary, injury_risk_summary}
+  result_json JSONB,                       -- Full output: {frames, summary, metrics, injury_risks}
   frames_folder TEXT,                      -- Path in storage (deprecated - frames not stored separately)
+  llm_response TEXT,                       -- AI coaching feedback (generated once and cached)
   
   -- Metadata
   processing_time_sec FLOAT,
@@ -232,7 +233,8 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
   result_json JSONB,
   frames_folder TEXT,
   processing_time_sec FLOAT,
-  total_frames INT
+  total_frames INT,
+  llm_response TEXT                  -- AI coaching feedback (generated once, cached)
 );
 
 CREATE INDEX IF NOT EXISTS idx_analysis_jobs_status ON analysis_jobs(status);

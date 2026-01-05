@@ -2,20 +2,12 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Award, ChevronRight, Code, Copy, Check, X, Home } from "lucide-react";
+import { ArrowLeft, Award, ChevronRight, BarChart3, AlertTriangle, TrendingUp, Play, Lightbulb } from "lucide-react";
 import VideoPanel from "../../components/VideoPanel";
 import { BiomechanicalMetrics } from "../../components/dashboard/BiomechanicalMetrics";
+import { filterFramesForIssues, getTopIssues, getFilterSummary, FilteredFrame, FilterSummary } from "@/lib/analysis";
 
 export const dynamic = 'force-dynamic';
-
-interface Stroke {
-    id: number;
-    type: string;
-    timestamp: number;
-    label: string;
-    confidence: number;
-    riskLevel?: 'low' | 'medium' | 'high';
-}
 
 function PlayerContent() {
     const router = useRouter();
@@ -25,20 +17,9 @@ function PlayerContent() {
     const [currentTime, setCurrentTime] = useState(0);
     const [showSidebar, setShowSidebar] = useState(false);
     const [analysisData, setAnalysisData] = useState<any>(null);
-    const [strokes, setStrokes] = useState<Stroke[]>([]);
-    const [selectedStroke, setSelectedStroke] = useState<number | null>(null);
     const [playbackSpeed, setPlaybackSpeed] = useState(1);
-    const [showJson, setShowJson] = useState(false);
-    const [copied, setCopied] = useState(false);
-    const [showMetrics, setShowMetrics] = useState(false);
-
-    const copyJson = () => {
-        if (analysisData) {
-            navigator.clipboard.writeText(JSON.stringify(analysisData, null, 2));
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        }
-    };
+    const [showMetrics, setShowMetrics] = useState(true);
+    const [activeTab, setActiveTab] = useState<'metrics' | 'issues'>('metrics');
 
     useEffect(() => {
         if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
@@ -51,149 +32,119 @@ function PlayerContent() {
         if (storedResult) {
             const result = JSON.parse(storedResult);
             setAnalysisData(result);
-
-            if (result.strokes) {
-                const mappedStrokes = result.strokes.map((s: any, idx: number) => ({
-                    id: idx,
-                    type: s.type || s.stroke_type || 'groundstroke',
-                    timestamp: s.startSec || s.timestamp || 0,
-                    label: formatTime(s.startSec || s.timestamp || 0),
-                    confidence: s.confidence || 0.9,
-                    riskLevel: s.riskLevel || 'low'
-                }));
-                setStrokes(mappedStrokes);
-            }
         }
     }, []);
 
-    const formatTime = (time: number) => {
-        const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    };
-
     const currentFrame = useMemo(() => {
         if (!analysisData?.frames || analysisData.frames.length === 0) return null;
-        return analysisData.frames.reduce((prev: any, curr: any) => {
-            return Math.abs(curr.timestampSec - currentTime) < Math.abs(prev.timestampSec - currentTime) ? curr : prev;
+        let bestIdx = 0;
+        let bestDiff = Infinity;
+        analysisData.frames.forEach((frame: any, idx: number) => {
+            const timestamp = frame.timestampSec ?? frame.timestamp_sec ?? 0;
+            const diff = Math.abs(timestamp - currentTime);
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                bestIdx = idx;
+            }
         });
+        const frame = analysisData.frames[bestIdx];
+        return {
+            ...frame,
+            _calculatedIdx: bestIdx,
+            _calculatedTime: frame.timestampSec ?? frame.timestamp_sec ?? 0
+        };
     }, [currentTime, analysisData]);
 
     const aggregates = useMemo(() => {
         const frames = analysisData?.frames || [];
         if (frames.length === 0) return { hip: 0, shoulder: 0, knee: 0 };
+        
+        const validHip = frames.filter((f: any) => f.metrics?.hip_rotation_deg != null);
+        const validShoulder = frames.filter((f: any) => f.metrics?.right_shoulder_abduction != null);
+        const validKnee = frames.filter((f: any) => f.metrics?.right_knee_flexion != null);
+        
         return {
-            hip: Math.round(frames.reduce((acc: number, f: any) => acc + (f.metrics?.hip_rotation_deg || 0), 0) / frames.length),
-            shoulder: Math.round(Math.max(...frames.map((f: any) => f.metrics?.right_shoulder_abduction || 0))),
-            knee: Math.round(Math.min(...frames.map((f: any) => f.metrics?.right_knee_flexion || 180))),
+            hip: validHip.length > 0 ? Math.round(validHip.reduce((acc: number, f: any) => acc + f.metrics.hip_rotation_deg, 0) / validHip.length) : 0,
+            shoulder: validShoulder.length > 0 ? Math.round(Math.max(...validShoulder.map((f: any) => f.metrics.right_shoulder_abduction))) : 0,
+            knee: validKnee.length > 0 ? Math.round(Math.min(...validKnee.map((f: any) => f.metrics.right_knee_flexion))) : 0,
         };
     }, [analysisData]);
 
+    // Filter frames for issues based on stroke type
+    const { filteredFrames, filterSummary, topIssues } = useMemo(() => {
+        if (!analysisData?.frames || analysisData.frames.length === 0) {
+            return { filteredFrames: [], filterSummary: null, topIssues: [] };
+        }
+        
+        const filtered = filterFramesForIssues(analysisData.frames, strokeType);
+        const summary = getFilterSummary(analysisData.frames, filtered);
+        const top = getTopIssues(filtered, 5);
+        
+        return { filteredFrames: filtered, filterSummary: summary, topIssues: top };
+    }, [analysisData, strokeType]);
+
+    // Jump to frame
+    const jumpToFrame = (frame: any) => {
+        const time = frame.timestampSec ?? frame.timestamp_sec ?? 0;
+        setCurrentTime(time);
+    };
+
+    // Get issue label
+    const getIssueLabel = (type: string) => {
+        const labels: Record<string, string> = {
+            shoulder_overuse: 'Shoulder Overuse',
+            shoulder_over_rotation: 'Over-Rotation',
+            shoulder_under_rotation: 'Under-Rotation',
+            poor_kinetic_chain: 'Poor Kinetic Chain',
+            insufficient_hip_rotation: 'Low Hip Power',
+            knee_stress: 'Knee Stress',
+            excessive_knee_bend: 'Deep Knee Bend',
+            insufficient_knee_bend: 'Straight Knees',
+            elbow_form: 'Elbow Position',
+            elbow_strain: 'Elbow Strain',
+        };
+        return labels[type] || type.replace(/_/g, ' ');
+    };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-            {/* Animated background */}
-            <div className="fixed inset-0 opacity-10 pointer-events-none">
-                <div className="absolute top-10 left-5 md:top-20 md:left-10 w-48 md:w-72 h-48 md:h-72 bg-emerald-500 rounded-full filter blur-[100px] md:blur-[128px]" />
-                <div className="absolute bottom-10 right-5 md:bottom-20 md:right-10 w-64 md:w-96 h-64 md:h-96 bg-violet-500 rounded-full filter blur-[100px] md:blur-[128px]" />
-            </div>
-
-            {/* JSON Modal */}
-            {showJson && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-slate-900 border border-white/10 rounded-xl md:rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-white/10 bg-white/5">
-                            <div className="flex items-center gap-2 md:gap-3">
-                                <div className="w-7 h-7 md:w-8 md:h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center">
-                                    <Code className="w-3.5 h-3.5 md:w-4 md:h-4 text-cyan-400" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-white text-sm md:text-base">Analysis JSON</h3>
-                                    <p className="text-[10px] md:text-xs text-slate-500">
-                                        {analysisData?.frames?.length || 0} frames
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={copyJson}
-                                    className="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg text-xs md:text-sm font-medium transition border border-cyan-500/30"
-                                >
-                                    {copied ? <Check className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <Copy className="w-3.5 h-3.5 md:w-4 md:h-4" />}
-                                    <span className="hidden sm:inline">{copied ? 'Copied!' : 'Copy'}</span>
-                                </button>
-                                <button
-                                    onClick={() => setShowJson(false)}
-                                    className="p-1.5 md:p-2 hover:bg-white/10 rounded-lg transition text-slate-400 hover:text-white"
-                                >
-                                    <X className="w-4 h-4 md:w-5 md:h-5" />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* JSON Content */}
-                        <div className="flex-1 overflow-auto p-3 md:p-4 bg-slate-950">
-                            <pre className="text-[10px] md:text-xs font-mono text-slate-300 leading-relaxed whitespace-pre-wrap">
-                                <code>{JSON.stringify(analysisData, null, 2)}</code>
-                            </pre>
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="px-4 md:px-6 py-2.5 md:py-3 border-t border-white/10 bg-white/5">
-                            <button
-                                onClick={() => setShowJson(false)}
-                                className="w-full md:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-sm font-medium transition border border-white/10"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
+        <div className="min-h-screen bg-white">
             {/* Header */}
-            <header className="relative z-20 h-14 md:h-16 bg-slate-900/80 border-b border-white/10 px-3 md:px-4 flex items-center justify-between backdrop-blur-sm sticky top-0">
+            <header className="relative z-20 h-14 bg-white border-b border-neutral-200 px-4 flex items-center justify-between sticky top-0">
                 <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
-                    <div className="flex items-center gap-2 md:gap-4">
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={() => router.push('/')}
-                            className="flex items-center gap-1.5 md:gap-2 text-slate-400 hover:text-white transition p-1"
+                            className="flex items-center gap-2 text-neutral-500 hover:text-black transition"
                         >
                             <ArrowLeft className="w-4 h-4" />
-                            <span className="text-xs md:text-sm font-medium hidden sm:inline">Back</span>
+                            <span className="text-sm font-medium hidden sm:inline">Back</span>
                         </button>
-                        <div className="flex items-center gap-1.5 md:gap-2">
-                            <span className="text-base md:text-lg">🎾</span>
-                            <h1 className="text-xs md:text-base font-bold text-white">Analysis</h1>
+                        <div className="h-4 w-px bg-neutral-200 hidden sm:block" />
+                        <div className="flex items-center gap-2">
+                            <span className="text-lg">🎾</span>
+                            <h1 className="text-sm font-semibold text-black capitalize">{strokeType} Analysis</h1>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 md:gap-3">
-                        {/* Mobile: Metrics Toggle */}
+                    <div className="flex items-center gap-2">
                         <button
                             onClick={() => setShowMetrics(!showMetrics)}
-                            className="lg:hidden px-2.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 bg-white/5 text-slate-400 border border-white/10 hover:text-white hover:bg-white/10"
-                        >
-                            📊
-                        </button>
-                        <button
-                            onClick={() => setShowJson(!showJson)}
-                            className={`px-2.5 md:px-3 py-1.5 md:py-2 text-xs md:text-sm font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                                showJson 
-                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
-                                    : 'bg-white/5 text-slate-400 border border-white/10 hover:text-white hover:bg-white/10'
+                            className={`lg:hidden p-2 rounded-lg transition border ${
+                                showMetrics 
+                                    ? 'bg-black text-white border-black' 
+                                    : 'bg-neutral-100 text-neutral-600 border-neutral-200 hover:text-black'
                             }`}
                         >
-                            <Code className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                            <span className="hidden sm:inline">JSON</span>
+                            <BarChart3 className="w-4 h-4" />
                         </button>
+                        
                         <button
                             onClick={() => router.push(`/strikesense/analysis?stroke=${strokeType}`)}
-                            className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:opacity-90 text-white rounded-lg shadow-lg shadow-orange-500/30 transition-all flex items-center gap-1.5"
+                            className="px-3 py-2 text-sm font-semibold bg-black text-white rounded-lg transition hover:bg-neutral-800 flex items-center gap-1.5"
                         >
-                            <Award className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                            <span className="hidden sm:inline">Report</span>
-                            <ChevronRight className="w-3.5 h-3.5 sm:hidden" />
+                            <Award className="w-4 h-4" />
+                            <span className="hidden sm:inline">Full Report</span>
+                            <ChevronRight className="w-4 h-4 sm:hidden" />
                         </button>
                     </div>
                 </div>
@@ -203,9 +154,9 @@ function PlayerContent() {
             <main className="relative z-10 max-w-7xl mx-auto px-3 md:px-4 py-4 md:py-6">
                 <div className="grid lg:grid-cols-12 gap-4 md:gap-6">
 
-                    {/* LEFT: Video Player */}
-                    <div className="lg:col-span-8 space-y-4">
-                        <div className="bg-white/5 border border-white/10 p-1 rounded-xl md:rounded-2xl overflow-hidden backdrop-blur-sm h-auto lg:h-[500px]">
+                    {/* Video Player */}
+                    <div className="lg:col-span-8">
+                        <div className="bg-neutral-100 border border-neutral-200 rounded-xl overflow-hidden">
                             <VideoPanel
                                 videoFile={null}
                                 videoUrl={analysisData?.videoUrl || null}
@@ -222,87 +173,293 @@ function PlayerContent() {
                         </div>
                     </div>
 
-                    {/* RIGHT: Metrics & Insights - Hidden on mobile by default */}
-                    <div className={`lg:col-span-4 space-y-3 md:space-y-4 flex flex-col h-auto lg:h-[500px] ${showMetrics ? 'block' : 'hidden lg:flex'}`}>
+                    {/* Metrics Sidebar */}
+                    <div className={`lg:col-span-4 space-y-4 ${showMetrics ? 'block' : 'hidden lg:block'}`}>
 
-                        {/* Real-time Metrics */}
-                        <BiomechanicalMetrics
-                            currentFrameMetrics={currentFrame?.metrics}
-                            aggregates={aggregates}
-                        />
+                        {/* Tab Switcher */}
+                        <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg border border-neutral-200">
+                            <button
+                                onClick={() => setActiveTab('metrics')}
+                                className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 ${
+                                    activeTab === 'metrics' 
+                                        ? 'bg-white text-black shadow-sm border border-neutral-200' 
+                                        : 'text-neutral-500 hover:text-black'
+                                }`}
+                            >
+                                <BarChart3 className="w-3.5 h-3.5" />
+                                Metrics
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('issues')}
+                                className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 ${
+                                    activeTab === 'issues' 
+                                        ? 'bg-white text-black shadow-sm border border-neutral-200' 
+                                        : 'text-neutral-500 hover:text-black'
+                                }`}
+                            >
+                                <Lightbulb className="w-3.5 h-3.5" />
+                                Issues
+                                {filterSummary && filterSummary.injury_risk_frames > 0 && (
+                                    <span className="ml-1 px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full text-[10px]">
+                                        {filterSummary.injury_risk_frames}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
 
-                        {/* Real-time Analysis */}
-                        <div className="flex-none bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm">
-                            <h3 className="text-[10px] md:text-xs font-bold text-slate-400 mb-2 md:mb-3 flex items-center gap-2 uppercase tracking-wide">
-                                <span className="text-amber-400">⚡</span> Live Analysis
-                            </h3>
+                        {/* Metrics Tab */}
+                        {activeTab === 'metrics' && (
+                            <>
+                                {/* Real-time Metrics */}
+                                <BiomechanicalMetrics
+                                    currentFrameMetrics={currentFrame?.metrics}
+                                    aggregates={aggregates}
+                                />
 
-                            <div className="space-y-2 md:space-y-3">
-                                {/* Safe Status */}
-                                <div className={`p-2.5 md:p-3 rounded-lg border transition-all duration-300 ${
-                                    !currentFrame?.metrics?.injury_risk || currentFrame?.metrics?.injury_risk === 'low' 
-                                        ? 'bg-emerald-500/10 border-emerald-500/30' 
-                                        : 'bg-white/5 border-white/10 opacity-50'
-                                }`}>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`text-xs md:text-sm font-bold ${
-                                            !currentFrame?.metrics?.injury_risk || currentFrame?.metrics?.injury_risk === 'low' 
-                                                ? 'text-emerald-400' 
-                                                : 'text-slate-500'
-                                        }`}>
-                                            ✓ Form Status: SAFE
-                                        </span>
-                                    </div>
-                                    <p className="text-[10px] md:text-xs text-slate-400 mt-0.5 md:mt-1">Good biomechanics detected</p>
-                                </div>
-
-                                {/* Risk Alert */}
-                                {currentFrame?.metrics?.injury_risk && currentFrame.metrics.injury_risk !== 'low' && (
-                                    <div className="p-2.5 md:p-3 bg-red-500/10 border border-red-500/30 rounded-lg animate-pulse">
-                                        <div className="flex items-center gap-2 mb-0.5 md:mb-1">
-                                            <span className="text-[10px] md:text-xs font-bold text-red-400 uppercase tracking-wider">⚠️ Risk Alert</span>
+                                {/* Current Frame Info */}
+                                <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
+                                    <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide">
+                                        Current Frame
+                                    </h3>
+                                    
+                                    <div className="grid grid-cols-2 gap-2 mb-3">
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Frame</div>
+                                            <div className="text-lg font-bold text-black">
+                                                {currentFrame ? (currentFrame.frameIdx ?? currentFrame._calculatedIdx ?? 0) : '--'}
+                                            </div>
                                         </div>
-                                        <p className="text-xs md:text-sm font-medium text-red-300">
-                                            {currentFrame.metrics.feedback?.[0] || 'Form deviation detected'}
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Time</div>
+                                            <div className="text-lg font-bold text-black">
+                                                {currentFrame ? `${(currentFrame.timestampSec ?? currentFrame._calculatedTime ?? 0).toFixed(2)}s` : '--'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Risk Status */}
+                                    <div className={`rounded-lg p-3 border min-h-[72px] ${
+                                        !currentFrame 
+                                            ? 'bg-neutral-100 border-neutral-200'
+                                            : currentFrame.injury_risk === 'high' 
+                                                ? 'bg-red-50 border-red-200' 
+                                                : currentFrame.injury_risk === 'medium'
+                                                    ? 'bg-amber-50 border-amber-200'
+                                                    : 'bg-green-50 border-green-200'
+                                    }`}>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-neutral-500">Form Status</span>
+                                            <span className={`text-sm font-bold uppercase ${
+                                                !currentFrame
+                                                    ? 'text-neutral-400'
+                                                    : currentFrame.injury_risk === 'high'
+                                                        ? 'text-red-600'
+                                                        : currentFrame.injury_risk === 'medium'
+                                                            ? 'text-amber-600'
+                                                            : 'text-green-600'
+                                            }`}>
+                                                {!currentFrame 
+                                                    ? '-- Waiting'
+                                                    : currentFrame.injury_risk === 'high' 
+                                                        ? '⚠️ High Risk' 
+                                                        : currentFrame.injury_risk === 'medium' 
+                                                            ? '⚡ Medium' 
+                                                            : '✓ Good'}
+                                            </span>
+                                        </div>
+                                        <p className={`text-xs mt-2 leading-relaxed min-h-[16px] ${
+                                            !currentFrame
+                                                ? 'text-neutral-400'
+                                                : currentFrame.injury_risk === 'high'
+                                                    ? 'text-red-600'
+                                                    : currentFrame.injury_risk === 'medium'
+                                                        ? 'text-amber-600'
+                                                        : 'text-green-600'
+                                        }`}>
+                                            {!currentFrame 
+                                                ? 'Play video to see form analysis'
+                                                : currentFrame.feedback && currentFrame.feedback.length > 0 
+                                                    ? currentFrame.feedback[0] 
+                                                    : 'No feedback for this frame'}
                                         </p>
                                     </div>
-                                )}
+                                </div>
 
-                                {!currentFrame && (
-                                    <div className="text-center py-3 md:py-4 text-[10px] md:text-xs text-slate-500">
-                                        Play video to see live analysis
+                                {/* Session Summary */}
+                                <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
+                                    <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide">
+                                        Session Summary
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Frames</div>
+                                            <div className="text-lg font-bold text-black">
+                                                {analysisData?.summary?.total_frames || analysisData?.frames?.length || '--'}
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Duration</div>
+                                            <div className="text-lg font-bold text-black">
+                                                {analysisData?.summary?.duration_sec?.toFixed(1) || '--'}s
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">FPS</div>
+                                            <div className="text-lg font-bold text-black">
+                                                {analysisData?.summary?.fps || '--'}
+                                            </div>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-neutral-200">
+                                            <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Stroke</div>
+                                            <div className="text-lg font-bold text-black capitalize">
+                                                {strokeType}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Issues Tab */}
+                        {activeTab === 'issues' && (
+                            <>
+                                {/* Issues Summary */}
+                                {filterSummary && (
+                                    <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
+                                        <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide">
+                                            Issues Found for {strokeType}
+                                        </h3>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="bg-red-50 rounded-lg p-3 border border-red-200 text-center">
+                                                <div className="text-lg font-bold text-red-600">{filterSummary.injury_risk_frames}</div>
+                                                <div className="text-[10px] text-red-500 uppercase">High Risk</div>
+                                            </div>
+                                            <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 text-center">
+                                                <div className="text-lg font-bold text-amber-600">{filterSummary.improvement_frames}</div>
+                                                <div className="text-[10px] text-amber-500 uppercase">Improve</div>
+                                            </div>
+                                            <div className="bg-green-50 rounded-lg p-3 border border-green-200 text-center">
+                                                <div className="text-lg font-bold text-green-600">{filterSummary.good_form_frames}</div>
+                                                <div className="text-[10px] text-green-500 uppercase">Good</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
-                            </div>
-                        </div>
 
-                        {/* Pro Tips */}
-                        <div className="flex-1 bg-white/5 border border-white/10 p-3 md:p-4 rounded-xl backdrop-blur-sm overflow-hidden flex flex-col">
-                            <h2 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 md:mb-3 flex items-center gap-2">
-                                <span className="text-yellow-400">💡</span> Pro Tips
-                            </h2>
-                            <div className="space-y-2 md:space-y-3 overflow-y-auto pr-1 flex-1">
-                                {[
-                                    { title: "Consistency is Key", desc: "Focus on getting the ball over rather than hitting winners.", color: "from-blue-500/20 to-blue-600/10 border-blue-500/20" },
-                                    { title: "Master the Dink", desc: "Keep dinks low and unattackable. Patience wins points.", color: "from-purple-500/20 to-purple-600/10 border-purple-500/20" },
-                                    { title: "Move with Purpose", desc: "Split step before opponent hits. Better positioning.", color: "from-orange-500/20 to-orange-600/10 border-orange-500/20" },
-                                    { title: "Stay Balanced", desc: "Weight forward, knees bent. Stable base equals power.", color: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/20" },
-                                ].map((tip, i) => (
-                                    <div key={i} className={`p-2.5 md:p-3 bg-gradient-to-br ${tip.color} rounded-lg border`}>
-                                        <h4 className="text-[10px] md:text-xs font-bold text-white mb-0.5 md:mb-1">{tip.title}</h4>
-                                        <p className="text-[9px] md:text-xs text-slate-400 leading-relaxed">{tip.desc}</p>
+                                {/* Top Issues */}
+                                <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
+                                    <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide flex items-center gap-2">
+                                        <TrendingUp className="w-3.5 h-3.5" />
+                                        Key Issues to Address
+                                    </h3>
+                                    
+                                    {topIssues.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {topIssues.map((issue, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => jumpToFrame(issue.firstFrame)}
+                                                    className={`w-full text-left p-3 rounded-lg border transition hover:scale-[1.01] active:scale-[0.99] ${
+                                                        issue.severity === 'high' 
+                                                            ? 'bg-red-50 border-red-200 hover:bg-red-100' 
+                                                            : issue.severity === 'medium'
+                                                                ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                                                                : 'bg-white border-neutral-200 hover:bg-neutral-100'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex items-start gap-2">
+                                                            {issue.severity === 'high' ? (
+                                                                <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                                                            ) : issue.severity === 'medium' ? (
+                                                                <TrendingUp className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                                                            ) : (
+                                                                <Lightbulb className="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                                                            )}
+                                                            <div>
+                                                                <div className={`text-xs font-semibold ${
+                                                                    issue.severity === 'high' ? 'text-red-700' 
+                                                                        : issue.severity === 'medium' ? 'text-amber-700' 
+                                                                        : 'text-neutral-700'
+                                                                }`}>
+                                                                    {getIssueLabel(issue.issue)}
+                                                                </div>
+                                                                <div className="text-[10px] text-neutral-500 mt-0.5">
+                                                                    {issue.frameCount} frame{issue.frameCount !== 1 ? 's' : ''} affected
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 text-[10px] text-neutral-400">
+                                                            <Play className="w-3 h-3" />
+                                                            Jump
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-6">
+                                            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                <span className="text-2xl">✓</span>
+                                            </div>
+                                            <p className="text-sm font-medium text-green-700">Great Form!</p>
+                                            <p className="text-xs text-neutral-500 mt-1">No significant issues detected</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Problem Frames List */}
+                                {filteredFrames.length > 0 && (
+                                    <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl max-h-[300px] overflow-y-auto">
+                                        <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide sticky top-0 bg-neutral-50 py-1">
+                                            Problem Frames ({filteredFrames.filter(f => f.category !== 'good_form').length})
+                                        </h3>
+                                        <div className="space-y-1.5">
+                                            {filteredFrames
+                                                .filter(f => f.category !== 'good_form')
+                                                .slice(0, 20)
+                                                .map((ff, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => jumpToFrame(ff.frame)}
+                                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition ${
+                                                            ff.category === 'injury_risk' 
+                                                                ? 'bg-red-50 hover:bg-red-100 border border-red-200' 
+                                                                : ff.category === 'form_improvement'
+                                                                    ? 'bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                                                                    : 'bg-white hover:bg-neutral-100 border border-neutral-200'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-xs font-mono font-bold ${
+                                                                ff.category === 'injury_risk' ? 'text-red-600' 
+                                                                    : ff.category === 'form_improvement' ? 'text-amber-600' 
+                                                                    : 'text-neutral-600'
+                                                            }`}>
+                                                                #{ff.frame.frameIdx}
+                                                            </span>
+                                                            <span className="text-[10px] text-neutral-500">
+                                                                {ff.frame.timestampSec.toFixed(2)}s
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-[10px] text-neutral-500">
+                                                            {ff.issues.length} issue{ff.issues.length !== 1 ? 's' : ''}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
 
-                {/* Mobile: Floating Action Button for Report */}
+                {/* Mobile FAB */}
                 <div className="fixed bottom-4 right-4 lg:hidden z-30">
                     <button
                         onClick={() => router.push(`/strikesense/analysis?stroke=${strokeType}`)}
-                        className="w-14 h-14 bg-gradient-to-r from-orange-500 to-red-500 rounded-full shadow-lg shadow-orange-500/40 flex items-center justify-center active:scale-95 transition-transform"
+                        className="w-14 h-14 bg-black rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform"
                     >
                         <Award className="w-6 h-6 text-white" />
                     </button>
@@ -315,8 +472,8 @@ function PlayerContent() {
 export default function PlayerPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-                <div className="text-emerald-400 font-bold animate-pulse">Loading...</div>
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <div className="text-black font-bold animate-pulse">Loading...</div>
             </div>
         }>
             <PlayerContent />
