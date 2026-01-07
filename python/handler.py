@@ -428,6 +428,15 @@ if __name__ == "__main__":
         print("✓ mediapipe imported successfully")
     except Exception as e:
         print(f"✗ mediapipe import failed: {e}")
+
+    try:
+        import torch
+        print(f"✓ torch imported: {torch.__version__}")
+        print(f"  CUDA Available: {torch.cuda.is_available()}")
+        if torch.cuda.is_available():
+            print(f"  GPU: {torch.cuda.get_device_name(0)}")
+    except ImportError:
+        print("✗ torch import failed")
     
     print("=" * 60)
     print("Starting RunPod Serverless Worker...")

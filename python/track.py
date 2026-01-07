@@ -14,6 +14,16 @@ def log_debug(msg):
     print(f"[TRACK_PY_DEBUG {ts}] {msg}")
     sys.stdout.flush()
 log_debug("Script loading...")
+try:
+    import torch
+    print(f"CUDA Available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA Device Count: {torch.cuda.device_count()}")
+        print(f"CUDA Device Name: {torch.cuda.get_device_name(0)}")
+    else:
+        print("WARNING: CUDA IS NOT AVAILABLE. TORCH RUNNING ON CPU.")
+except ImportError:
+    print("WARNING: Could not import torch explicitly.")
 class NumpyEncoder(json.JSONEncoder):
     """ Custom encoder for numpy data types """
     def default(self, obj):
@@ -48,14 +58,13 @@ except Exception:
 try:
     from biomechanics import BiomechanicsAnalyzer, InjuryRiskDetector
     from biomechanics.angles import calculate_biomechanics_for_stroke
-    from classification import StrokeClassifier, classify_stroke_enhanced
+    from classification import StrokeClassifier
 except Exception as e:
     print(f"ERROR Importing Modules: {e}")
     BiomechanicsAnalyzer = None
     InjuryRiskDetector = None
     StrokeClassifier = None
     calculate_biomechanics_for_stroke = None
-    classify_stroke_enhanced = None
 def calculate_iou(box1, box2):
     """Calculate Intersection over Union (IoU) between two bounding boxes.
         Args:
@@ -261,7 +270,7 @@ def main():
             # YOLO Inference ONLY on analysis frames to maintain speed
             try:
                 # classes=[0] for person only, lower conf to 0.2
-                yolo_preds = model.predict(img, classes=[0], conf=0.2, verbose=False, device=0)[0]
+                yolo_preds = model.predict(img, classes=[0], conf=0.2, verbose=False, device='cuda:0')[0]
                 if yolo_preds.boxes is not None:
                     ds = yolo_preds.boxes.data.cpu().numpy()
                     detections = ds if len(ds) > 0 else np.empty((0, 6))
