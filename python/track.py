@@ -3,10 +3,10 @@ import argparse
 import json
 import os
 import cv2
-import json
+import sys
+import numpy as np
 import time
 import shutil
-import traceback
 from pathlib import Path
 import datetime
 # FORCE FLUSH LOGGING
