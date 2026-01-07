@@ -286,6 +286,18 @@ def handler(job):
                 content_type="video/mp4"
             )
 
+        # Upload skeleton video if exists
+        skeleton_video_path = os.path.join(output_dir, "skeleton_output.mp4")
+        skeleton_video_url = None
+        if os.path.exists(skeleton_video_path):
+            print(f"Uploading skeleton video: {skeleton_video_path}")
+            skeleton_video_url = uploader.upload_file(
+                bucket="analysis-results",
+                file_path=skeleton_video_path,
+                destination_path=f"{job_id}/skeleton.mp4",
+                content_type="video/mp4"
+            )
+
         # SELECTIVE FRAME UPLOAD
         # We only upload frames needed for the UI filmstrip (Start, Q1, Peak, Q3, End)
         key_indices = set()
@@ -355,6 +367,7 @@ def handler(job):
             "status": "success",
             "job_id": job_id,
             "video_url": result_video_url,
+            "skeleton_video_url": skeleton_video_url,
             "frames": frames_data,
             "strokes": results.get("strokes", []),
             "summary": results.get("summary", {}),
