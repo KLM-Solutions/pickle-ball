@@ -3,9 +3,10 @@ import argparse
 import json
 import os
 import cv2
-import sys
-import numpy as np
+import json
+import time
 import shutil
+import traceback
 from pathlib import Path
 import datetime
 # FORCE FLUSH LOGGING
@@ -277,6 +278,7 @@ def main():
             except Exception as e:
                 print(f"YOLO inference failed: {e}")
         # Else: detections remains empty, tracker will use Kalman prediction
+        tracks = []
         if tracker is not None:
             try:
                 # Update tracker every frame to maintain ID stability
