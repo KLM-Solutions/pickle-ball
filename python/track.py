@@ -387,9 +387,16 @@ def main():
                                 best_score = score
                                 best_track_id = int(tid)
                         
+
                         if best_track_id is not None and best_score > 0.3:  # RELAXED threshold
                             selected_id = best_track_id
                             log_debug(f"--> CROP MATCH FOUND on frame {i}: Selected ID {selected_id} with score {best_score:.3f}")
+                        
+                        # LAST RESORT FALLBACK: If we have waited too long, just pick the best candidate
+                        elif best_track_id is not None and i > (lock_wait_timeout // 2):
+                             selected_id = best_track_id
+                             log_debug(f"--> FORCE MATCH on frame {i}: Score {best_score:.3f} (Lower than threshold, but accepted as fallback)")
+
                         else:
                             # FALLBACK: If no track matches, try raw detections directly
                             if len(detections) > 0:
@@ -442,6 +449,27 @@ def main():
                         if closest_id is not None:
                             selected_id = closest_id
                             print(f"--> POINT MATCH: Selected ID {selected_id} at distance {min_dist:.1f}")
+
+                    # OPTION 3: Largest Area (Auto-selection fallback)
+                    # FIX: Strict Spatial + Size Filter
+                    # 1. Must be large (> 30000 px)
+                    # 2. Must be in NEAR COURT (Bottom 35% of screen, y2 > 0.65 * height)
+                    if selected_id == -1:
+                        max_area = 0
+                        min_y_threshold = height * 0.65 # Bottom 35%
+                        
+                        for t in tracks:
+                            x1, y1, x2, y2, tid, conf, cls = t[:7]
+                            area = (x2 - x1) * (y2 - y1)
+                            
+                            # Filter: Large AND Low (Near Camera)
+                            if area > 30000 and y2 > min_y_threshold:
+                                if area > max_area:
+                                    max_area = area
+                                    selected_id = int(tid)
+                        
+                        if selected_id != -1:
+                            print(f"--> AUTO MATCH: Selected Near-Court Target ID {selected_id} (Area: {int(max_area)})")
 
                     # OPTION 3: Largest Area (Auto-selection fallback)
                     # FIX: Strict Spatial + Size Filter
