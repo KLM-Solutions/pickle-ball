@@ -770,7 +770,11 @@ def main():
                                     validated_biomechanics = calculate_biomechanics_for_stroke(
                                         keypoints, stroke_type_detected
                                     )
-                                    metrics['validated_biomechanics'] = validated_biomechanics
+                                    # FLATTEN METRICS for frontend (Direct GPU -> UI mapping)
+                                    if validated_biomechanics:
+                                        metrics.update(validated_biomechanics)
+                                        # Also keep nested for debug if needed, but UI uses flat keys
+                                        metrics['validated_biomechanics'] = validated_biomechanics
                                     
                                     # ENHANCED: Injury risk detection
                                     if injury_detector is not None:

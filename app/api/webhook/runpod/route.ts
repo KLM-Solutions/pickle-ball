@@ -230,51 +230,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.log("Internal Job ID:", jobId);
 
     if (status === "COMPLETED" && output) {
+      // Preserve python output end-to-end; do NOT recompute / overwrite per-frame metrics.
       const pythonFrames: any[] = output.frames || [];
-      const pythonHasMetrics =
-        pythonFrames.length > 0 &&
-        pythonFrames.some((f: any) => f?.metrics && Object.keys(f.metrics).length > 0);
-
-      // Prefer python-produced per-frame metrics if present; avoid recomputation.
-      let analysisResult: any;
-      if (pythonHasMetrics) {
-        analysisResult = {
-          ...output,
-          frames: pythonFrames,
-          processingTime: output.processing_time_sec,
-          // Frontend expects camelCase videoUrl in analysisResult (session/DB)
-          videoUrl: output.video_url || null,
-          skeletonVideoUrl: output.skeleton_video_url || null,
-        };
-        console.log(
-          `Using python metrics: ${pythonFrames.length} frames (skipping TypeScript analyzeFrames)`
-        );
-      } else {
-        // Fallback: Run TypeScript biomechanics analysis (requires landmarks)
-        const rawFrames: RawFrame[] = pythonFrames.map((frame: any) => ({
-          frameIdx: frame.frameIdx ?? frame.frame_idx ?? 0,
-          timestampSec: frame.timestampSec ?? frame.timestamp_sec ?? 0,
-          bbox: frame.bbox || [],
-          confidence: frame.confidence ?? 1,
-          track_id: frame.track_id ?? 0,
-          landmarks: frame.landmarks || null,
-        }));
-
-        console.log(`Processing ${rawFrames.length} frames with TypeScript analysis...`);
-
-        analysisResult = analyzeFrames(
-          rawFrames,
-          strokeType,
-          jobId,
-          output.video_url || ''
-        );
-
-        analysisResult.processingTime = output.processing_time_sec;
-        analysisResult.videoUrl = output.video_url || null;
-        analysisResult.skeletonVideoUrl = output.skeleton_video_url || null;
-
-        console.log(`Analysis complete. Overall risk: ${analysisResult.summary.overall_risk}`);
-      }
+      const analysisResult: any = {
+        ...output,
+        frames: pythonFrames,
+        processingTime: output.processing_time_sec,
+        // Frontend expects camelCase videoUrl in analysisResult (session/DB)
+        videoUrl: output.video_url || null,
+        skeletonVideoUrl: output.skeleton_video_url || null,
+      };
+      console.log(`Storing python output: ${pythonFrames.length} frames (no TypeScript recompute)`);
 
       // Generate LLM coaching response
       const llmResponse = await generateLLMResponse(
