@@ -56,10 +56,17 @@ try:
 except Exception:
     mp = None
 # NEW MODULAR IMPORTS - ENHANCED
+# Ensure optional symbols are ALWAYS defined (avoid NameError in success-path imports).
+classify_stroke_enhanced = None
 try:
     from biomechanics import BiomechanicsAnalyzer, InjuryRiskDetector
     from biomechanics.angles import calculate_biomechanics_for_stroke
     from classification import StrokeClassifier
+    # Optional: enhanced classifier lives in classification/heuristics.py
+    try:
+        from classification.heuristics import classify_stroke_enhanced  # type: ignore
+    except Exception:
+        classify_stroke_enhanced = None
 except Exception as e:
     print(f"ERROR Importing Modules: {e}")
     BiomechanicsAnalyzer = None
