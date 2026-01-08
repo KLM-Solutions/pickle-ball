@@ -66,6 +66,7 @@ except Exception as e:
     InjuryRiskDetector = None
     StrokeClassifier = None
     calculate_biomechanics_for_stroke = None
+    classify_stroke_enhanced = None
 def calculate_iou(box1, box2):
     """Calculate Intersection over Union (IoU) between two bounding boxes.
         Args:
