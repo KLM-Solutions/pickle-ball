@@ -48,6 +48,7 @@ async function extractFrameFromVideo(file: File): Promise<string> {
 interface VideoPanelProps {
     videoFile: File | null;
     videoUrl: string | null;
+    secondaryVideoUrl?: string | null;
     onVideoUpload: (file: File) => void;
     onVideoClick?: (normalizedX: number, normalizedY: number) => void;
     players?: Array<{ id: number; color: string; normalizedCoords: { x: number; y: number } }>;
@@ -70,6 +71,7 @@ type UploadState = 'idle' | 'uploading' | 'uploaded';
 export default function VideoPanel({
     videoFile,
     videoUrl,
+    secondaryVideoUrl,
     onVideoUpload,
     onVideoClick,
     players = [],
@@ -335,7 +337,10 @@ export default function VideoPanel({
         }
     }, [currentTime]);
 
-    const activeSrc = (showOverlay && videoUrl) ? videoUrl : (localVideoUrl || '');
+    // If there's no local source, never blank playback by toggling overlay off.
+    const activeSrc = videoUrl
+        ? ((showOverlay || !localVideoUrl) ? videoUrl : (localVideoUrl || ''))
+        : (localVideoUrl || '');
 
     // --- Renders ---
 
@@ -464,10 +469,10 @@ export default function VideoPanel({
                                 }}
                                 onEnded={() => setIsPlaying(false)}
                             />
-                            {sideBySide && localVideoUrl && (
+                            {sideBySide && (secondaryVideoUrl || localVideoUrl) && (
                                 <video
                                     ref={secondaryVideoRef}
-                                    src={localVideoUrl}
+                                    src={secondaryVideoUrl || localVideoUrl}
                                     className="w-1/2 h-full object-contain border-l border-white/20"
                                     muted={true}
                                     controls={false}

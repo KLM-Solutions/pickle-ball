@@ -59,3 +59,7 @@ ENV PYTHONPATH=/app
 
 # RunPod serverless entrypoint
 CMD ["python", "-u", "handler.py"]
+
+# Deployment Version Tracker
+LABEL org.opencontainers.image.version="1.2.0-fix-gpu-tracking"
+LABEL org.opencontainers.image.last_modified="2026-01-08"

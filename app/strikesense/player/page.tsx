@@ -159,13 +159,14 @@ function PlayerContent() {
                         <div className="bg-neutral-100 border border-neutral-200 rounded-xl overflow-hidden">
                             <VideoPanel
                                 videoFile={null}
-                                videoUrl={analysisData?.videoUrl || null}
+                                videoUrl={analysisData?.videoUrl || analysisData?.video_url || null}
+                                secondaryVideoUrl={analysisData?.skeletonVideoUrl || analysisData?.skeleton_video_url || null}
                                 onVideoUpload={() => { }}
                                 analysisData={analysisData}
                                 isProcessing={false}
                                 currentTime={currentTime}
                                 onTimeUpdate={setCurrentTime}
-                                sideBySide={false}
+                                sideBySide={!!(analysisData?.skeletonVideoUrl || analysisData?.skeleton_video_url)}
                                 showOverlay={true}
                                 playbackSpeed={playbackSpeed}
                                 onSpeedChange={setPlaybackSpeed}
