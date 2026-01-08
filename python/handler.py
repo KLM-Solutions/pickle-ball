@@ -54,10 +54,12 @@ from track import NumpyEncoder
 from supabase_client import get_uploader
 
 
+
 def download_video(url: str, dest_path: str) -> bool:
     """Download video from URL to local path."""
     try:
-        print(f"Downloading video from: {url}")
+        t0 = time.time()
+        print(f"[STEP 1/5] Downloading video from: {url}")
         response = requests.get(url, stream=True, timeout=300)
         response.raise_for_status()
         
@@ -66,16 +68,17 @@ def download_video(url: str, dest_path: str) -> bool:
                 f.write(chunk)
         
         file_size = os.path.getsize(dest_path) / (1024 * 1024)
-        print(f"Video downloaded: {dest_path} ({file_size:.1f} MB)")
+        print(f"✓ Video downloaded: {dest_path} ({file_size:.1f} MB) in {time.time()-t0:.2f}s")
         return True
     except Exception as e:
-        print(f"Failed to download video: {e}")
+        print(f"✗ Failed to download video: {e}")
         return False
 
 
 def extract_frames(video_path: str, frames_dir: str, fps: int = 30) -> bool:
     """Extract frames from video using ffmpeg."""
     try:
+        t0 = time.time()
         os.makedirs(frames_dir, exist_ok=True)
         
         cmd = [
@@ -85,24 +88,26 @@ def extract_frames(video_path: str, frames_dir: str, fps: int = 30) -> bool:
             '-y', '-loglevel', 'error'
         ]
         
-        print(f"Extracting frames at {fps} FPS...")
+        print(f"[STEP 2/5] Extracting frames at {fps} FPS...")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         
         if result.returncode != 0:
-            print(f"FFmpeg error: {result.stderr}")
+            print(f"✗ FFmpeg error: {result.stderr}")
             return False
         
         frame_count = len(list(Path(frames_dir).glob('*.png')))
-        print(f"Extracted {frame_count} frames")
+        print(f"✓ Extracted {frame_count} frames in {time.time()-t0:.2f}s")
         return frame_count > 0
     except Exception as e:
-        print(f"Frame extraction failed: {e}")
+        print(f"✗ Frame extraction failed: {e}")
         return False
 
 
 def encode_video_from_frames(frames_dir: str, output_path: str, fps: int = 10) -> bool:
     """Encode annotated frames back to video."""
     try:
+        t0 = time.time()
+        print(f"[STEP 4/5] Encoding output video...")
         cmd = [
             'ffmpeg',
             '-framerate', str(fps),
@@ -119,16 +124,16 @@ def encode_video_from_frames(frames_dir: str, output_path: str, fps: int = 10) -
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
         if result.returncode != 0:
-            print(f"FFmpeg encode error: {result.stderr}")
+            print(f"✗ FFmpeg encode error: {result.stderr}")
             return False
         
         if os.path.exists(output_path):
             size_mb = os.path.getsize(output_path) / (1024 * 1024)
-            print(f"Video encoded: {output_path} ({size_mb:.1f} MB)")
+            print(f"✓ Video encoded: {output_path} ({size_mb:.1f} MB) in {time.time()-t0:.2f}s")
             return True
         return False
     except Exception as e:
-        print(f"Video encoding failed: {e}")
+        print(f"✗ Video encoding failed: {e}")
         return False
 
 
@@ -144,6 +149,7 @@ def run_tracking(
 ) -> dict:
     """Run the tracking pipeline."""
     try:
+        t0 = time.time()
         cmd = [
             sys.executable, 'track.py',
             '--input_dir', input_dir,
@@ -160,38 +166,41 @@ def run_tracking(
         if video_path:
             cmd.extend(['--video_path', video_path])
         
-        print(f"Running track.py with stroke_type={stroke_type}, step={step}")
+        print(f"[STEP 3/5] Running track.py (Analysis)...")
         print(f"Command: {' '.join(cmd)}")
         
+        # INCREASED TIMEOUT: 45 minutes for deep learning
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             cwd=os.path.dirname(os.path.abspath(__file__)),
-            timeout=1800  # 30 min max
+            timeout=2700 
         )
         
-        # Always print output for debugging
-        if result.stdout:
-            print(f"track.py stdout:\n{result.stdout[-2000:]}")
-        if result.stderr:
-            print(f"track.py stderr:\n{result.stderr[-2000:]}")
+        # STREAM LOGS: Print to RunPod logs immediately
+        print("--- track.py STDOUT ---")
+        print(result.stdout)
+        print("--- track.py STDERR ---")
+        print(result.stderr)
+        print("-----------------------")
         
         if result.returncode != 0:
-            print(f"ERROR: track.py failed with code {result.returncode}")
+            print(f"✗ ERROR: track.py failed with code {result.returncode}")
             return {
                 "error": f"Tracking failed with code {result.returncode}",
                 "stderr": result.stderr[-2000:] if result.stderr else "No stderr output"
             }
         
         if os.path.exists(results_json):
+            print(f"✓ Analysis complete in {time.time()-t0:.2f}s")
             with open(results_json, 'r') as f:
                 return json.load(f)
         else:
             return {"error": "Results JSON not created"}
     
     except subprocess.TimeoutExpired:
-        return {"error": "Processing timeout (exceeded 30 minutes)"}
+        return {"error": "Processing timeout (exceeded 45 minutes)"}
     except Exception as e:
         return {"error": f"Tracking exception: {str(e)}"}
 
@@ -199,9 +208,6 @@ def run_tracking(
 def handler(job):
     """
     RunPod serverless handler function.
-    
-    Processes video and uploads annotated video to Supabase Storage.
-    NOTE: NO database writes here - TypeScript handles all DB storage.
     """
     start_time = time.time()
     job_input = job.get("input", {})
@@ -211,40 +217,29 @@ def handler(job):
     if not video_url:
         return {"error": "Missing required field: video_url"}
     
+    job_id = job_input.get("job_id") or str(uuid.uuid4())
+    print(f"\nPlaceholder: Starting Job {job_id}")
+    print(f"Video: {video_url}")
+    
     # Get parameters
     stroke_type = job_input.get("stroke_type", "serve")
     crop_region = job_input.get("crop_region")
     target_point = job_input.get("target_point")
-    step = int(job_input.get("step", 1))  # Analyze every frame by default
-    job_id = job_input.get("job_id") or str(uuid.uuid4())
+    step = int(job_input.get("step", 1))
     
-    # Get Supabase uploader (for storage only, not DB)
     uploader = get_uploader()
-    
-    # NOTE: No database writes here - TypeScript handles job creation/updates
-    print(f"Processing job {job_id} (DB managed by TypeScript)")
-    
-    # Create temp working directory
     work_dir = tempfile.mkdtemp(prefix="runpod_analysis_")
     
     try:
-        print(f"=== Starting Analysis Job: {job_id} ===")
-        print(f"Video URL: {video_url}")
-        print(f"Parameters: stroke_type={stroke_type}, step={step}")
-        
         # 1. Download video
         video_path = os.path.join(work_dir, "input.mp4")
         if not download_video(video_url, video_path):
-            error_msg = "Failed to download video from URL"
-            # NOTE: No DB update here - TypeScript handles error status
-            return {"error": error_msg}
+            return {"error": "Failed to download video from URL"}
         
         # 2. Extract frames
         frames_dir = os.path.join(work_dir, "frames")
         if not extract_frames(video_path, frames_dir):
-            error_msg = "Failed to extract frames from video"
-            # NOTE: No DB update here - TypeScript handles error status
-            return {"error": error_msg}
+            return {"error": "Failed to extract frames from video"}
         
         # 3. Run tracking analysis
         output_dir = os.path.join(work_dir, "output")
@@ -263,7 +258,6 @@ def handler(job):
         )
         
         if "error" in results:
-            # NOTE: No DB update here - TypeScript handles error status
             return results
         
         # 4. Encode annotated video
@@ -271,14 +265,14 @@ def handler(job):
         output_fps = max(1, 30 // step)
         video_encoded = encode_video_from_frames(output_dir, annotated_video_path, fps=output_fps)
         
-        # 5. Upload to Supabase & Selective Frame Upload
+        # 5. Upload to Supabase
+        print(f"[STEP 5/5] Uploading results...")
         result_video_url = None
         frames_data = []
-        uploaded_frame_urls = {} # Map frame_idx -> public_url
+        uploaded_frame_urls = {}
         
-        # Upload annotated video
         if video_encoded and os.path.exists(annotated_video_path):
-            print(f"Uploading video: {annotated_video_path}")
+            print(f"Uploading annotated video...")
             result_video_url = uploader.upload_file(
                 bucket="analysis-results",
                 file_path=annotated_video_path,
@@ -286,11 +280,11 @@ def handler(job):
                 content_type="video/mp4"
             )
 
-        # Upload skeleton video if exists
+        # Upload skeleton video
         skeleton_video_path = os.path.join(output_dir, "skeleton_output.mp4")
         skeleton_video_url = None
         if os.path.exists(skeleton_video_path):
-            print(f"Uploading skeleton video: {skeleton_video_path}")
+            print(f"Uploading skeleton video...")
             skeleton_video_url = uploader.upload_file(
                 bucket="analysis-results",
                 file_path=skeleton_video_path,
@@ -299,38 +293,27 @@ def handler(job):
             )
 
         # SELECTIVE FRAME UPLOAD
-        # We only upload frames needed for the UI filmstrip (Start, Q1, Peak, Q3, End)
         key_indices = set()
         detected_strokes = results.get("strokes", [])
         
         for curr_s in detected_strokes:
             start = curr_s.get("start_frame", 0)
             end = curr_s.get("end_frame", 0)
-            
-            # Add Start/End
             key_indices.add(start)
             key_indices.add(end)
-            
-            # Add Peak if available
             if "peak_frame_idx" in curr_s:
                 key_indices.add(curr_s["peak_frame_idx"])
-            
-            # Add Quarters (0.25 and 0.75) to match UI
             if end > start:
                 q1 = int(start + (end - start) * 0.25)
                 q3 = int(start + (end - start) * 0.75)
                 key_indices.add(q1)
                 key_indices.add(q3)
 
-        print(f"Identified {len(key_indices)} unique key frames to upload.")
-        
-        # Upload the selected frames
+        print(f"Uploading {len(key_indices)} key frames...")
         for idx in key_indices:
             frame_filename = f"frame_{idx:04d}.png"
             local_frame_path = os.path.join(frames_dir, frame_filename)
-            
             if os.path.exists(local_frame_path):
-                # Upload
                 public_url = uploader.upload_file(
                     bucket="analysis-results",
                     file_path=local_frame_path,
@@ -340,30 +323,24 @@ def handler(job):
                 if public_url:
                     uploaded_frame_urls[idx] = public_url
         
-        print(f"Successfully uploaded {len(uploaded_frame_urls)} key frames.")
-        
         # Build frames response
         raw_frames = results.get("frames", [])
-        
         for i, frame_data in enumerate(raw_frames):
-            # Check if this frame has an uploaded URL
             frame_url = uploaded_frame_urls.get(i)
-            
             frames_data.append({
                 "frameIndex": i,
-                "frame_idx": i, # Ensure consistency
+                "frame_idx": i,
                 "timestampSec": frame_data.get("timestampSec", i * step / 30.0),
                 "bbox": frame_data.get("bbox", [0, 0, 0, 0]),
                 "confidence": frame_data.get("confidence", 0),
                 "metrics": frame_data.get("metrics", {}),
-                "frameFilename": frame_url # Only present if uploaded
+                "frameFilename": frame_url
             })
         
-        # 6. Calculate processing time
         processing_time = time.time() - start_time
+        print(f"=== JOB COMPLETE: {job_id} in {processing_time:.1f}s ===")
         
-        # 7. Build response
-        response = {
+        return {
             "status": "success",
             "job_id": job_id,
             "video_url": result_video_url,
@@ -375,23 +352,13 @@ def handler(job):
             "total_frames_processed": len(frames_data),
             "processing_time_sec": round(processing_time, 2)
         }
-        
-        # NOTE: No DB update here - TypeScript stores results in database
-        
-        print(f"=== Analysis Complete: {job_id} ===")
-        print(f"Total time: {processing_time:.1f}s, Frames: {len(frames_data)}")
-        
-        return response
     
     except Exception as e:
         import traceback
         traceback.print_exc()
-        error_msg = f"Handler exception: {str(e)}"
-        # NOTE: No DB update here - TypeScript handles error status
-        return {"error": error_msg}
+        return {"error": f"Handler exception: {str(e)}"}
     
     finally:
-        # Cleanup temp directory
         try:
             shutil.rmtree(work_dir)
             print(f"Cleaned up: {work_dir}")
