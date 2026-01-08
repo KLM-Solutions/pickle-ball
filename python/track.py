@@ -301,6 +301,15 @@ def main():
                 if hasattr(detections, 'shape'):
                     log_debug(f"Detections shape was: {detections.shape}")
                 tracks = []
+        elif len(detections) > 0:
+             # FALLBACK: If tracker failed to init, use raw YOLO detections as 'tracks'
+             # Format: [x1, y1, x2, y2, id=-1, conf, cls]
+             tracks = []
+             for d in detections:
+                 tracks.append([d[0], d[1], d[2], d[3], -1, d[4], d[5]])
+             tracks = np.array(tracks)
+             if i % 30 == 0:
+                 log_debug(f"Frame {i}: Using RAW YOLO detections (Tracker unavailable)")
         best_box = None
         best_conf = 0.0
         best_metrics = {}
