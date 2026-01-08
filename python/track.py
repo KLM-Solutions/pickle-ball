@@ -145,20 +145,37 @@ def main():
     else:
         print("CRITICAL ERROR: Ultralytics YOLO library not installed.")
         sys.exit(1)
-    # 2. Initialize Tracker via Factory (optional)
+    # 2. Initialize tracker (BoxMOT DeepOCSORT) if available
     tracker = None
-    if create_tracker is not None:
+    BOXMOT_AVAILABLE = create_tracker is not None # Define BOXMOT_AVAILABLE based on create_tracker import
+    if BOXMOT_AVAILABLE:
         try:
-            print(f"Loading DeepOCSORT via create_tracker: {args.reid_model}")
-            reid_weights = Path(args.reid_model)
+            tracker_config_path = Path(args.reid_model) # Use args.reid_model for consistency
+            print(f"Loading DeepOCSORT via create_tracker: {tracker_config_path}")
+            
+            # KEY FIX: Use integer 0 for device, not 'cuda' string
+            # The library requires specific device index for CUDA
+            # per_class=False is important for general person tracking
             tracker = create_tracker(
-                tracker_type='deepocsort', 
-                reid_weights=reid_weights,
-                device='cuda',
-                half=True
+                tracker_type='deepocsort',
+                reid_weights=tracker_config_path, # Use the path from args
+                device=0,  # Changed from 'cuda' to 0
+                half=True,
+                per_class=False 
             )
+            print("Tracker initialized successfully.")
         except Exception as e:
-            print(f"Tracker init failed: {e}. Proceeding without tracker.")
+            print(f"Tracker init failed: {e}")
+            tracker = None
+    
+    # Analyze CUDA environment
+    if torch.cuda.is_available():
+        print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
+        print(f"torch.cuda.device_count(): {torch.cuda.device_count()}")
+        print(f"os.environ['CUDA_VISIBLE_DEVICES']: {os.environ.get('CUDA_VISIBLE_DEVICES', 'Not Set')}")
+
+    if tracker is None:
+        print("WARNING: Tracker unavailable. Proceeding without tracker.")
     # Initialize MediaPipe Pose (optional)
     pose = None
     mp_pose = None
