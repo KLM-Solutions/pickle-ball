@@ -884,8 +884,13 @@ def main():
     classifier = StrokeClassifier() if StrokeClassifier else None
     
     if classifier is not None and len(all_frames_metrics) > 0:
-        # Detect segments automatically with BIAS
-        raw_segments = classifier.detect_segments(all_frames_metrics, target_type=args.stroke_type)
+        # Detect segments automatically with BIAS (guard signature/API mismatches)
+        try:
+            raw_segments = classifier.detect_segments(all_frames_metrics, target_type=args.stroke_type)
+        except Exception as e:
+            print(f"Classifier detect_segments failed (disabling classifier): {e}")
+            classifier = None
+            raw_segments = []
         
         # STRICT FILTERING: Only keep strokes matching the user's selection
         if args.stroke_type and args.stroke_type.lower() not in ['overall', 'none', '']:

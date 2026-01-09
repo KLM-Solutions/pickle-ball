@@ -231,20 +231,59 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     if (status === "COMPLETED" && output) {
       const pythonFrames: any[] = output.frames || [];
-      const hasUsablePythonMetrics = pythonFrames.some((f: any) => {
-        const m = f?.metrics;
-        if (!m) return false;
+      const hasAnyNumericMetric = (m: any): boolean => {
+        if (!m || typeof m !== "object") return false;
         const keys = ["hip_rotation_deg", "right_shoulder_abduction", "right_knee_flexion", "right_elbow_flexion"];
         return keys.some((k) => typeof m[k] === "number" && !Number.isNaN(m[k]));
-      });
+      };
+      const hasUsablePythonMetrics = pythonFrames.some((f: any) => hasAnyNumericMetric(f?.metrics));
+      const needsTypeScriptFallback = pythonFrames.some(
+        (f: any) => !hasAnyNumericMetric(f?.metrics) && Array.isArray(f?.landmarks) && f.landmarks.length > 0
+      );
 
       let analysisResult: any;
-      if (hasUsablePythonMetrics) {
-        // Prefer python metrics when present
-        const normalizedPythonFrames = pythonFrames.map((f: any) => ({
-          ...f,
-          metrics: f?.metrics && typeof f.metrics === "object" ? f.metrics : {},
+      const normalizedPythonFrames = pythonFrames.map((f: any, idx: number) => ({
+        ...f,
+        frameIdx: f?.frameIdx ?? f?.frame_idx ?? idx,
+        timestampSec: f?.timestampSec ?? f?.timestamp_sec ?? 0,
+        bbox: Array.isArray(f?.bbox) && f.bbox.length === 4 ? f.bbox : [0, 0, 0, 0],
+        confidence: typeof f?.confidence === "number" ? f.confidence : 0,
+        track_id: typeof f?.track_id === "number" ? f.track_id : (typeof f?.trackId === "number" ? f.trackId : 0),
+        metrics: f?.metrics && typeof f.metrics === "object" ? f.metrics : {},
+        landmarks: Array.isArray(f?.landmarks) ? f.landmarks : null,
+      }));
+
+      if (needsTypeScriptFallback) {
+        const rawFrames: RawFrame[] = normalizedPythonFrames.map((frame: any) => ({
+          frameIdx: frame.frameIdx,
+          timestampSec: frame.timestampSec,
+          bbox: frame.bbox,
+          confidence: frame.confidence,
+          track_id: frame.track_id,
+          landmarks: frame.landmarks,
         }));
+
+        console.log(`Python metrics incomplete; running TypeScript analyzeFrames on ${rawFrames.length} frames...`);
+        const tsResult = analyzeFrames(rawFrames, strokeType, jobId, output.video_url || "");
+
+        const mergedFrames = normalizedPythonFrames.map((pf: any, idx: number) => {
+          const tsf = tsResult.frames?.[idx];
+          const pyValid = hasAnyNumericMetric(pf.metrics);
+          const tsValid = hasAnyNumericMetric(tsf?.metrics);
+          const mergedMetrics = pyValid ? pf.metrics : (tsValid ? tsf.metrics : (pf.metrics || {}));
+          return { ...pf, metrics: mergedMetrics && typeof mergedMetrics === "object" ? mergedMetrics : {} };
+        });
+
+        analysisResult = {
+          ...tsResult,
+          ...output,
+          frames: mergedFrames,
+          processingTime: output.processing_time_sec,
+          videoUrl: output.video_url || null,
+          skeletonVideoUrl: output.skeleton_video_url || null,
+        };
+      } else {
+        // Prefer python metrics when present; otherwise store normalized python output (metrics will be {} but never missing).
         analysisResult = {
           ...output,
           frames: normalizedPythonFrames,
@@ -252,23 +291,20 @@ export async function POST(request: Request): Promise<NextResponse> {
           videoUrl: output.video_url || null,
           skeletonVideoUrl: output.skeleton_video_url || null,
         };
-        console.log(`Using python metrics: ${pythonFrames.length} frames`);
-      } else {
-        // TEMPORARY: Restore TS-based metrics computation when python metrics are empty
-        const rawFrames: RawFrame[] = pythonFrames.map((frame: any, idx: number) => ({
-          frameIdx: frame.frameIdx ?? frame.frame_idx ?? idx,
-          timestampSec: frame.timestampSec ?? frame.timestamp_sec ?? 0,
-          bbox: frame.bbox || [],
-          confidence: frame.confidence ?? 1,
-          track_id: frame.track_id ?? frame.trackId ?? 0,
-          landmarks: frame.landmarks || null,
-        }));
+        console.log(`Using python output: ${pythonFrames.length} frames (python metrics present=${hasUsablePythonMetrics})`);
+      }
 
-        console.log(`Python metrics missing; running TypeScript analyzeFrames on ${rawFrames.length} frames...`);
-        analysisResult = analyzeFrames(rawFrames, strokeType, jobId, output.video_url || "");
-        analysisResult.processingTime = output.processing_time_sec;
-        analysisResult.videoUrl = output.video_url || null;
-        analysisResult.skeletonVideoUrl = output.skeleton_video_url || null;
+      // Lightweight validation (console logs only)
+      try {
+        const frames = analysisResult.frames || [];
+        const missingFrameIdx = frames.filter((f: any) => typeof f?.frameIdx !== "number").length;
+        const missingMetricsObj = frames.filter((f: any) => !f?.metrics || typeof f.metrics !== "object").length;
+        const missingLandmarksAndMetrics = frames.filter(
+          (f: any) => (!Array.isArray(f?.landmarks) || f.landmarks.length === 0) && !hasAnyNumericMetric(f?.metrics)
+        ).length;
+        console.log("[VALIDATION] frames=", frames.length, "missingFrameIdx=", missingFrameIdx, "missingMetricsObj=", missingMetricsObj, "missingLandmarksAndMetrics=", missingLandmarksAndMetrics);
+      } catch (e: any) {
+        console.log("[VALIDATION] failed:", e?.message || String(e));
       }
 
       // Generate LLM coaching response
