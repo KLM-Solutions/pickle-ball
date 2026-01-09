@@ -230,17 +230,46 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.log("Internal Job ID:", jobId);
 
     if (status === "COMPLETED" && output) {
-      // Preserve python output end-to-end; do NOT recompute / overwrite per-frame metrics.
       const pythonFrames: any[] = output.frames || [];
-      const analysisResult: any = {
-        ...output,
-        frames: pythonFrames,
-        processingTime: output.processing_time_sec,
-        // Frontend expects camelCase videoUrl in analysisResult (session/DB)
-        videoUrl: output.video_url || null,
-        skeletonVideoUrl: output.skeleton_video_url || null,
-      };
-      console.log(`Storing python output: ${pythonFrames.length} frames (no TypeScript recompute)`);
+      const hasUsablePythonMetrics = pythonFrames.some((f: any) => {
+        const m = f?.metrics;
+        if (!m) return false;
+        const keys = ["hip_rotation_deg", "right_shoulder_abduction", "right_knee_flexion", "right_elbow_flexion"];
+        return keys.some((k) => typeof m[k] === "number" && !Number.isNaN(m[k]));
+      });
+
+      let analysisResult: any;
+      if (hasUsablePythonMetrics) {
+        // Prefer python metrics when present
+        const normalizedPythonFrames = pythonFrames.map((f: any) => ({
+          ...f,
+          metrics: f?.metrics && typeof f.metrics === "object" ? f.metrics : {},
+        }));
+        analysisResult = {
+          ...output,
+          frames: normalizedPythonFrames,
+          processingTime: output.processing_time_sec,
+          videoUrl: output.video_url || null,
+          skeletonVideoUrl: output.skeleton_video_url || null,
+        };
+        console.log(`Using python metrics: ${pythonFrames.length} frames`);
+      } else {
+        // TEMPORARY: Restore TS-based metrics computation when python metrics are empty
+        const rawFrames: RawFrame[] = pythonFrames.map((frame: any, idx: number) => ({
+          frameIdx: frame.frameIdx ?? frame.frame_idx ?? idx,
+          timestampSec: frame.timestampSec ?? frame.timestamp_sec ?? 0,
+          bbox: frame.bbox || [],
+          confidence: frame.confidence ?? 1,
+          track_id: frame.track_id ?? frame.trackId ?? 0,
+          landmarks: frame.landmarks || null,
+        }));
+
+        console.log(`Python metrics missing; running TypeScript analyzeFrames on ${rawFrames.length} frames...`);
+        analysisResult = analyzeFrames(rawFrames, strokeType, jobId, output.video_url || "");
+        analysisResult.processingTime = output.processing_time_sec;
+        analysisResult.videoUrl = output.video_url || null;
+        analysisResult.skeletonVideoUrl = output.skeleton_video_url || null;
+      }
 
       // Generate LLM coaching response
       const llmResponse = await generateLLMResponse(

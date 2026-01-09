@@ -24,6 +24,7 @@ try:
     else:
         print("WARNING: CUDA IS NOT AVAILABLE. TORCH RUNNING ON CPU.")
 except ImportError:
+    torch = None
     print("WARNING: Could not import torch explicitly.")
 class NumpyEncoder(json.JSONEncoder):
     """ Custom encoder for numpy data types """
@@ -175,8 +176,8 @@ def main():
             print(f"Tracker init failed: {e}")
             tracker = None
     
-    # Analyze CUDA environment
-    if torch.cuda.is_available():
+    # Analyze CUDA environment (guard torch import)
+    if torch is not None and torch.cuda.is_available():
         print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
         print(f"torch.cuda.device_count(): {torch.cuda.device_count()}")
         print(f"os.environ['CUDA_VISIBLE_DEVICES']: {os.environ.get('CUDA_VISIBLE_DEVICES', 'Not Set')}")
@@ -249,9 +250,6 @@ def main():
     first_lock_frame = -1
     lock_wait_timeout = int(30 * 3) # Wait up to 3 seconds (assuming 30fps) for initial lock
     target_track_id = None
-    first_lock_frame = -1
-    lock_wait_timeout = int(30 * 3) # Wait up to 3 seconds (assuming 30fps) for initial lock
-    target_track_id = None
     lost_frames = 0 # Counter for frames where target is lost
     prev_wrist_px = None
     prev_time_sec = 0.0
@@ -290,6 +288,7 @@ def main():
         height, width = img.shape[:2]
         skeleton_canvas = np.zeros((height, width, 3), dtype=np.uint8)
         best_metrics = {} # Reset per frame
+        landmarks_out = None  # Optional: MediaPipe landmarks for TS analyzeFrames fallback
         # A. Detection - HYBRID: YOLO only on analysis frames
         detections = np.empty((0, 6))
         if is_analysis_frame:
@@ -694,6 +693,39 @@ def main():
                         pass # Valid flow
                         crop_h, crop_w = crop.shape[:2]
                         print(f"DEBUG: Found pose landmarks, crop size: {crop_w}x{crop_h}")
+
+                        # Export landmarks (MediaPipe order) for TS metrics fallback
+                        try:
+                            landmark_names = [
+                                "nose",
+                                "left_eye_inner", "left_eye", "left_eye_outer",
+                                "right_eye_inner", "right_eye", "right_eye_outer",
+                                "left_ear", "right_ear",
+                                "mouth_left", "mouth_right",
+                                "left_shoulder", "right_shoulder",
+                                "left_elbow", "right_elbow",
+                                "left_wrist", "right_wrist",
+                                "left_pinky", "right_pinky",
+                                "left_index", "right_index",
+                                "left_thumb", "right_thumb",
+                                "left_hip", "right_hip",
+                                "left_knee", "right_knee",
+                                "left_ankle", "right_ankle",
+                                "left_heel", "right_heel",
+                                "left_foot_index", "right_foot_index",
+                            ]
+                            landmarks_out = []
+                            for li, lm in enumerate(pose_results.pose_landmarks.landmark):
+                                landmarks_out.append({
+                                    "name": landmark_names[li] if li < len(landmark_names) else "",
+                                    "x": float(lm.x),
+                                    "y": float(lm.y),
+                                    "z": float(lm.z),
+                                    "visibility": float(lm.visibility),
+                                })
+                        except Exception as e:
+                            print(f"DEBUG: Failed to export landmarks: {e}")
+                            landmarks_out = None
                                                 # FIXED: Enhanced visualization with proper yellow/red colors
                         landmark_spec = mp.solutions.drawing_utils.DrawingSpec(
                             color=(0, 0, 255),     # RED joints
@@ -825,12 +857,15 @@ def main():
         out_filename = f"frame_{saved_frame_count:04d}.png" 
         time_sec = i / fps
         res_entry = {
+            "frameIdx": int(saved_frame_count - 1),
+            "frame_idx": int(i),
             "frameFilename": out_filename,
             "timestampSec": round(time_sec, 3),
             "bbox": best_box.tolist() if hasattr(best_box, 'tolist') else (best_box if best_box is not None else [0.0, 0.0, 0.0, 0.0]),
             "confidence": best_conf,
             "track_id": int(target_track_id) if target_track_id else -1,
-            "metrics": best_metrics
+            "metrics": best_metrics if isinstance(best_metrics, dict) else {},
+            "landmarks": landmarks_out
         }
         results.append(res_entry)
         
