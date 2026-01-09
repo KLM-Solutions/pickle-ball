@@ -616,12 +616,16 @@ def main():
                         bbox_size = (x2 - x1) * (y2 - y1)
                         confidence = float(conf)
                         
-                        # RELAXED: Ignore crop region for re-lock (trust the tracker/proximity)
-                        # We want to catch them even if they re-enter slightly outside the initial box
+                        # STRICT: Must be inside crop region if one was provided
+                        in_crop = True
+                        if crop_region_norm is not None:
+                            rx1, ry1, rx2, ry2 = crop_region_norm
+                            crop_x1, crop_y1 = rx1 * width, ry1 * height
+                            crop_x2, crop_y2 = rx2 * width, ry2 * height
+                            in_crop = (cx >= crop_x1 and cx <= crop_x2 and cy >= crop_y1 and cy <= crop_y2)
                         
-                        # Only consider reasonable detections
-                        # Lowered bbox_size to 500 to catch partial bodies at edge
-                        if dist < min_dist and confidence > 0.3 and bbox_size > 500:
+                        # Only consider if inside crop AND reasonable detection
+                        if in_crop and dist < min_dist and confidence > 0.5 and bbox_size > 1000:
                             min_dist = dist
                             new_id = int(tid)
                             best_candidate = t
