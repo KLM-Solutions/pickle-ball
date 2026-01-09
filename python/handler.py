@@ -292,6 +292,17 @@ def handler(job):
                 content_type="video/mp4"
             )
 
+        # Upload full results JSON (python metrics/frames/summary) for debugging + UI fallback
+        results_json_url = None
+        if os.path.exists(results_json_path):
+            print("Uploading results.json...")
+            results_json_url = uploader.upload_file(
+                bucket="analysis-results",
+                file_path=results_json_path,
+                destination_path=f"{job_id}/results.json",
+                content_type="application/json"
+            )
+
         # SELECTIVE FRAME UPLOAD
         key_indices = set()
         detected_strokes = results.get("strokes", [])
@@ -334,6 +345,8 @@ def handler(job):
                 "bbox": frame_data.get("bbox", [0, 0, 0, 0]),
                 "confidence": frame_data.get("confidence", 0),
                 "metrics": frame_data.get("metrics", {}),
+                # Preserve MediaPipe landmarks for TypeScript analyzeFrames fallback (webhook side)
+                "landmarks": frame_data.get("landmarks", None),
                 "frameFilename": frame_url
             })
         
@@ -345,6 +358,7 @@ def handler(job):
             "job_id": job_id,
             "video_url": result_video_url,
             "skeleton_video_url": skeleton_video_url,
+            "results_json_url": results_json_url,
             "frames": frames_data,
             "strokes": results.get("strokes", []),
             "summary": results.get("summary", {}),
