@@ -378,55 +378,60 @@ def classify_stroke_enhanced(
     
     if target_type == 'serve':
         # Biased mode: lower threshold for serve detection
-        if is_srv and srv_conf >= 0.60:
+        if is_srv and srv_conf >= 0.55:
             return ('serve', max(srv_conf, 0.80), 'underhand')
-        # Relaxed fallback for serve videos
+        # Relaxed fallback for serve videos - more lenient
         wrist_y = metrics.get('right_wrist_y', 0.5)
         hip_y = metrics.get('right_hip_y', 0.5)
+        shoulder_abd = metrics.get('right_shoulder_abduction', 0)
         vel_y, _, vel_mag = compute_velocity(metrics, frame_history, 'right_wrist_y')
-        if wrist_y >= (hip_y - 0.2) and vel_y < 0 and vel_mag >= 0.02:
-            return ('serve', 0.70, 'underhand_relaxed')
+        # Accept as serve if: wrist near/below waist OR has upward motion OR moderate shoulder
+        if wrist_y >= (hip_y - 0.25) or vel_y < -0.005 or (20 <= shoulder_abd <= 80):
+            return ('serve', 0.65, 'underhand_biased')
     else:
         # Strict mode
         if is_srv and srv_conf >= 0.75:
             return ('serve', srv_conf, 'underhand')
     
-    # 3. DINK - Low, soft shots
-    is_dnk, dnk_conf, dnk_sub = is_dink(metrics, frame_history)
+    # 3. DINK - Low, soft shots (SKIP if target is serve)
+    if target_type != 'serve':
+        is_dnk, dnk_conf, dnk_sub = is_dink(metrics, frame_history)
+        
+        if target_type == 'dink':
+            if is_dnk and dnk_conf >= 0.60:
+                return ('dink', max(dnk_conf, 0.80), dnk_sub)
+            # Relaxed fallback
+            shoulder_abd = metrics.get('right_shoulder_abduction', 0)
+            if shoulder_abd <= 60:
+                return ('dink', 0.70, 'dink_relaxed')
+        else:
+            if is_dnk and dnk_conf >= 0.75:
+                return ('dink', dnk_conf, dnk_sub)
     
-    if target_type == 'dink':
-        if is_dnk and dnk_conf >= 0.60:
-            return ('dink', max(dnk_conf, 0.80), dnk_sub)
-        # Relaxed fallback
-        shoulder_abd = metrics.get('right_shoulder_abduction', 0)
-        if shoulder_abd <= 60:
-            return ('dink', 0.70, 'dink_relaxed')
-    else:
-        if is_dnk and dnk_conf >= 0.75:
-            return ('dink', dnk_conf, dnk_sub)
+    # 4. VOLLEY - Compact punch (SKIP if target is serve)
+    if target_type != 'serve':
+        is_vol, vol_conf, vol_sub = is_volley(metrics, frame_history, position_data)
+        if is_vol and vol_conf >= 0.75:
+            return ('volley', vol_conf, vol_sub)
     
-    # 4. VOLLEY - Compact punch
-    is_vol, vol_conf, vol_sub = is_volley(metrics, frame_history, position_data)
-    if is_vol and vol_conf >= 0.75:
-        return ('volley', vol_conf, vol_sub)
-    
-    # 5. GROUNDSTROKE - Default for baseline
-    is_gs, gs_conf, gs_sub = is_groundstroke(metrics, frame_history)
-    
-    if target_type in ['groundstroke', 'drive']:
-        if is_gs:
-            return ('groundstroke', max(gs_conf, 0.80), gs_sub)
-        # Relaxed fallback
-        shoulder_abd = metrics.get('right_shoulder_abduction', 0)
-        if shoulder_abd >= 35:
-            return ('groundstroke', 0.70, 'drive_relaxed')
-    else:
-        if is_gs:
-            return ('groundstroke', gs_conf, gs_sub)
+    # 5. GROUNDSTROKE - Default for baseline (SKIP if target is serve)
+    if target_type != 'serve':
+        is_gs, gs_conf, gs_sub = is_groundstroke(metrics, frame_history)
+        
+        if target_type in ['groundstroke', 'drive']:
+            if is_gs:
+                return ('groundstroke', max(gs_conf, 0.80), gs_sub)
+            # Relaxed fallback
+            shoulder_abd = metrics.get('right_shoulder_abduction', 0)
+            if shoulder_abd >= 35:
+                return ('groundstroke', 0.70, 'drive_relaxed')
+        else:
+            if is_gs:
+                return ('groundstroke', gs_conf, gs_sub)
     
     # FALLBACK: If target specified and nothing matched, force it
     if target_type:
-        return (target_type, 0.55, 'forced_fallback')
+        return (target_type, 0.60, 'forced_fallback')
     
     # Default fallback
     return ('unknown', 0.40, 'unclassified')
