@@ -37,8 +37,10 @@ function getWebhookUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL 
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
     || 'http://localhost:3000';
-  
-  return `${baseUrl}/api/webhook/runpod`;
+
+  // Normalize to avoid double slashes like https://app//api/webhook/runpod
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  return `${normalizedBaseUrl}/api/webhook/runpod`;
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
