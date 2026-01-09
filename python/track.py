@@ -970,6 +970,21 @@ def main():
         # Ensure type is present
         if "type" not in s and "stroke_type" in s:
             s["type"] = s["stroke_type"]
+
+    # Debug logging: stroke timing summary for RunPod logs
+    try:
+        for s in detected_strokes:
+            stype = s.get("stroke_type", s.get("type", "unknown"))
+            start_sec = s.get("startSec", 0.0)
+            end_sec = s.get("endSec", start_sec)
+            peak_ts = s.get("peak_timestamp", None)
+            peak_v = s.get("peak_velocity", None)
+            if peak_ts is not None and peak_v is not None:
+                print(f"[STROKE] {stype} | {start_sec:.2f}s → {end_sec:.2f}s | peak @ {float(peak_ts):.2f}s | v={float(peak_v):.2f}")
+            else:
+                print(f"[STROKE] {stype} | {start_sec:.2f}s → {end_sec:.2f}s")
+    except Exception as e:
+        print(f"[STROKE] logging failed: {e}")
     # ENHANCED: Get injury risk summary
     injury_risk_summary = {}
     if injury_detector is not None:

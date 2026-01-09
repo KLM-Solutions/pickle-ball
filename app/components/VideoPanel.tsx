@@ -531,12 +531,15 @@ export default function VideoPanel({
                                             const startPct = duration ? (s.startSec / duration) * 100 : 0;
                                             const endPct = duration ? (s.endSec / duration) * 100 : startPct + 0.2;
                                             const color = s.type === 'serve' ? 'bg-blue-400' : s.type === 'groundstroke' ? 'bg-green-400' : s.type === 'dink' ? 'bg-yellow-400' : s.type === 'overhead' ? 'bg-red-400' : 'bg-purple-400';
+                                            const peakStr = (s.peak_timestamp != null && s.peak_velocity != null)
+                                                ? ` | peak @ ${Number(s.peak_timestamp).toFixed(2)}s v=${Number(s.peak_velocity).toFixed(2)}`
+                                                : '';
                                             return (
                                                 <div
                                                     key={idx}
                                                     className={`absolute top-0 bottom-0 ${color} opacity-60 cursor-pointer`}
                                                     style={{ left: `${startPct}%`, width: `${Math.max(0.5, endPct - startPct)}%` }}
-                                                    title={`${s.type} (${Math.round(s.confidence * 100)}%)`}
+                                                    title={`${s.type} ${s.startSec?.toFixed?.(2)}s→${s.endSec?.toFixed?.(2)}s (${Math.round((s.confidence ?? 0) * 100)}%)${peakStr}`}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (videoRef.current) {
@@ -628,6 +631,37 @@ export default function VideoPanel({
                         </div>
                     )}
                 </div>
+
+                {/* Stroke timings (mobile-friendly, reuses existing strokes[]; no layout redesign) */}
+                {analysisData?.strokes && analysisData.strokes.length > 0 && (
+                    <div className="mt-2 px-3 md:px-0">
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3">
+                            <div className="text-xs font-semibold text-neutral-600 mb-2">
+                                Stroke timings
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                {analysisData.strokes.map((s: any, idx: number) => (
+                                    <button
+                                        key={idx}
+                                        className="text-left text-xs text-neutral-800 hover:text-black"
+                                        onClick={() => {
+                                            if (videoRef.current && typeof s.startSec === 'number') {
+                                                videoRef.current.currentTime = s.startSec;
+                                                videoRef.current.pause();
+                                                setIsPlaying(false);
+                                            }
+                                        }}
+                                    >
+                                        {`${(s.type || s.stroke_type || 'stroke')} #${idx + 1}: ${Number(s.startSec ?? 0).toFixed(2)}s → ${Number(s.endSec ?? s.startSec ?? 0).toFixed(2)}s`}
+                                        {s.peak_timestamp != null && s.peak_velocity != null
+                                            ? ` (Peak ${Number(s.peak_timestamp).toFixed(2)}s, v=${Number(s.peak_velocity).toFixed(2)})`
+                                            : ''}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* BOTTOM ACTION BAR (Tagging & Analysis) - Hide if analysis is done OR processing */}
                 {

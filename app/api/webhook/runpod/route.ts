@@ -294,6 +294,11 @@ export async function POST(request: Request): Promise<NextResponse> {
         console.log(`Using python output: ${pythonFrames.length} frames (python metrics present=${hasUsablePythonMetrics})`);
       }
 
+      // Pass-through guard: ensure stroke segments are never dropped
+      if (!analysisResult.strokes && output?.strokes) {
+        analysisResult.strokes = output.strokes;
+      }
+
       // Lightweight validation (console logs only)
       try {
         const frames = analysisResult.frames || [];

@@ -1,12 +1,14 @@
-"""Main stroke classifier logic."""
-from typing import List, Dict, Any, Counter
-from .heuristics import classify_frame
+"""Main stroke classifier logic with velocity-aware segment detection."""
+from typing import List, Dict, Any
+from collections import Counter
+from .heuristics import classify_frame, classify_stroke_enhanced
+
 
 class StrokeClassifier:
     def __init__(self):
         self.history = []
         
-    def classify_sequence(self, frames_metrics: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def classify_sequence(self, frames_metrics: List[Dict[str, Any]], target_type: str = None) -> Dict[str, Any]:
         """
         Classify a sequence of frames (a video clip) into a dominant stroke type.
         """
@@ -14,12 +16,16 @@ class StrokeClassifier:
             return {"type": "unknown", "confidence": 0.0}
             
         frame_votes = []
+        history = []
         
         for metric in frames_metrics:
-            # We assume metric contains keys like "right_knee_flexion", etc.
-            # And potentially raw landmark data if passed through
-            vote = classify_frame(metric, None) 
-            frame_votes.append(vote)
+            # Use enhanced classification with history for velocity tracking
+            stroke_type, conf, _ = classify_stroke_enhanced(metric, history, None, target_type=target_type)
+            frame_votes.append(stroke_type)
+            history.append(metric)
+            # Keep history bounded
+            if len(history) > 10:
+                history = history[-10:]
             
         # Majority vote
         vote_counts = Counter(frame_votes)
@@ -35,9 +41,10 @@ class StrokeClassifier:
             "votes": dict(vote_counts)
         }
 
-    def detect_segments(self, frames_metrics: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def detect_segments(self, frames_metrics: List[Dict[str, Any]], target_type: str = None) -> List[Dict[str, Any]]:
         """
         Detect temporal segments where specific strokes occur.
+        Uses velocity-aware classification with frame history.
         """
         segments = []
         if not frames_metrics:
@@ -45,10 +52,17 @@ class StrokeClassifier:
 
         current_type = None
         start_idx = 0
+        history = []
         
-        # Simple run-length encoding style grouping
+        # Process each frame with history for velocity tracking
         for i, metric in enumerate(frames_metrics):
-            stroke_type = classify_frame(metric, None)
+            # Use enhanced classification with history
+            stroke_type, conf, sub_type = classify_stroke_enhanced(metric, history, None, target_type=target_type)
+            
+            # Update history
+            history.append(metric)
+            if len(history) > 10:
+                history = history[-10:]
             
             # If type changes, finalize previous segment
             if stroke_type != current_type:
@@ -58,7 +72,7 @@ class StrokeClassifier:
                         "start_frame": start_idx,
                         "end_frame": i - 1,
                         "stroke_type": current_type,
-                        "confidence": 0.85 # Placeholder confidence for heuristics
+                        "confidence": 0.85
                     })
                 
                 # Start new segment
@@ -74,13 +88,23 @@ class StrokeClassifier:
                 "confidence": 0.85
             })
 
-        # Filter out very short segments (e.g. < 5 frames = 0.16s at 30fps)
-        # And ignore 'unknown' segments if we decide to label them as such
-        # Since classify_frame now returns None for unknown, we filter those out.
+        # Filter out very short segments (< 3 frames)
+        # and None/unknown types
         valid_segments = [
             s for s in segments 
             if s["stroke_type"] is not None 
-            and (s["end_frame"] - s["start_frame"] + 1) >= 5
+            and s["stroke_type"] != "unknown"
+            and (s["end_frame"] - s["start_frame"] + 1) >= 3
         ]
         
-        return valid_segments
+        # MERGE nearby segments of the same type (gap <= 3 frames)
+        merged = []
+        for seg in valid_segments:
+            if merged and merged[-1]["stroke_type"] == seg["stroke_type"]:
+                gap = seg["start_frame"] - merged[-1]["end_frame"] - 1
+                if gap <= 3:  # Merge if gap is small
+                    merged[-1]["end_frame"] = seg["end_frame"]
+                    continue
+            merged.append(seg.copy())
+        
+        return merged
