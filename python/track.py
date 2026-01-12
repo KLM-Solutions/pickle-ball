@@ -44,7 +44,18 @@ try:
         mp = None
 except Exception:
     mp = None
-# Biomechanics/classification imports removed - raw data only
+# NEW MODULAR IMPORTS - ENHANCED
+try:
+    from biomechanics import BiomechanicsAnalyzer, InjuryRiskDetector
+    from biomechanics.angles import calculate_biomechanics_for_stroke
+    from classification import StrokeClassifier, classify_stroke_enhanced
+except Exception as e:
+    print(f"ERROR Importing Modules: {e}")
+    BiomechanicsAnalyzer = None
+    InjuryRiskDetector = None
+    StrokeClassifier = None
+    calculate_biomechanics_for_stroke = None
+    classify_stroke_enhanced = None
 def calculate_iou(box1, box2):
     """Calculate Intersection over Union (IoU) between two bounding boxes.
         Args:
@@ -156,7 +167,10 @@ def main():
             print(f"MediaPipe init failed: {e}. Skipping pose.")
             pose = None
             mp_pose = None
-    # Analysis modules removed - raw data only
+    # Initialize Analysis Modules - ENHANCED
+    bio_analyzer = BiomechanicsAnalyzer() if BiomechanicsAnalyzer is not None else None
+    classifier = StrokeClassifier() if StrokeClassifier is not None else None
+    injury_detector = InjuryRiskDetector() if InjuryRiskDetector is not None else None
         # Update tracker settings for persistence (if tracker exists)
     if tracker is not None:
         # FIXED: More conservative settings for stable tracking
@@ -197,6 +211,7 @@ def main():
     all_files = sorted([p for p in input_dir.glob("*.png") if p.is_file()], key=lambda p: p.name)
     log_debug(f"Found {len(all_files)} total frames in input_dir.")
     results = [] # Final frames to return to frontend
+    all_frames_metrics = [] # To store metrics for sequence classification
     first_lock_frame = -1
     lock_wait_timeout = int(30 * 3) # Wait up to 3 seconds (assuming 30fps) for initial lock
     target_track_id = None
@@ -240,7 +255,7 @@ def main():
         if img is None: continue
         height, width = img.shape[:2]
         skeleton_canvas = np.zeros((height, width, 3), dtype=np.uint8)
-        best_landmarks = None  # Store pose landmarks for this frame
+        best_metrics = {} # Reset per frame
         # A. Detection - HYBRID: YOLO only on analysis frames
         detections = np.empty((0, 6))
         if is_analysis_frame:
@@ -653,47 +668,97 @@ def main():
                             )
                         except Exception as e:
                             print(f"DEBUG: Failed to draw pose on skeleton canvas: {e}")
-                        
-                        # Extract landmarks for JSON output
-                        landmark_names = [
-                            'nose', 'left_eye_inner', 'left_eye', 'left_eye_outer',
-                            'right_eye_inner', 'right_eye', 'right_eye_outer',
-                            'left_ear', 'right_ear', 'mouth_left', 'mouth_right',
-                            'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
-                            'left_wrist', 'right_wrist', 'left_pinky', 'right_pinky',
-                            'left_index', 'right_index', 'left_thumb', 'right_thumb',
-                            'left_hip', 'right_hip', 'left_knee', 'right_knee',
-                            'left_ankle', 'right_ankle', 'left_heel', 'right_heel',
-                            'left_foot_index', 'right_foot_index'
-                        ]
-                        best_landmarks = []
-                        for idx, lm in enumerate(pose_results.pose_landmarks.landmark):
-                            name = landmark_names[idx] if idx < len(landmark_names) else f"landmark_{idx}"
-                            best_landmarks.append({
-                                "name": name,
-                                "x": round(lm.x, 4),
-                                "y": round(lm.y, 4),
-                                "z": round(lm.z, 4),
-                                "visibility": round(lm.visibility, 3)
-                            })
+                        # --- ENHANCED BIOMECHANICS ANALYSIS ---
+                        if bio_analyzer is not None:
+                            bio_analyzer.update_landmarks(pose_results.pose_landmarks, crop_w, crop_h)
+                            
+                            # Get basic metrics
+                            metrics = bio_analyzer.analyze_metrics(stroke_type=args.stroke_type)
+                            
+                            # ENHANCED: Classify stroke with confidence
+                            stroke_type_detected = args.stroke_type  
+                            stroke_confidence = 0.8  
+                            stroke_sub_type = ''
+                            
+                            if classify_stroke_enhanced is not None:
+                                try:
+                                    stroke_type_detected, stroke_confidence, stroke_sub_type = classify_stroke_enhanced(
+                                        metrics, all_frames_metrics, None
+                                    )
+                                except Exception as e:
+                                    print(f"Enhanced classification failed: {e}")
+                            
+                            # ENHANCED: Calculate validated biomechanics
+                            if calculate_biomechanics_for_stroke is not None:
+                                try:
+                                    # Create keypoints dict from landmarks
+                                    keypoints = {}
+                                    for idx, name in enumerate(['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear',
+                                                              'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
+                                                              'left_wrist', 'right_wrist', 'left_hip', 'right_hip',
+                                                              'left_knee', 'right_knee', 'left_ankle', 'right_ankle',
+                                                              'left_pinky', 'right_pinky', 'left_index', 'right_index',
+                                                              'left_thumb', 'right_thumb', 'left_heel', 'right_heel',
+                                                              'left_foot_index', 'right_foot_index']):
+                                        # MediaPipe indices 0-32
+                                        # ... simplified mapping ...
+                                        if idx < len(pose_results.pose_landmarks.landmark):
+                                            lm = pose_results.pose_landmarks.landmark[idx]
+                                            keypoints[name] = lm # Store raw object for .x/.y access
+                                    
+                                    validated_biomechanics = calculate_biomechanics_for_stroke(
+                                        keypoints, stroke_type_detected
+                                    )
+                                    metrics['validated_biomechanics'] = validated_biomechanics
+                                    
+                                    # ENHANCED: Injury risk detection
+                                    if injury_detector is not None:
+                                        frame_risks = injury_detector.analyze_frame(
+                                            validated_biomechanics, stroke_type_detected
+                                        )
+                                        metrics['injury_risks'] = frame_risks
+                                except Exception as e:
+                                    print(f"Biomechanics calcs failed: {e}")
+                            # velocity calculation
+                            wrist_v = 0.0
+                            current_wrist_y = metrics.get('right_wrist_y', 0)
+                            if len(all_frames_metrics) > 0:
+                                prev_m = all_frames_metrics[-1]
+                                prev_wrist_y = prev_m.get('right_wrist_y', current_wrist_y)
+                                # Velocity: change per second. Abs value.
+                                wrist_v = abs(current_wrist_y - prev_wrist_y) * fps
+                            metrics['wrist_velocity_y'] = wrist_v
+                            
+                            # Add enhanced fields
+                            metrics["stroke_type_detected"] = stroke_type_detected
+                            metrics["stroke_confidence"] = round(stroke_confidence, 3)
+                            metrics["stroke_sub_type"] = stroke_sub_type
+                            metrics["time_sec"] = round(i / fps, 3)
+                            metrics["frame_idx"] = i
+                            best_metrics = metrics
+                            
+                            # Accumulate for sequence classification
+                            all_frames_metrics.append(metrics)
                             
                 except Exception as e:
-                    print(f"Pose Error: {e}")
+                    print(f"Pose/Biomech Error: {e}")
+                    import traceback
+                    traceback.print_exc()
 
         if not is_analysis_frame:
             continue
             
-        # Save Frame Result - Raw data with landmarks
+        # Save Frame Result - FIXED: Use sequential counter for out_filename
         saved_frame_count += 1
         out_filename = f"frame_{saved_frame_count:04d}.png" 
         time_sec = i / fps
         res_entry = {
-            "frameIdx": i,
+            "frameFilename": out_filename,
             "timestampSec": round(time_sec, 3),
             "bbox": best_box.tolist() if hasattr(best_box, 'tolist') else (best_box if best_box is not None else [0.0, 0.0, 0.0, 0.0]),
             "confidence": best_conf,
             "track_id": int(target_track_id) if target_track_id else -1,
-            "landmarks": best_landmarks  # 33 pose landmarks (or None if not detected)
+            "metrics": best_metrics
         }
         results.append(res_entry)
         
@@ -705,15 +770,115 @@ def main():
 
     log_debug(f"Final FPS used: {fps}")
     
-    # Save JSON - Raw data only (analysis logic moved to TypeScript)
+    # --- POST-PROCESSING: STROKE CLASSIFICATION ---
+    detected_strokes = []
+    
+    # Define classifier locally if global is missing/None
+    classifier = StrokeClassifier() if StrokeClassifier else None
+    
+    if classifier is not None and len(all_frames_metrics) > 0:
+        # Detect segments automatically with BIAS
+        raw_segments = classifier.detect_segments(all_frames_metrics, target_type=args.stroke_type)
+        
+        # STRICT FILTERING: Only keep strokes matching the user's selection
+        if args.stroke_type and args.stroke_type.lower() not in ['overall', 'none', '']:
+            detected_strokes = []
+            dropped_types = []
+            for s in raw_segments:
+                # Accept if matches target OR if it's our forced fallback
+                if (s['stroke_type'].lower() == args.stroke_type.lower() or 
+                    s['stroke_type'] == 'forced_fallback'):
+                    
+                    s['confidence'] = float(s['confidence']) # Ensure float
+                    
+                    # --- PEAK VELOCITY LOGIC (Ported from Manual Test) ---
+                    s_start = s['start_frame']
+                    s_end = s['end_frame']
+                    max_v = 0.0
+                    max_v_frame = s_start
+                    
+                    # Scan frames in this segment
+                    # Note: all_frames_metrics indices might not align perfectly if frames were skipped
+                    # But if we strictly appended, they should map via frame_idx
+                    for m in all_frames_metrics:
+                        f_idx = m.get('frame_idx', -1)
+                        if s_start <= f_idx <= s_end:
+                            v = m.get('wrist_velocity_y', 0.0)
+                            if v > max_v:
+                                max_v = v
+                                max_v_frame = f_idx
+                    
+                    s['peak_velocity'] = float(round(max_v, 2))
+                    s['peak_frame_idx'] = int(max_v_frame)
+                    s['peak_timestamp'] = float(round(max_v_frame / fps, 3))
+                    
+                    detected_strokes.append(s)
+                    
+                    # PRINT DETAILED TIMING LOG FOR USER (Verified Format)
+                    start_sec = round(s['start_frame'] / fps, 2)
+                    end_sec = round(s['end_frame'] / fps, 2)
+                    print(f"[RESULT] Found '{s['stroke_type']}': Frame {s['start_frame']}-{s['end_frame']} (t={start_sec}s to {end_sec}s)")
+                    print(f"       -> PEAK: Frame {s['peak_frame_idx']} (t={s['peak_timestamp']}s, V={s['peak_velocity']})")
+                else:
+                    dropped_types.append(s['stroke_type'])
+            
+            print(f"Strict Filter: Kept {len(detected_strokes)} segments matching '{args.stroke_type}'")
+            if dropped_types:
+                print(f"  (Dropped {len(dropped_types)} others: {dropped_types})")
+        else:
+            detected_strokes = raw_segments
+
+        # Final Cleanup for output
+        for s in detected_strokes:
+             s["startSec"] = round(s["start_frame"] * step / fps, 2)
+             s["confidence"] = float(s["confidence"])
+             
+        print(f"Final Output strokes: {[s['stroke_type'] for s in detected_strokes]}")
+    else:
+        # Fallback if classifier failed or no metrics
+        print("Classifier unavailable or no metrics collected. Using hint.")
+        detected_strokes = [{
+            "stroke_type": args.stroke_type, # User hint
+            "start_frame": 0,
+            "startSec": 0.0,
+            "confidence": 1.0
+        }]
+
+    # Calculate time seconds for frontend
+    # Use the original video FPS as reference for timestamps
+    for s in detected_strokes:
+        # Ensure startSec/endSec exist (camelCase for TS)
+        s_start = s.get("start_frame", 0)
+        s_end = s.get("end_frame", 0)
+        s["startSec"] = round(s_start / fps, 2)
+        s["endSec"] = round(s_end / fps, 2)
+        # Add snake_case too just in case
+        s["start_sec"] = s["startSec"]
+        s["end_sec"] = s["endSec"]
+        # Ensure type is present
+        if "type" not in s and "stroke_type" in s:
+            s["type"] = s["stroke_type"]
+    # ENHANCED: Get injury risk summary
+    injury_risk_summary = {}
+    if injury_detector is not None:
+        try:
+            injury_risk_summary = injury_detector.get_session_summary()
+            print(f"Injury Risk Summary: {injury_risk_summary.get('overall_risk', 'unknown')} risk")
+            if injury_risk_summary.get('alerts'):
+                print(f"  Alerts: {len(injury_risk_summary['alerts'])} detected")
+        except Exception as e:
+            print(f"Failed to generate injury risk summary: {e}")
+        # Save JSON with ENHANCED schema
     final_output = {
-        "frames": results,
+        "frames": results, # Per-frame data matched to frontend 'frames' key
+        "strokes": detected_strokes, # Segments
         "summary": {
-            "total_frames": len(results),
-            "fps": fps,
-            "duration_sec": round(len(results) / fps, 2) if fps > 0 else 0,
-            "stroke_type": args.stroke_type
-        }
+            "total_distance_m": round(total_distance_m, 2),
+            "avg_speed_kmh": round((total_distance_m / (len(all_files) / fps) * 3.6), 2) if len(all_files) > 0 else 0,
+            "tracked_duration_sec": round(len(all_files) / fps, 1),
+            "dominant_stroke": detected_strokes[0]["stroke_type"] if detected_strokes else "unknown"
+        },
+        "injury_risk_summary": injury_risk_summary  # NEW: Injury risk analysis
     }
     
     with open(results_json, "w") as f:
