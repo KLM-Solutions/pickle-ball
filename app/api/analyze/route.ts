@@ -12,12 +12,13 @@
  */
 
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { startAnalysis, runAnalysisSync } from "@/lib/runpod";
-import { 
-  createAnalysisJob, 
-  updateJobToProcessing, 
-  updateJobCompleted, 
-  updateJobFailed 
+import {
+  createAnalysisJob,
+  updateJobToProcessing,
+  updateJobCompleted,
+  updateJobFailed
 } from "@/lib/supabase";
 import { analyzeFrames, RawFrame } from "@/lib/analysis";
 
@@ -34,10 +35,10 @@ type StrokeType =
 // Get the webhook URL based on environment
 function getWebhookUrl(): string {
   // Use VERCEL_URL for production, or construct from request
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL 
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
     || 'http://localhost:3000';
-  
+
   return `${baseUrl}/api/webhook/runpod`;
 }
 
@@ -45,6 +46,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   let jobId: string | undefined;
 
   try {
+    // Get authenticated user ID from Clerk
+    const { userId } = await auth();
+
     const body = await request.json();
 
     const {
@@ -85,14 +89,15 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    // 1. CREATE JOB IN DATABASE
-    console.log("Creating analysis job in database...");
+    // 1. CREATE JOB IN DATABASE (with user ID if authenticated)
+    console.log("Creating analysis job in database...", userId ? `for user: ${userId}` : "(anonymous)");
     jobId = await createAnalysisJob({
       videoUrl,
       strokeType,
       cropRegion,
       targetPoint,
       step: Number(step),
+      userId: userId || undefined,
     });
     console.log("Job created:", jobId);
 
@@ -114,7 +119,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       // ASYNC MODE: Start job and return immediately
       // RunPod will call our webhook when complete
       const webhookUrl = getWebhookUrl();
-      
+
       console.log("Starting RunPod analysis with webhook:", {
         job_id: jobId,
         stroke_type: strokeType,

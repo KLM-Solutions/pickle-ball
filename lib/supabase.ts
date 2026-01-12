@@ -55,20 +55,27 @@ export async function createAnalysisJob(params: {
   cropRegion?: string;
   targetPoint?: string;
   step?: number;
+  userId?: string;
 }): Promise<string> {
   // First, check if there's already a pending or processing job for this video
   // created within the last 10 minutes (to avoid duplicates from double-renders)
   const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  
-  const { data: existingJob } = await supabase
+
+  let query = supabase
     .from('analysis_jobs')
     .select('id, status')
     .eq('video_url', params.videoUrl)
     .in('status', ['pending', 'processing'])
     .gte('created_at', tenMinutesAgo)
     .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .limit(1);
+
+  // If userId is provided, also check for same user
+  if (params.userId) {
+    query = query.eq('user_id', params.userId);
+  }
+
+  const { data: existingJob } = await query.single();
 
   // If a recent pending/processing job exists, return its ID
   if (existingJob) {
@@ -94,6 +101,7 @@ export async function createAnalysisJob(params: {
       crop_region: params.cropRegion,
       input_json: inputJson,
       status: 'pending',
+      user_id: params.userId || null,
     })
     .select('id')
     .single();
