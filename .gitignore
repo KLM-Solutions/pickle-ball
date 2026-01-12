@@ -84,3 +84,6 @@ setup.bat
 *.swo
 *~
 Thumbs.db
+
+# clerk configuration (can include secrets)
+/.clerk/
