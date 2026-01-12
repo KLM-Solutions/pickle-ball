@@ -299,6 +299,7 @@ def main():
         best_box = None
         best_conf = 0.0
         best_metrics = {}
+        best_landmarks = None  # Store raw MediaPipe landmarks for TypeScript analysis
         found = False
         # C. Target Selection Logic - FIXED: Removed nested logic bug
         try:
@@ -742,6 +743,29 @@ def main():
                             metrics["frame_idx"] = i
                             best_metrics = metrics
                             
+                            # SERIALIZE RAW LANDMARKS for TypeScript analysis
+                            LANDMARK_NAMES = [
+                                'nose', 'left_eye_inner', 'left_eye', 'left_eye_outer',
+                                'right_eye_inner', 'right_eye', 'right_eye_outer',
+                                'left_ear', 'right_ear', 'mouth_left', 'mouth_right',
+                                'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
+                                'left_wrist', 'right_wrist', 'left_pinky', 'right_pinky',
+                                'left_index', 'right_index', 'left_thumb', 'right_thumb',
+                                'left_hip', 'right_hip', 'left_knee', 'right_knee',
+                                'left_ankle', 'right_ankle', 'left_heel', 'right_heel',
+                                'left_foot_index', 'right_foot_index'
+                            ]
+                            best_landmarks = []
+                            for idx, lm in enumerate(pose_results.pose_landmarks.landmark):
+                                name = LANDMARK_NAMES[idx] if idx < len(LANDMARK_NAMES) else f'landmark_{idx}'
+                                best_landmarks.append({
+                                    'name': name,
+                                    'x': float(lm.x),
+                                    'y': float(lm.y),
+                                    'z': float(lm.z),
+                                    'visibility': float(lm.visibility)
+                                })
+                            
                             # Accumulate for sequence classification
                             all_frames_metrics.append(metrics)
                             
@@ -763,7 +787,8 @@ def main():
             "bbox": best_box.tolist() if hasattr(best_box, 'tolist') else (best_box if best_box is not None else [0.0, 0.0, 0.0, 0.0]),
             "confidence": best_conf,
             "track_id": int(target_track_id) if target_track_id else -1,
-            "metrics": best_metrics
+            "metrics": best_metrics,
+            "landmarks": best_landmarks  # Raw MediaPipe landmarks for TypeScript analysis
         }
         results.append(res_entry)
         
