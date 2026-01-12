@@ -60,7 +60,7 @@ DROP CONSTRAINT IF EXISTS fk_analysis_jobs_user;
 ALTER TABLE public.analysis_jobs
 ADD CONSTRAINT fk_analysis_jobs_user
 FOREIGN KEY (user_id) REFERENCES public.users(id)
-ON DELETE SET NULL;  -- When user is deleted, keep analysis but unlink
+ON DELETE CASCADE;  -- When user is deleted, delete all their analyses too
 
 -- ============================================================================
 -- 3. VERIFICATION QUERIES
