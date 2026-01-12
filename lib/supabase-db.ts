@@ -25,6 +25,7 @@ export interface AnalysisJob {
   processing_time_sec: number | null;
   total_frames: number | null;
   llm_response: string | null;
+  user_id: string | null;
 }
 
 // Create Supabase client
@@ -41,16 +42,23 @@ function getSupabaseClient() {
 
 /**
  * Fetch analysis history (most recent first)
+ * @param limit - Maximum number of results to return
+ * @param userId - Optional Clerk user ID to filter results
  */
-export async function getAnalysisHistory(limit: number = 20): Promise<AnalysisJob[]> {
+export async function getAnalysisHistory(limit: number = 20, userId?: string): Promise<AnalysisJob[]> {
   try {
     const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
+
+    let query = supabase
       .from("analysis_jobs")
       .select("*")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+      .order("created_at", { ascending: false });
+
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query.limit(limit);
 
     if (error) {
       console.error("Error fetching history:", error);
@@ -66,16 +74,23 @@ export async function getAnalysisHistory(limit: number = 20): Promise<AnalysisJo
 
 /**
  * Fetch a single analysis job by ID
+ * @param jobId - The job ID to fetch
+ * @param userId - Optional Clerk user ID to verify ownership
  */
-export async function getAnalysisJob(jobId: string): Promise<AnalysisJob | null> {
+export async function getAnalysisJob(jobId: string, userId?: string): Promise<AnalysisJob | null> {
   try {
     const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
+
+    let query = supabase
       .from("analysis_jobs")
       .select("*")
-      .eq("id", jobId)
-      .single();
+      .eq("id", jobId);
+
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query.single();
 
     if (error) {
       console.error("Error fetching job:", error);
@@ -91,17 +106,24 @@ export async function getAnalysisJob(jobId: string): Promise<AnalysisJob | null>
 
 /**
  * Fetch completed analyses only
+ * @param limit - Maximum number of results to return
+ * @param userId - Optional Clerk user ID to filter results
  */
-export async function getCompletedAnalyses(limit: number = 20): Promise<AnalysisJob[]> {
+export async function getCompletedAnalyses(limit: number = 20, userId?: string): Promise<AnalysisJob[]> {
   try {
     const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
+
+    let query = supabase
       .from("analysis_jobs")
       .select("*")
       .eq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+      .order("created_at", { ascending: false });
+
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query.limit(limit);
 
     if (error) {
       console.error("Error fetching completed analyses:", error);
@@ -117,16 +139,23 @@ export async function getCompletedAnalyses(limit: number = 20): Promise<Analysis
 
 /**
  * Fetch all analyses (including processing, pending, completed, failed)
+ * @param limit - Maximum number of results to return
+ * @param userId - Optional Clerk user ID to filter results
  */
-export async function getAllAnalyses(limit: number = 50): Promise<AnalysisJob[]> {
+export async function getAllAnalyses(limit: number = 50, userId?: string): Promise<AnalysisJob[]> {
   try {
     const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
+
+    let query = supabase
       .from("analysis_jobs")
       .select("*")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+      .order("created_at", { ascending: false });
+
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query.limit(limit);
 
     if (error) {
       console.error("Error fetching all analyses:", error);
@@ -142,14 +171,21 @@ export async function getAllAnalyses(limit: number = 50): Promise<AnalysisJob[]>
 
 /**
  * Get analysis count by status
+ * @param userId - Optional Clerk user ID to filter results
  */
-export async function getAnalysisCounts(): Promise<Record<string, number>> {
+export async function getAnalysisCounts(userId?: string): Promise<Record<string, number>> {
   try {
     const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
+
+    let query = supabase
       .from("analysis_jobs")
       .select("status");
+
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching counts:", error);
@@ -189,7 +225,7 @@ export function formatDate(dateString: string): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  
+
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
