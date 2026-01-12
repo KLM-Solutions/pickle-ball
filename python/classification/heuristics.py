@@ -377,17 +377,10 @@ def classify_stroke_enhanced(
     is_srv, srv_conf = is_serve(metrics, frame_history)
     
     if target_type == 'serve':
-        # Biased mode: lower threshold for serve detection
-        if is_srv and srv_conf >= 0.55:
-            return ('serve', max(srv_conf, 0.80), 'underhand')
-        # Relaxed fallback for serve videos - more lenient
-        wrist_y = metrics.get('right_wrist_y', 0.5)
-        hip_y = metrics.get('right_hip_y', 0.5)
-        shoulder_abd = metrics.get('right_shoulder_abduction', 0)
-        vel_y, _, vel_mag = compute_velocity(metrics, frame_history, 'right_wrist_y')
-        # Accept as serve if: wrist near/below waist OR has upward motion OR moderate shoulder
-        if wrist_y >= (hip_y - 0.25) or vel_y < -0.005 or (20 <= shoulder_abd <= 80):
-            return ('serve', 0.65, 'underhand_biased')
+        # Serve videos must be STRICT to avoid flagging "walking/ready stance" as serves.
+        # Only emit 'serve' when serve criteria are actually met.
+        if is_srv and srv_conf >= 0.75:
+            return ('serve', max(srv_conf, 0.85), 'underhand')
     else:
         # Strict mode
         if is_srv and srv_conf >= 0.75:
@@ -398,12 +391,8 @@ def classify_stroke_enhanced(
         is_dnk, dnk_conf, dnk_sub = is_dink(metrics, frame_history)
         
         if target_type == 'dink':
-            if is_dnk and dnk_conf >= 0.60:
+            if is_dnk and dnk_conf >= 0.70:
                 return ('dink', max(dnk_conf, 0.80), dnk_sub)
-            # Relaxed fallback
-            shoulder_abd = metrics.get('right_shoulder_abduction', 0)
-            if shoulder_abd <= 60:
-                return ('dink', 0.70, 'dink_relaxed')
         else:
             if is_dnk and dnk_conf >= 0.75:
                 return ('dink', dnk_conf, dnk_sub)
@@ -421,17 +410,9 @@ def classify_stroke_enhanced(
         if target_type in ['groundstroke', 'drive']:
             if is_gs:
                 return ('groundstroke', max(gs_conf, 0.80), gs_sub)
-            # Relaxed fallback
-            shoulder_abd = metrics.get('right_shoulder_abduction', 0)
-            if shoulder_abd >= 35:
-                return ('groundstroke', 0.70, 'drive_relaxed')
         else:
             if is_gs:
                 return ('groundstroke', gs_conf, gs_sub)
-    
-    # FALLBACK: If target specified and nothing matched, force it
-    if target_type:
-        return (target_type, 0.60, 'forced_fallback')
     
     # Default fallback
     return ('unknown', 0.40, 'unclassified')

@@ -16,6 +16,21 @@ import { createClient } from "@supabase/supabase-js";
 import { analyzeFrames, RawFrame } from "@/lib/analysis";
 import OpenAI from "openai";
 
+// Ensure JSON-safe numbers end-to-end (convert NaN/Infinity -> null)
+function sanitizeNumbers(value: any): any {
+  if (value == null) return value;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (Array.isArray(value)) return value.map(sanitizeNumbers);
+  if (typeof value === "object") {
+    const out: any = {};
+    for (const [k, v] of Object.entries(value)) out[k] = sanitizeNumbers(v);
+    return out;
+  }
+  return value;
+}
+
 // Use service key for webhook (server-side only)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -246,10 +261,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         ...f,
         frameIdx: f?.frameIdx ?? f?.frame_idx ?? idx,
         timestampSec: f?.timestampSec ?? f?.timestamp_sec ?? 0,
-        bbox: Array.isArray(f?.bbox) && f.bbox.length === 4 ? f.bbox : [0, 0, 0, 0],
+        bbox: Array.isArray(f?.bbox) && f.bbox.length === 4 ? sanitizeNumbers(f.bbox) : [0, 0, 0, 0],
         confidence: typeof f?.confidence === "number" ? f.confidence : 0,
         track_id: typeof f?.track_id === "number" ? f.track_id : (typeof f?.trackId === "number" ? f.trackId : 0),
-        metrics: f?.metrics && typeof f.metrics === "object" ? f.metrics : {},
+        metrics: sanitizeNumbers(f?.metrics && typeof f.metrics === "object" ? f.metrics : {}),
         landmarks: Array.isArray(f?.landmarks) ? f.landmarks : null,
       }));
 
@@ -271,7 +286,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           const pyValid = hasAnyNumericMetric(pf.metrics);
           const tsValid = hasAnyNumericMetric(tsf?.metrics);
           const mergedMetrics = pyValid ? pf.metrics : (tsValid ? tsf.metrics : (pf.metrics || {}));
-          return { ...pf, metrics: mergedMetrics && typeof mergedMetrics === "object" ? mergedMetrics : {} };
+          return { ...pf, metrics: sanitizeNumbers(mergedMetrics && typeof mergedMetrics === "object" ? mergedMetrics : {}) };
         });
 
         analysisResult = {
@@ -294,8 +309,8 @@ export async function POST(request: Request): Promise<NextResponse> {
         console.log(`Using python output: ${pythonFrames.length} frames (python metrics present=${hasUsablePythonMetrics})`);
       }
 
-      // Pass-through guard: ensure stroke segments are never dropped
-      if (!analysisResult.strokes && output?.strokes) {
+      // Pass-through guard: ensure stroke segments are never dropped (including empty array overwrites)
+      if ((!analysisResult.strokes || analysisResult.strokes.length === 0) && Array.isArray(output?.strokes) && output.strokes.length > 0) {
         analysisResult.strokes = output.strokes;
       }
 

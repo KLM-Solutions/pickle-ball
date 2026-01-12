@@ -145,7 +145,12 @@ def run_tracking(
     crop_region: str = None,
     target_point: str = None,
     step: int = 3,
-    video_path: str = None
+    video_path: str = None,
+    analysis_windows: str = None,
+    process_only_windows: bool = False,
+    no_video_output: bool = False,
+    no_skeleton_video: bool = False,
+    coarse_mode: bool = False,
 ) -> dict:
     """Run the tracking pipeline."""
     try:
@@ -165,6 +170,16 @@ def run_tracking(
             cmd.extend(['--target_point', target_point])
         if video_path:
             cmd.extend(['--video_path', video_path])
+        if analysis_windows:
+            cmd.extend(['--analysis_windows', analysis_windows])
+        if process_only_windows:
+            cmd.append('--process_only_windows')
+        if no_video_output:
+            cmd.append('--no_video_output')
+        if no_skeleton_video:
+            cmd.append('--no_skeleton_video')
+        if coarse_mode:
+            cmd.append('--coarse_mode')
         
         print(f"[STEP 3/5] Running track.py (Analysis)...")
         print(f"Command: {' '.join(cmd)}")
@@ -241,29 +256,121 @@ def handler(job):
         if not extract_frames(video_path, frames_dir):
             return {"error": "Failed to extract frames from video"}
         
-        # 3. Run tracking analysis
-        output_dir = os.path.join(work_dir, "output")
-        os.makedirs(output_dir, exist_ok=True)
+        # 3. Run tracking analysis (two-pass for long videos)
+        output_root = os.path.join(work_dir, "output")
+        os.makedirs(output_root, exist_ok=True)
         results_json_path = os.path.join(work_dir, "results.json")
-        
-        results = run_tracking(
-            input_dir=frames_dir,
-            output_dir=output_dir,
-            results_json=results_json_path,
-            stroke_type=stroke_type,
-            crop_region=crop_region,
-            target_point=target_point,
-            step=step,
-            video_path=video_path
-        )
-        
-        if "error" in results:
-            return results
-        
-        # 4. Encode annotated video
-        annotated_video_path = os.path.join(output_dir, "annotated.mp4")
-        output_fps = max(1, 30 // step)
-        video_encoded = encode_video_from_frames(output_dir, annotated_video_path, fps=output_fps)
+
+        # Video stats
+        frame_count = len(list(Path(frames_dir).glob("*.png")))
+        fps = 30.0
+        duration_sec = frame_count / fps if frame_count > 0 else 0.0
+
+        use_two_pass = duration_sec >= 20.0
+        results = None
+
+        if use_two_pass:
+            # PASS 1: Coarse scan (cheap) + annotated video
+            pass1_dir = os.path.join(output_root, "pass1")
+            os.makedirs(pass1_dir, exist_ok=True)
+            pass1_json = os.path.join(work_dir, "results_pass1.json")
+            results_pass1 = run_tracking(
+                input_dir=frames_dir,
+                output_dir=pass1_dir,
+                results_json=pass1_json,
+                stroke_type=stroke_type,
+                crop_region=crop_region,
+                target_point=target_point,
+                step=5,
+                video_path=video_path,
+                no_skeleton_video=True,
+                coarse_mode=True,
+            )
+            if "error" in results_pass1:
+                return results_pass1
+
+            # Build candidate windows from pass1 strokes
+            strokes1 = results_pass1.get("strokes", []) or []
+            margin = 1.5  # seconds around coarse detection
+            windows = []
+            for s in strokes1:
+                s0 = float(s.get("startSec", 0.0) or 0.0)
+                s1 = float(s.get("endSec", s0) or s0)
+                w0 = max(0.0, s0 - margin)
+                w1 = min(duration_sec, s1 + margin)
+                if w1 > w0:
+                    windows.append((w0, w1))
+            windows.sort()
+            merged = []
+            for w0, w1 in windows:
+                if not merged or w0 > merged[-1][1] + 0.25:
+                    merged.append([w0, w1])
+                else:
+                    merged[-1][1] = max(merged[-1][1], w1)
+            analysis_windows = ",".join([f"{a:.2f}:{b:.2f}" for a, b in merged])
+
+            # PASS 2: Refined analysis only inside windows (accurate)
+            pass2_dir = os.path.join(output_root, "pass2")
+            os.makedirs(pass2_dir, exist_ok=True)
+            pass2_json = os.path.join(work_dir, "results_pass2.json")
+            results_pass2 = run_tracking(
+                input_dir=frames_dir,
+                output_dir=pass2_dir,
+                results_json=pass2_json,
+                stroke_type=stroke_type,
+                crop_region=crop_region,
+                target_point=target_point,
+                step=1,
+                video_path=video_path,
+                analysis_windows=analysis_windows if analysis_windows else None,
+                process_only_windows=bool(analysis_windows),
+                no_video_output=True,
+                no_skeleton_video=True,
+                coarse_mode=False,
+            )
+            if "error" in results_pass2:
+                return results_pass2
+
+            # Merge outputs:
+            # - Use refined strokes/frames from pass2
+            # - Use full-duration summary from pass1
+            merged_out = dict(results_pass2)
+            merged_out["summary"] = results_pass1.get("summary", merged_out.get("summary", {})) or {}
+            merged_out["summary"]["tracked_duration_sec"] = round(duration_sec, 2)
+            merged_out["summary"]["fps"] = int(fps)
+            if not merged_out.get("strokes"):
+                merged_out["strokes"] = strokes1
+
+            # Write final merged results.json for upload
+            with open(results_json_path, "w") as f:
+                json.dump(merged_out, f, indent=2, cls=NumpyEncoder)
+
+            results = merged_out
+
+            # Encode annotated video from pass1 outputs
+            annotated_video_path = os.path.join(pass1_dir, "annotated.mp4")
+            video_encoded = encode_video_from_frames(pass1_dir, annotated_video_path, fps=max(1, int(fps // 5)))
+        else:
+            # Single pass (short videos)
+            output_dir = os.path.join(output_root, "single")
+            os.makedirs(output_dir, exist_ok=True)
+            results = run_tracking(
+                input_dir=frames_dir,
+                output_dir=output_dir,
+                results_json=results_json_path,
+                stroke_type=stroke_type,
+                crop_region=crop_region,
+                target_point=target_point,
+                step=step,
+                video_path=video_path,
+                no_skeleton_video=True,
+            )
+            if "error" in results:
+                return results
+
+            annotated_video_path = os.path.join(output_dir, "annotated.mp4")
+            output_fps = max(1, 30 // step)
+            video_encoded = encode_video_from_frames(output_dir, annotated_video_path, fps=output_fps)
         
         # 5. Upload to Supabase
         print(f"[STEP 5/5] Uploading results...")
@@ -280,17 +387,8 @@ def handler(job):
                 content_type="video/mp4"
             )
 
-        # Upload skeleton video
-        skeleton_video_path = os.path.join(output_dir, "skeleton_output.mp4")
+        # Upload skeleton video (DISABLED to reduce RunPod completion time + storage)
         skeleton_video_url = None
-        if os.path.exists(skeleton_video_path):
-            print(f"Uploading skeleton video...")
-            skeleton_video_url = uploader.upload_file(
-                bucket="analysis-results",
-                file_path=skeleton_video_path,
-                destination_path=f"{job_id}/skeleton.mp4",
-                content_type="video/mp4"
-            )
 
         # Upload full results JSON (python metrics/frames/summary) for debugging + UI fallback
         results_json_url = None
@@ -303,50 +401,30 @@ def handler(job):
                 content_type="application/json"
             )
 
-        # SELECTIVE FRAME UPLOAD
-        key_indices = set()
-        detected_strokes = results.get("strokes", [])
-        
-        for curr_s in detected_strokes:
-            start = curr_s.get("start_frame", 0)
-            end = curr_s.get("end_frame", 0)
-            key_indices.add(start)
-            key_indices.add(end)
-            if "peak_frame_idx" in curr_s:
-                key_indices.add(curr_s["peak_frame_idx"])
-            if end > start:
-                q1 = int(start + (end - start) * 0.25)
-                q3 = int(start + (end - start) * 0.75)
-                key_indices.add(q1)
-                key_indices.add(q3)
-
-        print(f"Uploading {len(key_indices)} key frames...")
-        for idx in key_indices:
-            frame_filename = f"frame_{idx:04d}.png"
-            local_frame_path = os.path.join(frames_dir, frame_filename)
-            if os.path.exists(local_frame_path):
-                public_url = uploader.upload_file(
-                    bucket="analysis-results",
-                    file_path=local_frame_path,
-                    destination_path=f"{job_id}/frames/{frame_filename}",
-                    content_type="image/png"
-                )
-                if public_url:
-                    uploaded_frame_urls[idx] = public_url
+        # Key-frame upload (DISABLED to reduce RunPod completion time + storage)
+        # uploaded_frame_urls stays empty; frameFilename will be None.
         
         # Build frames response
+        # IMPORTANT:
+        # - frameIdx: analyzed-frame index (0..N-1)
+        # - frame_idx: original video frame index (0..videoFrames-1)
+        # Key-frame uploads are keyed by ORIGINAL frame index, so URLs should map via frame_idx.
         raw_frames = results.get("frames", [])
+        fps = (results.get("summary") or {}).get("fps", 30) or 30
         for i, frame_data in enumerate(raw_frames):
-            frame_url = uploaded_frame_urls.get(i)
+            analyzed_idx = frame_data.get("frameIdx", i)
+            original_idx = frame_data.get("frame_idx", analyzed_idx)
+            frame_url = uploaded_frame_urls.get(original_idx)
             frames_data.append({
-                "frameIndex": i,
-                "frame_idx": i,
-                "timestampSec": frame_data.get("timestampSec", i * step / 30.0),
+                "frameIndex": analyzed_idx,
+                "frame_idx": original_idx,
+                "timestampSec": frame_data.get("timestampSec", float(original_idx) / float(fps)),
                 "bbox": frame_data.get("bbox", [0, 0, 0, 0]),
                 "confidence": frame_data.get("confidence", 0),
                 "metrics": frame_data.get("metrics", {}),
                 # Preserve MediaPipe landmarks for TypeScript analyzeFrames fallback (webhook side)
                 "landmarks": frame_data.get("landmarks", None),
+                # URL of uploaded keyframe (if this frame_idx was uploaded); otherwise None
                 "frameFilename": frame_url
             })
         

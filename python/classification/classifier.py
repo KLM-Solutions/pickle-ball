@@ -51,13 +51,17 @@ class StrokeClassifier:
             return segments
 
         current_type = None
-        start_idx = 0
+        start_frame = 0
+        conf_sum = 0.0
+        conf_count = 0
+        conf_max = 0.0
         history = []
         
         # Process each frame with history for velocity tracking
         for i, metric in enumerate(frames_metrics):
             # Use enhanced classification with history
             stroke_type, conf, sub_type = classify_stroke_enhanced(metric, history, None, target_type=target_type)
+            frame_idx = int(metric.get("frame_idx", i))
             
             # Update history
             history.append(metric)
@@ -67,25 +71,38 @@ class StrokeClassifier:
             # If type changes, finalize previous segment
             if stroke_type != current_type:
                 if current_type is not None:
+                    prev_metric = frames_metrics[i - 1] if i - 1 >= 0 else metric
+                    end_frame = int(prev_metric.get("frame_idx", frame_idx))
                     # End of segment
                     segments.append({
-                        "start_frame": start_idx,
-                        "end_frame": i - 1,
+                        "start_frame": int(start_frame),
+                        "end_frame": int(end_frame),
                         "stroke_type": current_type,
-                        "confidence": 0.85
+                        # Confidence: max per-frame confidence within the segment
+                        "confidence": round(float(conf_max if conf_count > 0 else 0.0), 3),
                     })
                 
                 # Start new segment
                 current_type = stroke_type
-                start_idx = i
+                start_frame = frame_idx
+                conf_sum = float(conf)
+                conf_count = 1
+                conf_max = float(conf)
+            else:
+                # Accumulate confidence within the current segment
+                conf_sum += float(conf)
+                conf_count += 1
+                conf_max = max(conf_max, float(conf))
         
         # Finalize last segment
         if current_type is not None:
+            last_metric = frames_metrics[-1]
+            end_frame = int(last_metric.get("frame_idx", len(frames_metrics) - 1))
             segments.append({
-                "start_frame": start_idx,
-                "end_frame": len(frames_metrics) - 1,
+                "start_frame": int(start_frame),
+                "end_frame": int(end_frame),
                 "stroke_type": current_type,
-                "confidence": 0.85
+                "confidence": round(float(conf_max if conf_count > 0 else 0.0), 3),
             })
 
         # Filter out very short segments (< 3 frames)
@@ -104,6 +121,7 @@ class StrokeClassifier:
                 gap = seg["start_frame"] - merged[-1]["end_frame"] - 1
                 if gap <= 3:  # Merge if gap is small
                     merged[-1]["end_frame"] = seg["end_frame"]
+                    merged[-1]["confidence"] = max(float(merged[-1].get("confidence", 0.0)), float(seg.get("confidence", 0.0)))
                     continue
             merged.append(seg.copy())
         
