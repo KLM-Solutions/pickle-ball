@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, SignInButton } from "@clerk/nextjs";
 import {
   ArrowLeft,
   Clock,
@@ -15,22 +15,30 @@ import {
   BarChart3,
   RefreshCw,
   Plus,
+  LogIn,
 } from "lucide-react";
 import { getAllAnalyses, formatDate, getStrokeInfo, AnalysisJob } from "@/lib/supabase-db";
 
 export default function HistoryPage() {
   const router = useRouter();
-  const { userId, isLoaded } = useAuth();
+  const { userId, isLoaded, isSignedIn } = useAuth();
   const [analyses, setAnalyses] = useState<AnalysisJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchHistory = async () => {
+    // Don't fetch if user is not signed in
+    if (!userId) {
+      setLoading(false);
+      setAnalyses([]);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
       // Only fetch analyses for the current authenticated user
-      const data = await getAllAnalyses(50, userId || undefined);
+      const data = await getAllAnalyses(50, userId);
       setAnalyses(data);
     } catch (err: any) {
       setError(err.message || "Failed to load history");
@@ -161,8 +169,26 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {/* Empty State */}
-        {!loading && !error && analyses.length === 0 && (
+        {/* Not Signed In State */}
+        {!loading && !error && !isSignedIn && isLoaded && (
+          <div className="text-center py-16 md:py-20">
+            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-5 md:mb-6 bg-neutral-100 rounded-full flex items-center justify-center border border-neutral-200">
+              <LogIn className="w-8 h-8 md:w-10 md:h-10 text-neutral-400" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold mb-2">Sign In Required</h2>
+            <p className="text-neutral-500 mb-6 text-sm md:text-base px-4">
+              Please sign in to view your analysis history
+            </p>
+            <SignInButton mode="modal">
+              <button className="px-5 md:px-6 py-2.5 md:py-3 bg-black text-white rounded-xl font-bold text-sm md:text-base cursor-pointer">
+                Sign In
+              </button>
+            </SignInButton>
+          </div>
+        )}
+
+        {/* Empty State - Only for signed in users */}
+        {!loading && !error && isSignedIn && analyses.length === 0 && (
           <div className="text-center py-16 md:py-20">
             <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-5 md:mb-6 bg-neutral-100 rounded-full flex items-center justify-center border border-neutral-200">
               <BarChart3 className="w-8 h-8 md:w-10 md:h-10 text-neutral-400" />
