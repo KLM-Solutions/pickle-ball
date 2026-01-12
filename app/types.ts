@@ -8,7 +8,9 @@ export type StrokeType =
 
 export type ApiFrame = {
     frameIndex: number;
+    frame_idx?: number; // Backend snake_case
     timestampSec: number;
+    frameFilename?: string; // Backend output
     bbox: [number, number, number, number];
     confidence: number;
     ball?: {
@@ -23,16 +25,23 @@ export type ApiFrame = {
         wrist_to_body_distance_norm?: number;
         injury_risk?: "low" | "medium" | "high";
         feedback?: string[];
+        wrist_velocity_y?: number;
     };
 };
 
 export type StrokeEvent = {
     type: "serve" | "groundstroke" | "dink" | "overhead" | "volley";
     startFrame: number;
+    start_frame?: number; // Backend snake_case
     endFrame: number;
+    end_frame?: number;   // Backend snake_case
     startSec: number;
     endSec: number;
     confidence: number;
+    // New Peak Velocity Fields
+    peak_frame_idx?: number;
+    peak_timestamp?: number;
+    peak_velocity?: number;
 };
 
 export type AnalyzeResponse = {
