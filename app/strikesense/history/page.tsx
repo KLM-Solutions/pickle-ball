@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import {
   ArrowLeft,
   Clock,
@@ -19,6 +20,7 @@ import { getAllAnalyses, formatDate, getStrokeInfo, AnalysisJob } from "@/lib/su
 
 export default function HistoryPage() {
   const router = useRouter();
+  const { userId, isLoaded } = useAuth();
   const [analyses, setAnalyses] = useState<AnalysisJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +29,8 @@ export default function HistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getAllAnalyses(50);
+      // Only fetch analyses for the current authenticated user
+      const data = await getAllAnalyses(50, userId || undefined);
       setAnalyses(data);
     } catch (err: any) {
       setError(err.message || "Failed to load history");
@@ -37,8 +40,11 @@ export default function HistoryPage() {
   };
 
   useEffect(() => {
-    fetchHistory();
-  }, []);
+    // Wait for auth to load before fetching
+    if (isLoaded) {
+      fetchHistory();
+    }
+  }, [isLoaded, userId]);
 
   const handleViewAnalysis = (job: AnalysisJob) => {
     if (job.result_json) {
@@ -58,7 +64,7 @@ export default function HistoryPage() {
       case "completed":
         return (
           <span className="flex items-center gap-1 px-2 py-1 bg-black text-white rounded-full text-[10px] md:text-xs font-bold">
-            <CheckCircle className="w-2.5 h-2.5 md:w-3 md:h-3" /> 
+            <CheckCircle className="w-2.5 h-2.5 md:w-3 md:h-3" />
             <span className="hidden sm:inline">Completed</span>
             <span className="sm:hidden">Done</span>
           </span>
@@ -185,8 +191,8 @@ export default function HistoryPage() {
                   key={job.id}
                   onClick={() => job.status === "completed" && job.result_json && handleViewAnalysis(job)}
                   className={`bg-neutral-50 border border-neutral-200 rounded-xl md:rounded-2xl p-4 md:p-5 transition-all
-                    ${job.status === "completed" && job.result_json 
-                      ? "hover:bg-neutral-100 hover:border-neutral-300 cursor-pointer active:scale-[0.99]" 
+                    ${job.status === "completed" && job.result_json
+                      ? "hover:bg-neutral-100 hover:border-neutral-300 cursor-pointer active:scale-[0.99]"
                       : ""
                     }`}
                 >

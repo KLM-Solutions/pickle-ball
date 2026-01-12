@@ -35,6 +35,11 @@ try:
     from ultralytics import YOLO  # type: ignore
 except Exception:
     YOLO = None  # fallback to HOG detector
+
+# GPU Device Detection
+import torch
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+log_debug(f"Using device: {DEVICE} (CUDA available: {torch.cuda.is_available()})")
 try:
     import mediapipe as mp  # type: ignore
     try:
@@ -143,8 +148,8 @@ def main():
             tracker = create_tracker(
                 tracker_type='deepocsort', # DeepOCSORT for better reentry
                 reid_weights=reid_weights, # Enable Re-ID
-                device='cpu',
-                half=False,
+                device=DEVICE,  # Use GPU if available
+                half=DEVICE == 'cuda',  # Use FP16 on GPU for speed
                 per_class=False,
             )
         except Exception as e:
@@ -262,7 +267,7 @@ def main():
             # YOLO Inference ONLY on analysis frames to maintain speed
             try:
                 # classes=[0] for person only, lower conf to 0.2
-                yolo_preds = model.predict(img, classes=[0], conf=0.2, verbose=False, device='cpu')[0]
+                yolo_preds = model.predict(img, classes=[0], conf=0.2, verbose=False, device=DEVICE)[0]
                 if yolo_preds.boxes is not None:
                     ds = yolo_preds.boxes.data.cpu().numpy()
                     detections = ds if len(ds) > 0 else np.empty((0, 6))
