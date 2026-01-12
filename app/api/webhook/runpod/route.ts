@@ -67,13 +67,13 @@ interface FrameIssue {
  */
 function filterFramesPerSecond(frames: any[]): FrameIssue[] {
   if (!frames || frames.length === 0) return [];
-  
+
   const framesBySecond: Map<number, FrameIssue> = new Map();
-  
+
   frames.forEach(frame => {
     const second = Math.floor(frame.timestampSec);
     const issues: string[] = [];
-    
+
     if (frame.injury_risks && Array.isArray(frame.injury_risks)) {
       frame.injury_risks.forEach((risk: any) => {
         if (risk.type) {
@@ -81,13 +81,13 @@ function filterFramesPerSecond(frames: any[]): FrameIssue[] {
         }
       });
     }
-    
+
     if (issues.length === 0) return;
-    
+
     const existing = framesBySecond.get(second);
     const currentSeverity = frame.injury_risk === 'high' ? 3 : frame.injury_risk === 'medium' ? 2 : 1;
     const existingSeverity = existing?.severity === 'high' ? 3 : existing?.severity === 'medium' ? 2 : 1;
-    
+
     if (!existing || currentSeverity > existingSeverity || issues.length > (existing.issues?.length || 0)) {
       framesBySecond.set(second, {
         timestampSec: frame.timestampSec,
@@ -102,7 +102,7 @@ function filterFramesPerSecond(frames: any[]): FrameIssue[] {
       });
     }
   });
-  
+
   return Array.from(framesBySecond.values()).sort((a, b) => a.timestampSec - b.timestampSec);
 }
 
@@ -111,20 +111,20 @@ function filterFramesPerSecond(frames: any[]): FrameIssue[] {
  */
 function buildPrompt(strokeType: string, filteredIssues: FrameIssue[], summary: any): string {
   const context = STROKE_CONTEXT[strokeType] || STROKE_CONTEXT.groundstroke;
-  
+
   const issuesList = filteredIssues.map(fi => {
-    const metricsStr = fi.metrics ? 
+    const metricsStr = fi.metrics ?
       `(Hip: ${fi.metrics.hip_rotation_deg?.toFixed(0) || '--'}°, Shoulder: ${fi.metrics.right_shoulder_abduction?.toFixed(0) || '--'}°, Knee: ${fi.metrics.right_knee_flexion?.toFixed(0) || '--'}°, Elbow: ${fi.metrics.right_elbow_flexion?.toFixed(0) || '--'}°)` : '';
     return `- At ${fi.timestampSec.toFixed(1)}s [${fi.severity.toUpperCase()}]: ${fi.issues.join(', ')} ${metricsStr}`;
   }).join('\n');
-  
+
   const issueCount: Record<string, number> = {};
   filteredIssues.forEach(fi => {
     fi.issues.forEach(issue => {
       issueCount[issue] = (issueCount[issue] || 0) + 1;
     });
   });
-  
+
   const issueSummary = Object.entries(issueCount)
     .sort((a, b) => b[1] - a[1])
     .map(([issue, count]) => `${issue}: ${count} occurrences`)
@@ -204,10 +204,31 @@ async function generateLLMResponse(strokeType: string, frames: any[], summary: a
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     const payload = await request.json();
-    
+
     console.log("=== RunPod Webhook Received ===");
+    console.log("Timestamp:", new Date().toISOString());
     console.log("Status:", payload.status);
-    console.log("Job ID:", payload.id);
+    console.log("RunPod Job ID:", payload.id);
+    console.log("Full Payload Keys:", Object.keys(payload));
+
+    // Log the complete payload for debugging (truncated for large data)
+    console.log("Payload (summary):", JSON.stringify({
+      id: payload.id,
+      status: payload.status,
+      delayTime: payload.delayTime,
+      executionTime: payload.executionTime,
+      error: payload.error,
+      input: payload.input ? { ...payload.input, video_url: payload.input.video_url?.substring(0, 50) + '...' } : null,
+      output: payload.output ? {
+        status: payload.output.status,
+        job_id: payload.output.job_id,
+        stroke_type: payload.output.stroke_type,
+        video_url: payload.output.video_url?.substring(0, 50) + '...',
+        frames_count: payload.output.frames?.length || 0,
+        processing_time_sec: payload.output.processing_time_sec,
+        error: payload.output.error,
+      } : null,
+    }, null, 2));
 
     const {
       id: runpodJobId,
@@ -221,13 +242,16 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     if (!jobId) {
       console.error("No job_id in webhook payload");
-      return NextResponse.json({ 
-        received: true, 
-        warning: "No job_id found" 
+      console.log("Available in output:", output ? Object.keys(output) : 'no output');
+      console.log("Available in input:", payload.input ? Object.keys(payload.input) : 'no input');
+      return NextResponse.json({
+        received: true,
+        warning: "No job_id found"
       });
     }
 
     console.log("Internal Job ID:", jobId);
+    console.log("Stroke Type:", strokeType);
 
     if (status === "COMPLETED" && output) {
       // Get raw frames from Python output
@@ -256,8 +280,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       // Generate LLM coaching response
       const llmResponse = await generateLLMResponse(
-        strokeType, 
-        analysisResult.frames, 
+        strokeType,
+        analysisResult.frames,
         analysisResult.summary
       );
 
@@ -284,8 +308,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
 
       console.log(`Job ${jobId} marked as COMPLETED (LLM: ${llmResponse ? 'generated' : 'skipped'})`);
-      return NextResponse.json({ 
-        received: true, 
+      return NextResponse.json({
+        received: true,
         status: "completed",
         job_id: jobId,
         llm_generated: !!llmResponse,
@@ -313,8 +337,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
 
       console.log(`Job ${jobId} marked as FAILED:`, errorMessage);
-      return NextResponse.json({ 
-        received: true, 
+      return NextResponse.json({
+        received: true,
         status: "failed",
         job_id: jobId,
         error: errorMessage
@@ -330,18 +354,18 @@ export async function POST(request: Request): Promise<NextResponse> {
         .eq("id", jobId);
 
       console.log(`Job ${jobId} is IN_PROGRESS`);
-      return NextResponse.json({ 
-        received: true, 
+      return NextResponse.json({
+        received: true,
         status: "processing",
-        job_id: jobId 
+        job_id: jobId
       });
     }
 
     console.log(`Job ${jobId} has status: ${status}`);
-    return NextResponse.json({ 
-      received: true, 
+    return NextResponse.json({
+      received: true,
       status: status,
-      job_id: jobId 
+      job_id: jobId
     });
 
   } catch (error: any) {
@@ -354,8 +378,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 }
 
 export async function GET(): Promise<NextResponse> {
-  return NextResponse.json({ 
-    status: "ok", 
+  return NextResponse.json({
+    status: "ok",
     endpoint: "RunPod Webhook",
     timestamp: new Date().toISOString()
   });
