@@ -286,6 +286,95 @@ function PlayerContent() {
                                     </div>
                                 </div>
 
+                                {/* Detected Strokes - Filtered to show only primary stroke */}
+                                {analysisData?.strokes && analysisData.strokes.length > 0 && (() => {
+                                    // Get all strokes of this type
+                                    const allTypeStrokes = analysisData.strokes.filter((s: any) => 
+                                        (s.type || s.stroke_type || '').toLowerCase() === strokeType.toLowerCase()
+                                    );
+                                    // Find the primary stroke (timing-agnostic, stroke-aware score)
+                                    // We cannot assume any fixed time window in 60s videos.
+                                    const scoreStroke = (s: any): number => {
+                                        const conf = Number(s?.confidence ?? 0.8);
+                                        const peakV = Number(s?.peak_velocity ?? 0);
+                                        const start = Number(s?.startSec ?? 0);
+                                        const end = Number(s?.endSec ?? start);
+                                        const dur = Math.max(0, end - start);
+                                        // Score favors confidence first, then peak velocity, then reasonable duration.
+                                        return conf * 10 + peakV * 2 + Math.min(dur, 2) * 0.5;
+                                    };
+                                    const primaryStroke = allTypeStrokes.reduce((best: any, curr: any) => {
+                                        if (!best) return curr;
+                                        return scoreStroke(curr) > scoreStroke(best) ? curr : best;
+                                    }, null);
+                                    // Filter to show ONLY the primary stroke
+                                    const highConfidenceStrokes = primaryStroke ? [primaryStroke] : [];
+
+                                    return (
+                                        <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
+                                            <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide flex items-center gap-2">
+                                                <span>⚡</span>
+                                                Detected {strokeType}s ({highConfidenceStrokes.length})
+                                                {allTypeStrokes.length > highConfidenceStrokes.length && (
+                                                    <span className="text-[10px] text-neutral-400">
+                                                        (+{allTypeStrokes.length - highConfidenceStrokes.length} low confidence)
+                                                    </span>
+                                                )}
+                                            </h3>
+                                            <div className="space-y-2">
+                                                {highConfidenceStrokes.map((stroke: any, idx: number) => {
+                                                    const peakTime = stroke.peak_timestamp ?? stroke.startSec ?? 0;
+                                                    const peakVel = stroke.peak_velocity ?? 0;
+                                                    const startTime = stroke.startSec ?? 0;
+                                                    const isPrimary = stroke === primaryStroke;
+                                                    
+                                                    return (
+                                                        <button
+                                                            key={idx}
+                                                            onClick={() => setCurrentTime(startTime)}
+                                                            className={`w-full rounded-lg p-3 border transition text-left ${
+                                                                isPrimary 
+                                                                    ? 'bg-black text-white border-black' 
+                                                                    : 'bg-white border-neutral-200 hover:border-black'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className={`text-sm font-bold capitalize ${isPrimary ? 'text-white' : 'text-black'}`}>
+                                                                    {isPrimary ? '⭐ Primary ' : ''}{strokeType} #{idx + 1}
+                                                                </span>
+                                                                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                                                                    isPrimary ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-400'
+                                                                }`}>
+                                                                    {((stroke.confidence ?? 0.85) * 100).toFixed(0)}%
+                                                                </span>
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-2 text-center">
+                                                                <div>
+                                                                    <div className={`text-[10px] uppercase ${isPrimary ? 'text-white/60' : 'text-neutral-400'}`}>Time</div>
+                                                                    <div className={`text-xs font-semibold ${isPrimary ? 'text-white' : 'text-black'}`}>{Number(startTime).toFixed(2)}s</div>
+                                                                </div>
+                                                                <div>
+                                                                    <div className={`text-[10px] uppercase ${isPrimary ? 'text-white/60' : 'text-neutral-400'}`}>Peak</div>
+                                                                    <div className={`text-xs font-semibold ${isPrimary ? 'text-white' : 'text-black'}`}>{Number(peakTime).toFixed(2)}s</div>
+                                                                </div>
+                                                                <div>
+                                                                    <div className={`text-[10px] uppercase ${isPrimary ? 'text-white/60' : 'text-neutral-400'}`}>Velocity</div>
+                                                                    <div className={`text-xs font-semibold ${isPrimary ? 'text-white' : 'text-black'}`}>{Number(peakVel).toFixed(2)}</div>
+                                                                </div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            {highConfidenceStrokes.length === 0 && (
+                                                <div className="text-xs text-neutral-400 text-center py-4">
+                                                    No high-confidence {strokeType}s detected
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
                                 {/* Session Summary */}
                                 <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
                                     <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide">
@@ -318,65 +407,6 @@ function PlayerContent() {
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* Detected Strokes */}
-                                {analysisData?.strokes && analysisData.strokes.length > 0 && (
-                                    <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
-                                        <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide flex items-center gap-2">
-                                            <span>⚡</span>
-                                            Detected {strokeType}s ({analysisData.strokes.filter((s: any) => 
-                                                (s.type || s.stroke_type || '').toLowerCase() === strokeType.toLowerCase()
-                                            ).length})
-                                        </h3>
-                                        <div className="space-y-2">
-                                            {analysisData.strokes
-                                                .filter((s: any) => (s.type || s.stroke_type || '').toLowerCase() === strokeType.toLowerCase())
-                                                .map((stroke: any, idx: number) => {
-                                                    const peakTime = stroke.peak_timestamp ?? stroke.startSec ?? 0;
-                                                    const peakVel = stroke.peak_velocity ?? 0;
-                                                    const startTime = stroke.startSec ?? 0;
-                                                    
-                                                    return (
-                                                        <button
-                                                            key={idx}
-                                                            onClick={() => setCurrentTime(peakTime)}
-                                                            className="w-full bg-white rounded-lg p-3 border border-neutral-200 hover:border-black transition text-left"
-                                                        >
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <span className="text-sm font-bold text-black capitalize">
-                                                                    {strokeType} #{idx + 1}
-                                                                </span>
-                                                                <span className="text-[10px] font-medium text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full">
-                                                                    {((stroke.confidence ?? 0.85) * 100).toFixed(0)}%
-                                                                </span>
-                                                            </div>
-                                                            <div className="grid grid-cols-3 gap-2 text-center">
-                                                                <div>
-                                                                    <div className="text-[10px] text-neutral-400 uppercase">Time</div>
-                                                                    <div className="text-xs font-semibold text-black">{Number(startTime).toFixed(2)}s</div>
-                                                                </div>
-                                                                <div>
-                                                                    <div className="text-[10px] text-neutral-400 uppercase">Peak</div>
-                                                                    <div className="text-xs font-semibold text-black">{Number(peakTime).toFixed(2)}s</div>
-                                                                </div>
-                                                                <div>
-                                                                    <div className="text-[10px] text-neutral-400 uppercase">Velocity</div>
-                                                                    <div className="text-xs font-semibold text-black">{Number(peakVel).toFixed(2)}</div>
-                                                                </div>
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })}
-                                        </div>
-                                        {analysisData.strokes.filter((s: any) => 
-                                            (s.type || s.stroke_type || '').toLowerCase() === strokeType.toLowerCase()
-                                        ).length === 0 && (
-                                            <div className="text-xs text-neutral-400 text-center py-4">
-                                                No {strokeType}s detected in this video
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
                             </>
                         )}
 

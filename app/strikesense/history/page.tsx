@@ -40,14 +40,36 @@ export default function HistoryPage() {
     fetchHistory();
   }, []);
 
-  const handleViewAnalysis = (job: AnalysisJob) => {
+  const handleViewAnalysis = async (job: AnalysisJob) => {
     if (job.result_json) {
-      const analysisResult = {
+      let analysisResult: any = {
         ...job.result_json,
         videoUrl: job.result_video_url,
         stroke_type: job.stroke_type,
         llm_response: job.llm_response, // Include cached LLM response
       };
+
+      // If strokes are missing, try to fetch from results.json in Supabase storage
+      if (!analysisResult.strokes || analysisResult.strokes.length === 0) {
+        // Try the URL from result_json, or construct it from job_id
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tnfqqcjstysyuqajfoqr.supabase.co';
+        const resultsJsonUrl = analysisResult.results_json_url || 
+          `${supabaseUrl}/storage/v1/object/public/analysis-results/${job.id}/results.json`;
+        
+        try {
+          const res = await fetch(resultsJsonUrl);
+          if (res.ok) {
+            const fullResults = await res.json();
+            if (fullResults.strokes && fullResults.strokes.length > 0) {
+              analysisResult.strokes = fullResults.strokes;
+              console.log(`Fetched ${fullResults.strokes.length} strokes from results.json`);
+            }
+          }
+        } catch (e: any) {
+          console.log("Failed to fetch strokes from results.json:", e);
+        }
+      }
+
       sessionStorage.setItem("analysisResult", JSON.stringify(analysisResult));
       router.push(`/strikesense/player?stroke=${job.stroke_type}&job_id=${job.id}`);
     }
