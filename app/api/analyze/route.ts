@@ -5,14 +5,16 @@
  * returns immediately. Results are delivered via webhook to /api/webhook/runpod.
  * 
  * Flow:
- * 1. Create job in DB
+ * 1. Create job in DB (with user_id from Clerk)
  * 2. Call RunPod (async with webhook or sync)
  * 3. For sync: Run TypeScript analysis on raw frames, store in DB
  * 4. For async: Webhook handles analysis and storage
+ * 
+ * Note: User must exist in users table (created via Clerk webhook on signup)
  */
 
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { startAnalysis, runAnalysisSync } from "@/lib/runpod";
 import {
   createAnalysisJob,
@@ -20,7 +22,6 @@ import {
   updateJobCompleted,
   updateJobFailed
 } from "@/lib/supabase";
-import { createOrUpdateUser } from "@/lib/supabase-users";
 import { analyzeFrames, RawFrame } from "@/lib/analysis";
 
 export const maxDuration = 300; // This function can run for a maximum of 5 minutes
@@ -48,25 +49,8 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   try {
     // Get authenticated user ID from Clerk
+    // User should already exist in users table (created via Clerk webhook on signup)
     const { userId } = await auth();
-
-    // Ensure user exists in Supabase users table
-    if (userId) {
-      try {
-        const user = await currentUser();
-        await createOrUpdateUser({
-          id: userId,
-          email: user?.emailAddresses?.[0]?.emailAddress,
-          firstName: user?.firstName,
-          lastName: user?.lastName,
-          profileImageUrl: user?.imageUrl,
-        });
-        console.log(`User ${userId} ensured in database`);
-      } catch (userError) {
-        console.error("Failed to ensure user exists:", userError);
-        // Continue anyway - don't block analysis
-      }
-    }
 
     const body = await request.json();
 
