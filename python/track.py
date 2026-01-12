@@ -141,9 +141,11 @@ def main():
             print(f"Loading DeepOCSORT via create_tracker: {args.reid_model}")
             reid_weights = Path(args.reid_model)
             tracker = create_tracker(
-                tracker_type='ocsort', # More stable than deepocsort for this use case
-                reid_weights=None,     # Disable Re-ID to see if it fixes the crash
+                tracker_type='deepocsort', # DeepOCSORT for better reentry
+                reid_weights=reid_weights, # Enable Re-ID
                 device='cpu',
+                half=False,
+                per_class=False,
             )
         except Exception as e:
             print(f"Tracker init failed: {e}. Proceeding without tracker.")
