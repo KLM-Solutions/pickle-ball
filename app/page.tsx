@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, ChevronRight, Zap, Target, Shield } from "lucide-react";
+import { ChevronRight, Zap, Target, Shield } from "lucide-react";
 
 const STROKE_OPTIONS = [
   {
@@ -45,36 +45,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 overflow-x-hidden">
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-neutral-200">
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-black flex items-center justify-center text-lg md:text-xl">
-              🏓
-            </div>
-            <div>
-              <h1 className="text-lg md:text-xl font-bold tracking-tight">StrikeSense</h1>
-              <p className="text-[10px] md:text-xs text-neutral-500 hidden sm:block">AI Stroke Analysis</p>
-            </div>
-          </div>
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-xs text-neutral-600">
-            <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
-            AI-Powered Biomechanics
-          </div>
-        </div>
-        
-        <button
-          onClick={() => router.push('/strikesense/history')}
-          className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-2 text-xs md:text-sm font-medium text-neutral-500 border border-neutral-200 rounded-full hover:bg-neutral-100 hover:text-black transition-all duration-300"
-        >
-          <Clock className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          <span className="hidden sm:inline">History</span>
-        </button>
-      </header>
-
       {/* Main Content */}
       <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-12">
-        
+
+
         {/* Hero Section */}
         <div className="text-center mb-10 md:mb-16">
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 leading-tight">
@@ -83,9 +57,9 @@ export default function Home() {
               Pickleball Stroke
             </span>
           </h2>
-          
+
           <p className="text-sm md:text-lg text-neutral-500 max-w-2xl mx-auto mb-6 md:mb-8 px-4">
-            Upload a video and get instant feedback on your technique. 
+            Upload a video and get instant feedback on your technique.
             Track joint angles, detect form issues, and improve your game.
           </p>
 
@@ -113,7 +87,7 @@ export default function Home() {
           <h3 className="text-center text-[10px] md:text-sm font-medium text-neutral-400 uppercase tracking-wider mb-6 md:mb-8">
             Select Your Stroke Type
           </h3>
-          
+
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             {STROKE_OPTIONS.map((stroke) => (
               <button
@@ -134,7 +108,7 @@ export default function Home() {
                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl mb-3 md:mb-4 flex items-center justify-center text-2xl md:text-3xl bg-black group-hover:scale-110 transition-transform duration-300">
                   {stroke.icon}
                 </div>
-                
+
                 {/* Content */}
                 <h4 className="text-base md:text-xl font-bold mb-1 md:mb-2 text-black text-left">
                   {stroke.title}
@@ -142,7 +116,7 @@ export default function Home() {
                 <p className="text-xs md:text-sm text-neutral-500 mb-2 md:mb-4 line-clamp-2 text-left hidden sm:block">
                   {stroke.description}
                 </p>
-                
+
                 {/* Stats tag */}
                 <div className="text-[10px] md:text-xs text-neutral-400 font-medium text-left">
                   {stroke.stats}
@@ -162,7 +136,7 @@ export default function Home() {
           <h3 className="text-[10px] md:text-sm font-medium text-neutral-400 uppercase tracking-wider mb-6 md:mb-8">
             How It Works
           </h3>
-          
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 md:gap-16">
             {[
               { step: "1", title: "Upload Video", desc: "Record your stroke from any angle", icon: Target },
