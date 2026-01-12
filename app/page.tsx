@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Zap, Target, Shield } from "lucide-react";
+import { useAuth, SignInButton } from "@clerk/nextjs";
 
 const STROKE_OPTIONS = [
   {
@@ -37,9 +38,18 @@ const STROKE_OPTIONS = [
 
 export default function Home() {
   const router = useRouter();
+  const { isSignedIn, isLoaded } = useAuth();
   const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+  const [selectedStrokeId, setSelectedStrokeId] = useState<string | null>(null);
 
   const handleStrokeSelect = (strokeId: string) => {
+    // Check if user is signed in
+    if (!isSignedIn && isLoaded) {
+      setSelectedStrokeId(strokeId);
+      setShowSignInPrompt(true);
+      return;
+    }
     router.push(`/strikesense/guide?stroke=${strokeId}`);
   };
 
@@ -171,6 +181,39 @@ export default function Home() {
           © 2024 StrikeSense • AI-Powered Pickleball Analysis
         </p>
       </footer>
+
+      {/* Sign In Prompt Modal */}
+      {showSignInPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 md:p-8 max-w-sm mx-4 shadow-2xl">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-neutral-100 rounded-full flex items-center justify-center">
+                <span className="text-3xl">🔐</span>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Sign In Required</h3>
+              <p className="text-neutral-500 text-sm mb-6">
+                Please sign in to analyze your pickleball strokes and save your progress.
+              </p>
+              <div className="flex flex-col gap-3">
+                <SignInButton mode="modal">
+                  <button
+                    onClick={() => setShowSignInPrompt(false)}
+                    className="w-full py-3 bg-black text-white rounded-xl font-bold text-sm cursor-pointer hover:bg-neutral-800 transition-colors"
+                  >
+                    Sign In
+                  </button>
+                </SignInButton>
+                <button
+                  onClick={() => setShowSignInPrompt(false)}
+                  className="w-full py-3 text-neutral-500 text-sm font-medium hover:text-black transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
