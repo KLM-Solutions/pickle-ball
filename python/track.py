@@ -269,6 +269,7 @@ def main():
             except Exception as e:
                 print(f"YOLO inference failed: {e}")
         # Else: detections remains empty, tracker will use Kalman prediction
+        tracks = [] # Initialize to empty list to verify UnboundLocalError
         if tracker is not None:
             try:
                 # Update tracker every frame to maintain ID stability
@@ -535,7 +536,7 @@ def main():
                         if i % 30 == 0:
                             log_debug(f"Target ID {target_track_id} waiting near edge ({int(px)},{int(py)})...")
                     
-                    # STRICT RE-LOCK: Only consider candidates INSIDE the crop region
+                    # RELAXED RE-LOCK: Search for candidates near previous position
                     for t in tracks:
                         x1, y1, x2, y2, tid, conf, cls = t[:7]
                         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
@@ -899,4 +900,4 @@ def main():
             print(f"Failed to copy skeleton video to external dir: {e}")
 
 if __name__ == "__main__":
-    main()
+    main() 
