@@ -674,100 +674,31 @@ def main():
                             )
                         except Exception as e:
                             print(f"DEBUG: Failed to draw pose on skeleton canvas: {e}")
-                        # --- ENHANCED BIOMECHANICS ANALYSIS ---
-                        if bio_analyzer is not None:
-                            bio_analyzer.update_landmarks(pose_results.pose_landmarks, crop_w, crop_h)
-                            
-                            # Get basic metrics
-                            metrics = bio_analyzer.analyze_metrics(stroke_type=args.stroke_type)
-                            
-                            # ENHANCED: Classify stroke with confidence
-                            stroke_type_detected = args.stroke_type  
-                            stroke_confidence = 0.8  
-                            stroke_sub_type = ''
-                            
-                            if classify_stroke_enhanced is not None:
-                                try:
-                                    stroke_type_detected, stroke_confidence, stroke_sub_type = classify_stroke_enhanced(
-                                        metrics, all_frames_metrics, None
-                                    )
-                                except Exception as e:
-                                    print(f"Enhanced classification failed: {e}")
-                            
-                            # ENHANCED: Calculate validated biomechanics
-                            if calculate_biomechanics_for_stroke is not None:
-                                try:
-                                    # Create keypoints dict from landmarks
-                                    keypoints = {}
-                                    for idx, name in enumerate(['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear',
-                                                              'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
-                                                              'left_wrist', 'right_wrist', 'left_hip', 'right_hip',
-                                                              'left_knee', 'right_knee', 'left_ankle', 'right_ankle',
-                                                              'left_pinky', 'right_pinky', 'left_index', 'right_index',
-                                                              'left_thumb', 'right_thumb', 'left_heel', 'right_heel',
-                                                              'left_foot_index', 'right_foot_index']):
-                                        # MediaPipe indices 0-32
-                                        # ... simplified mapping ...
-                                        if idx < len(pose_results.pose_landmarks.landmark):
-                                            lm = pose_results.pose_landmarks.landmark[idx]
-                                            keypoints[name] = lm # Store raw object for .x/.y access
-                                    
-                                    validated_biomechanics = calculate_biomechanics_for_stroke(
-                                        keypoints, stroke_type_detected
-                                    )
-                                    metrics['validated_biomechanics'] = validated_biomechanics
-                                    
-                                    # ENHANCED: Injury risk detection
-                                    if injury_detector is not None:
-                                        frame_risks = injury_detector.analyze_frame(
-                                            validated_biomechanics, stroke_type_detected
-                                        )
-                                        metrics['injury_risks'] = frame_risks
-                                except Exception as e:
-                                    print(f"Biomechanics calcs failed: {e}")
-                            # velocity calculation
-                            wrist_v = 0.0
-                            current_wrist_y = metrics.get('right_wrist_y', 0)
-                            if len(all_frames_metrics) > 0:
-                                prev_m = all_frames_metrics[-1]
-                                prev_wrist_y = prev_m.get('right_wrist_y', current_wrist_y)
-                                # Velocity: change per second. Abs value.
-                                wrist_v = abs(current_wrist_y - prev_wrist_y) * fps
-                            metrics['wrist_velocity_y'] = wrist_v
-                            
-                            # Add enhanced fields
-                            metrics["stroke_type_detected"] = stroke_type_detected
-                            metrics["stroke_confidence"] = round(stroke_confidence, 3)
-                            metrics["stroke_sub_type"] = stroke_sub_type
-                            metrics["time_sec"] = round(i / fps, 3)
-                            metrics["frame_idx"] = i
-                            best_metrics = metrics
-                            
-                            # SERIALIZE RAW LANDMARKS for TypeScript analysis
-                            LANDMARK_NAMES = [
-                                'nose', 'left_eye_inner', 'left_eye', 'left_eye_outer',
-                                'right_eye_inner', 'right_eye', 'right_eye_outer',
-                                'left_ear', 'right_ear', 'mouth_left', 'mouth_right',
-                                'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
-                                'left_wrist', 'right_wrist', 'left_pinky', 'right_pinky',
-                                'left_index', 'right_index', 'left_thumb', 'right_thumb',
-                                'left_hip', 'right_hip', 'left_knee', 'right_knee',
-                                'left_ankle', 'right_ankle', 'left_heel', 'right_heel',
-                                'left_foot_index', 'right_foot_index'
-                            ]
-                            best_landmarks = []
-                            for idx, lm in enumerate(pose_results.pose_landmarks.landmark):
-                                name = LANDMARK_NAMES[idx] if idx < len(LANDMARK_NAMES) else f'landmark_{idx}'
-                                best_landmarks.append({
-                                    'name': name,
-                                    'x': float(lm.x),
-                                    'y': float(lm.y),
-                                    'z': float(lm.z),
-                                    'visibility': float(lm.visibility)
-                                })
-                            
-                            # Accumulate for sequence classification
-                            all_frames_metrics.append(metrics)
+                        
+                        # SIMPLIFIED: Only extract and serialize landmarks
+                        # TypeScript will handle ALL biomechanics analysis
+                        LANDMARK_NAMES = [
+                            'nose', 'left_eye_inner', 'left_eye', 'left_eye_outer',
+                            'right_eye_inner', 'right_eye', 'right_eye_outer',
+                            'left_ear', 'right_ear', 'mouth_left', 'mouth_right',
+                            'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
+                            'left_wrist', 'right_wrist', 'left_pinky', 'right_pinky',
+                            'left_index', 'right_index', 'left_thumb', 'right_thumb',
+                            'left_hip', 'right_hip', 'left_knee', 'right_knee',
+                            'left_ankle', 'right_ankle', 'left_heel', 'right_heel',
+                            'left_foot_index', 'right_foot_index'
+                        ]
+                        best_landmarks = []
+                        for idx, lm in enumerate(pose_results.pose_landmarks.landmark):
+                            name = LANDMARK_NAMES[idx] if idx < len(LANDMARK_NAMES) else f'landmark_{idx}'
+                            best_landmarks.append({
+                                'name': name,
+                                'x': float(lm.x),
+                                'y': float(lm.y),
+                                'z': float(lm.z),
+                                'visibility': float(lm.visibility)
+                            })
+                        print(f"DEBUG: Frame {i} - Extracted {len(best_landmarks)} landmarks")
                             
                 except Exception as e:
                     print(f"Pose/Biomech Error: {e}")
@@ -782,12 +713,12 @@ def main():
         out_filename = f"frame_{saved_frame_count:04d}.png" 
         time_sec = i / fps
         res_entry = {
+            "frameIdx": i,  # Original frame index for TypeScript
             "frameFilename": out_filename,
             "timestampSec": round(time_sec, 3),
             "bbox": best_box.tolist() if hasattr(best_box, 'tolist') else (best_box if best_box is not None else [0.0, 0.0, 0.0, 0.0]),
             "confidence": best_conf,
             "track_id": int(target_track_id) if target_track_id else -1,
-            "metrics": best_metrics,
             "landmarks": best_landmarks  # Raw MediaPipe landmarks for TypeScript analysis
         }
         results.append(res_entry)
