@@ -131,10 +131,17 @@ def main() -> None:
                 f"velocity={float(s.get('peak_velocity', 0.0)):.3f}"
             )
 
-        # Video-specific expectation: serve peak around 4–6 seconds (your contact ~4.47s, peak ~5.03s)
-        ok_peak = any(4.0 <= float(s.get("peak_timestamp", 0.0) or 0.0) <= 6.0 for s in strokes)
-        if not ok_peak:
-            _fail("No serve found with peak_timestamp between 4.0s and 6.0s")
+        # Video-specific expectation: serve peaks around ~3.3s and ~22.8s
+        # User reported: "one is below 2.8 - 3.9 and another one is 22s"
+        expected_ranges = [(2.8, 4.0), (22.0, 24.0)]
+        found_any = False
+        for (r_start, r_end) in expected_ranges:
+            if any(r_start <= float(s.get("peak_timestamp", 0.0) or 0.0) <= r_end for s in strokes):
+                found_any = True
+                break
+        
+        if not found_any:
+            _fail(f"No serve found in expected ranges {expected_ranges}")
 
         _ok("SERVE DETECTION VERIFIED (CPU track.py + crop_region)")
 

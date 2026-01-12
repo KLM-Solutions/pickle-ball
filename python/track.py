@@ -376,6 +376,38 @@ def main():
                 if yolo_preds.boxes is not None:
                     ds = yolo_preds.boxes.data.cpu().numpy()
                     detections = ds if len(ds) > 0 else np.empty((0, 6))
+
+                # STRICT CROP FILTERING: Remove distractors before they reach the tracker
+                if crop_region_norm is not None and len(detections) > 0:
+                    cr_x1, cr_y1, cr_x2, cr_y2 = crop_region_norm
+                    # Convert crop to pixels
+                    c_px_x1, c_px_y1 = cr_x1 * width, cr_y1 * height
+                    c_px_x2, c_px_y2 = cr_x2 * width, cr_y2 * height
+                    
+                    valid_dets = []
+                    for det in detections:
+                        dx1, dy1, dx2, dy2 = det[:4]
+                        dcx, dcy = (dx1 + dx2) / 2, (dy1 + dy2) / 2
+                        
+                        # Improved check: Intersection Area > 25% of detection area
+                        # This allows tracking even if center is slightly outside (edges)
+                        ix1 = max(dx1, c_px_x1)
+                        iy1 = max(dy1, c_px_y1)
+                        ix2 = min(dx2, c_px_x2)
+                        iy2 = min(dy2, c_px_y2)
+
+                        inter_area = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+                        det_area = (dx2 - dx1) * (dy2 - dy1)
+                        
+                        overlap_ratio = inter_area / det_area if det_area > 0 else 0
+                        
+                        if overlap_ratio > 0.25:
+                            valid_dets.append(det)
+                    
+                    if len(valid_dets) < len(detections):
+                         log_debug(f"Frame {i}: Filtered {len(detections) - len(valid_dets)} detections outside crop.")
+                    
+                    detections = np.array(valid_dets) if len(valid_dets) > 0 else np.empty((0, 6))
             except Exception as e:
                 print(f"YOLO inference failed: {e}")
         # Else: detections remains empty, tracker will use Kalman prediction
