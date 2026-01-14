@@ -784,7 +784,7 @@ def main():
 
         # --- FIXED: Enhanced MediaPipe Pose Estimation on Crop ---
         # ONLY run for analysis frames, and only inside analysis windows (if provided)
-        if is_analysis_frame and pose is not None and _in_any_window(frame_idx / fps):
+        if is_analysis_frame and found and pose is not None and _in_any_window(frame_idx / fps):
                 try:
                     # FIXED: Better padding calculation
                     pad = max(10, int(bbox_h * 0.15))  # At least 10px padding, 15% of height
