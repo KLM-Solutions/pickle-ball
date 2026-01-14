@@ -891,85 +891,24 @@ def main():
                             except Exception as e:
                                 print(f"DEBUG: Failed to draw pose on skeleton canvas: {e}")
                         # --- ENHANCED BIOMECHANICS ANALYSIS ---
-                        if bio_analyzer is not None:
-                            bio_analyzer.update_landmarks(pose_results.pose_landmarks, crop_w, crop_h)
-                            
-                            # Get basic metrics
-                            metrics = bio_analyzer.analyze_metrics(stroke_type=args.stroke_type)
-                            
-                            # ENHANCED: Classify stroke with confidence
-                            stroke_type_detected = args.stroke_type  
-                            stroke_confidence = 0.8  
-                            stroke_sub_type = ''
-                            
-                            if classify_stroke_enhanced is not None:
-                                try:
-                                    stroke_type_detected, stroke_confidence, stroke_sub_type = classify_stroke_enhanced(
-                                        metrics, all_frames_metrics, None
-                                    )
-                                except Exception as e:
-                                    print(f"Enhanced classification failed: {e}")
-                            
-                            # ENHANCED: Calculate validated biomechanics
-                            if calculate_biomechanics_for_stroke is not None:
-                                try:
-                                    # Create keypoints dict from landmarks
-                                    keypoints = {}
-                                    for idx, name in enumerate(['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear',
-                                                              'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
-                                                              'left_wrist', 'right_wrist', 'left_hip', 'right_hip',
-                                                              'left_knee', 'right_knee', 'left_ankle', 'right_ankle',
-                                                              'left_pinky', 'right_pinky', 'left_index', 'right_index',
-                                                              'left_thumb', 'right_thumb', 'left_heel', 'right_heel',
-                                                              'left_foot_index', 'right_foot_index']):
-                                        # MediaPipe indices 0-32
-                                        # ... simplified mapping ...
-                                        if idx < len(pose_results.pose_landmarks.landmark):
-                                            lm = pose_results.pose_landmarks.landmark[idx]
-                                            keypoints[name] = lm # Store raw object for .x/.y access
-                                    
-                                    validated_biomechanics = calculate_biomechanics_for_stroke(
-                                        keypoints, stroke_type_detected
-                                    )
-                                    # FLATTEN METRICS for frontend (Direct GPU -> UI mapping)
-                                    if validated_biomechanics:
-                                        metrics.update(validated_biomechanics)
-                                        # Also keep nested for debug if needed, but UI uses flat keys
-                                        metrics['validated_biomechanics'] = validated_biomechanics
-                                    
-                                    # ENHANCED: Injury risk detection
-                                    if injury_detector is not None:
-                                        frame_risks = injury_detector.analyze_frame(
-                                            validated_biomechanics, stroke_type_detected
-                                        )
-                                        metrics['injury_risks'] = frame_risks
-                                except Exception as e:
-                                    print(f"Biomechanics calcs failed: {e}")
-                            # velocity calculation (normalized coords -> per-second)
-                            current_wrist_x = metrics.get('right_wrist_x', 0)
-                            current_wrist_y = metrics.get('right_wrist_y', 0)
-                            vx = 0.0
-                            vy = 0.0
-                            if len(all_frames_metrics) > 0:
-                                prev_m = all_frames_metrics[-1]
-                                prev_wrist_x = prev_m.get('right_wrist_x', current_wrist_x)
-                                prev_wrist_y = prev_m.get('right_wrist_y', current_wrist_y)
-                                vx = abs(current_wrist_x - prev_wrist_x) * fps
-                                vy = abs(current_wrist_y - prev_wrist_y) * fps
-                            metrics['wrist_velocity_x'] = float(vx)
-                            metrics['wrist_velocity_y'] = float(vy)
-                            metrics['wrist_velocity_mag'] = float(np.sqrt(vx * vx + vy * vy))
-                            
-                            # Add enhanced fields
-                            metrics["stroke_type_detected"] = stroke_type_detected
-                            metrics["stroke_confidence"] = round(stroke_confidence, 3)
-                            metrics["stroke_sub_type"] = stroke_sub_type
-                            metrics["time_sec"] = round(frame_idx / fps, 3)
-                            metrics["frame_idx"] = int(frame_idx)
-                            best_metrics = metrics
-                            
-                            # Accumulate for sequence classification
-                            all_frames_metrics.append(metrics)
+                        # OPTIMIZATION: Python only extracts Landmarks. TypeScript handles the Math.
+                        
+                        # Just pass basic structure for classifier
+                        metrics = {} 
+                        
+                        # Still run classifier if needed for segmentation, but it might lack full metrics
+                        # For now, we rely on TypeScript to backfill metrics
+                        metrics["frame_idx"] = i
+                        metrics["time_sec"] = round(i / fps, 3)
+                        
+                        best_metrics = metrics
+                        all_frames_metrics.append(metrics)
+                        
+                        # Disabled Python-side Heavy Math:
+                        # if bio_analyzer is not None:
+                        #    bio_analyzer.update_landmarks(pose_results.pose_landmarks, crop_w, crop_h)
+                        #    metrics = bio_analyzer.analyze_metrics(stroke_type=args.stroke_type)
+                        #    ...
                             
                 except Exception as e:
                     print(f"Pose/Biomech Error: {e}")
