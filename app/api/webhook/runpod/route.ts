@@ -205,30 +205,66 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const payload = await request.json();
 
-    console.log("=== RunPod Webhook Received ===");
+    console.log("\n");
+    console.log("╔══════════════════════════════════════════════════════════════════╗");
+    console.log("║              RUNPOD WEBHOOK - FULL PAYLOAD RECEIVED              ║");
+    console.log("╚══════════════════════════════════════════════════════════════════╝");
     console.log("Timestamp:", new Date().toISOString());
+    console.log("");
+
+    // Log the COMPLETE raw payload
+    console.log("┌─────────────────────────────────────────────────────────────────┐");
+    console.log("│  COMPLETE RAW PAYLOAD (JSON)                                    │");
+    console.log("└─────────────────────────────────────────────────────────────────┘");
+    console.log(JSON.stringify(payload, null, 2));
+    console.log("");
+
+    // Log structured breakdown
+    console.log("┌─────────────────────────────────────────────────────────────────┐");
+    console.log("│  PAYLOAD BREAKDOWN                                              │");
+    console.log("└─────────────────────────────────────────────────────────────────┘");
     console.log("Status:", payload.status);
     console.log("RunPod Job ID:", payload.id);
-    console.log("Full Payload Keys:", Object.keys(payload));
+    console.log("Delay Time:", payload.delayTime);
+    console.log("Execution Time:", payload.executionTime);
+    console.log("Error:", payload.error || "None");
+    console.log("Top-level Keys:", Object.keys(payload).join(", "));
+    console.log("");
 
-    // Log the complete payload for debugging (truncated for large data)
-    console.log("Payload (summary):", JSON.stringify({
-      id: payload.id,
-      status: payload.status,
-      delayTime: payload.delayTime,
-      executionTime: payload.executionTime,
-      error: payload.error,
-      input: payload.input ? { ...payload.input, video_url: payload.input.video_url?.substring(0, 50) + '...' } : null,
-      output: payload.output ? {
-        status: payload.output.status,
-        job_id: payload.output.job_id,
-        stroke_type: payload.output.stroke_type,
-        video_url: payload.output.video_url?.substring(0, 50) + '...',
-        frames_count: payload.output.frames?.length || 0,
-        processing_time_sec: payload.output.processing_time_sec,
-        error: payload.output.error,
-      } : null,
-    }, null, 2));
+    // Log input section
+    if (payload.input) {
+      console.log("┌─────────────────────────────────────────────────────────────────┐");
+      console.log("│  INPUT SECTION                                                  │");
+      console.log("└─────────────────────────────────────────────────────────────────┘");
+      console.log(JSON.stringify(payload.input, null, 2));
+      console.log("");
+    }
+
+    // Log output section
+    if (payload.output) {
+      console.log("┌─────────────────────────────────────────────────────────────────┐");
+      console.log("│  OUTPUT SECTION                                                 │");
+      console.log("└─────────────────────────────────────────────────────────────────┘");
+      console.log("Output Keys:", Object.keys(payload.output).join(", "));
+      console.log("Output Status:", payload.output.status);
+      console.log("Output Job ID:", payload.output.job_id);
+      console.log("Stroke Type:", payload.output.stroke_type);
+      console.log("Video URL:", payload.output.video_url);
+      console.log("Processing Time (sec):", payload.output.processing_time_sec);
+      console.log("Error:", payload.output.error || "None");
+      console.log("Frames Count:", payload.output.frames?.length || 0);
+
+      // Log first few frames if available
+      if (payload.output.frames && payload.output.frames.length > 0) {
+        console.log("");
+        console.log("First 3 frames sample:");
+        console.log(JSON.stringify(payload.output.frames.slice(0, 3), null, 2));
+      }
+      console.log("");
+    }
+
+    console.log("═══════════════════════════════════════════════════════════════════");
+    console.log("");
 
     const {
       id: runpodJobId,
