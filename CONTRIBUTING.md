@@ -4,7 +4,7 @@ Thank you for your interest in contributing to StrikeSense! This document provid
 
 ## 🚀 Getting Started
 
-### 1. Setup Development Environment
+### 1. Setup Development Environment..
 
 ```bash
 # Clone the repository
