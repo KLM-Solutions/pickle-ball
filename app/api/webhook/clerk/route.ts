@@ -7,7 +7,7 @@
  * 
  * Endpoint URL: https://your-domain.com/api/webhook/clerk
  * Events to subscribe: user.created, user.updated, user.deleted
- */
+ **/
 
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
