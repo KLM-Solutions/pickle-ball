@@ -1,17 +1,24 @@
 /**
  * RunPod Serverless Client for StrikeSense
  * 
- * Calls the Python video analysis worker on RunPod.
+ * Calls the Python video analysis worker on RunPod or local server.
+ * Set USE_LOCAL_SERVER=true in .env.local for local development.
  */
 
 const RUNPOD_API_KEY = process.env.RUNPOD_API_KEY;
 const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
+const USE_LOCAL_SERVER = process.env.USE_LOCAL_SERVER === 'true';
 
-if (!RUNPOD_API_KEY || !RUNPOD_ENDPOINT_ID) {
-  console.warn('RunPod environment variables not set');
+// Use local server if flag is set, otherwise use RunPod
+const RUNPOD_BASE_URL = USE_LOCAL_SERVER
+  ? 'http://localhost:8000'
+  : `https://api.runpod.ai/v2/${RUNPOD_ENDPOINT_ID}`;
+
+if (!USE_LOCAL_SERVER && (!RUNPOD_API_KEY || !RUNPOD_ENDPOINT_ID)) {
+  console.warn('RunPod environment variables not set and USE_LOCAL_SERVER is false');
 }
 
-const RUNPOD_BASE_URL = `https://api.runpod.ai/v2/${RUNPOD_ENDPOINT_ID}`;
+console.log(`Analysis API: ${USE_LOCAL_SERVER ? 'LOCAL (localhost:8000)' : 'RunPod'}`);
 
 export interface AnalysisInput {
   video_url: string;
@@ -76,18 +83,20 @@ export interface AnalysisResult {
  */
 export async function startAnalysis(input: AnalysisInput, webhookUrl?: string): Promise<string> {
   const payload: any = { input };
-  
+
   // Add webhook if provided
   if (webhookUrl) {
     payload.webhook = webhookUrl;
   }
 
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!USE_LOCAL_SERVER && RUNPOD_API_KEY) {
+    headers['Authorization'] = `Bearer ${RUNPOD_API_KEY}`;
+  }
+
   const response = await fetch(`${RUNPOD_BASE_URL}/run`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${RUNPOD_API_KEY}`,
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 
@@ -123,10 +132,13 @@ export async function checkJobStatus(runpodJobId: string): Promise<{
   output?: AnalysisResult;
   error?: string;
 }> {
+  const headers: Record<string, string> = {};
+  if (!USE_LOCAL_SERVER && RUNPOD_API_KEY) {
+    headers['Authorization'] = `Bearer ${RUNPOD_API_KEY}`;
+  }
+
   const response = await fetch(`${RUNPOD_BASE_URL}/status/${runpodJobId}`, {
-    headers: {
-      'Authorization': `Bearer ${RUNPOD_API_KEY}`,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -144,12 +156,14 @@ export async function runAnalysisSync(
   input: AnalysisInput,
   timeoutMs: number = 600000 // 10 minutes
 ): Promise<AnalysisResult> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!USE_LOCAL_SERVER && RUNPOD_API_KEY) {
+    headers['Authorization'] = `Bearer ${RUNPOD_API_KEY}`;
+  }
+
   const response = await fetch(`${RUNPOD_BASE_URL}/runsync`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${RUNPOD_API_KEY}`,
-    },
+    headers,
     body: JSON.stringify({ input }),
     signal: AbortSignal.timeout(timeoutMs),
   });
@@ -203,11 +217,13 @@ export async function waitForCompletion(
  * Cancel a running job
  */
 export async function cancelJob(runpodJobId: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  if (!USE_LOCAL_SERVER && RUNPOD_API_KEY) {
+    headers['Authorization'] = `Bearer ${RUNPOD_API_KEY}`;
+  }
+
   await fetch(`${RUNPOD_BASE_URL}/cancel/${runpodJobId}`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${RUNPOD_API_KEY}`,
-    },
+    headers,
   });
 }
-
