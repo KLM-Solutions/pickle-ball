@@ -18,7 +18,7 @@ npm install
 npm run dev
 ```
 
-### 2. Python Setup
+### 2. Python Setup.
 
 ```bash
 cd python
