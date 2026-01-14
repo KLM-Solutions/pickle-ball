@@ -338,13 +338,13 @@ def handler(job):
             frame_url = uploaded_frame_urls.get(i)
             
             frames_data.append({
-                "frameIndex": i,
-                "frame_idx": i, # Ensure consistency
+                "frameIdx": frame_data.get("frameIdx", i),  # Match TypeScript RawFrame interface
                 "timestampSec": frame_data.get("timestampSec", i * step / 30.0),
                 "bbox": frame_data.get("bbox", [0, 0, 0, 0]),
                 "confidence": frame_data.get("confidence", 0),
-                "metrics": frame_data.get("metrics", {}),
-                "frameFilename": frame_url # Only present if uploaded
+                "track_id": frame_data.get("track_id", -1),  # Required by TypeScript
+                "landmarks": frame_data.get("landmarks", None),  # 33 MediaPipe pose landmarks
+                "frameFilename": frame_url  # Only present if uploaded (for key frames)
             })
         
         # 6. Calculate processing time
