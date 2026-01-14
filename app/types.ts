@@ -7,7 +7,7 @@ export type StrokeType =
     | "overall";
 
 export type ApiFrame = {
-    frameIndex: number;
+    frameIdx: number;  // Canonical: matches Python output
     timestampSec: number;
     bbox: [number, number, number, number];
     confidence: number;
@@ -33,6 +33,10 @@ export type StrokeEvent = {
     startSec: number;
     endSec: number;
     confidence: number;
+    track_id?: number;           // Single-ID invariant: the player this stroke belongs to
+    peak_velocity?: number;      // Peak wrist velocity during stroke
+    peak_frame_idx?: number;     // Frame index where peak velocity occurred
+    multi_id_warning?: boolean;  // True if this stroke had ID violations (debug)
 };
 
 export type AnalyzeResponse = {
