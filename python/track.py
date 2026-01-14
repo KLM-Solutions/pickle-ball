@@ -322,10 +322,9 @@ def main():
     prev_wrist_px = None
     prev_time_sec = 0.0
     
-    # SINGLE-ID INVARIANT: Track stroke state to prevent target switching mid-stroke
-    stroke_active = False  # True when inside a detected stroke segment
-    stroke_start_frame = -1  # Frame index when current stroke started
-    stroke_locked_id = None  # The track_id that MUST be used for this stroke
+    # NOTE: Single-ID invariant is enforced via POST-PROCESSING validation (see lines ~1070).
+    # Real-time mid-stroke lock is not implemented since strokes are detected after all frames are processed.
+    
     # Stats Tracking
     total_distance_m = 0.0
     # Keep these separate:
@@ -708,64 +707,61 @@ def main():
                         lost_frames = 0
 
                 if not found and target_track_id is not None and prev_bbox_center is not None:
-                    # SINGLE-ID INVARIANT: If inside an active stroke, NEVER switch target ID
-                    if stroke_active:
-                        log_debug(f"[STROKE-LOCK] Mid-stroke, refusing to re-lock. Keeping ID {target_track_id}")
-                        # Do not attempt any re-lock; wait for stroke to end or target to reappear
-                    else:
-                        # FIX: RELAXED RE-LOCK - Allow larger jumps for re-entry (ONLY when not in stroke)
-                        margin = 100  # pixels (increased from 50)
-                        px, py = prev_bbox_center
-                        is_near_edge = (px < margin or px > width - margin or 
-                                        py < margin or py > height - margin)
+                    # NOTE: Real-time mid-stroke lock is NOT implemented.
+                    # Single-ID invariant is enforced via post-processing validation.
+                    # RELAXED RE-LOCK - Allow larger jumps for re-entry
+                    margin = 100  # pixels (increased from 50)
+                    px, py = prev_bbox_center
+                    is_near_edge = (px < margin or px > width - margin or 
+                                    py < margin or py > height - margin)
+                    
+                    # Initialize variables before conditional
+                    new_id = None
+                    best_candidate = None
+                    # RELAXED: Allow up to 200px jump if near edge or lost for a while
+                    min_dist = 200 if (is_near_edge or lost_frames > 15) else 50
+                    
+                    if is_near_edge:
+                        if i % 30 == 0:
+                            log_debug(f"Target ID {target_track_id} waiting near edge ({int(px)},{int(py)})...")
+                    
+                    # STRICT RE-LOCK: Only consider candidates INSIDE the crop region
+                    for t in tracks:
+                        x1, y1, x2, y2, tid, conf, cls = t[:7]
+                        cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+                        dist = np.sqrt((cx - prev_bbox_center[0])**2 + (cy - prev_bbox_center[1])**2)
                         
-                        # Initialize variables before conditional
-                        new_id = None
-                        best_candidate = None
-                        # RELAXED: Allow up to 200px jump if near edge or lost for a while
-                        min_dist = 200 if (is_near_edge or lost_frames > 15) else 50
+                        bbox_size = (x2 - x1) * (y2 - y1)
+                        confidence = float(conf)
                         
-                        if is_near_edge:
-                            if i % 30 == 0:
-                                log_debug(f"Target ID {target_track_id} waiting near edge ({int(px)},{int(py)})...")
+                        # STRICT: Must be inside crop region if one was provided
+                        in_crop = True
+                        if crop_region_norm is not None:
+                            rx1, ry1, rx2, ry2 = crop_region_norm
+                            crop_x1, crop_y1 = rx1 * width, ry1 * height
+                            crop_x2, crop_y2 = rx2 * width, ry2 * height
+                            in_crop = (cx >= crop_x1 and cx <= crop_x2 and cy >= crop_y1 and cy <= crop_y2)
                         
-                        # STRICT RE-LOCK: Only consider candidates INSIDE the crop region
+                        # Only consider if inside crop AND reasonable detection
+                        if in_crop and dist < min_dist and confidence > 0.5 and bbox_size > 1000:
+                            min_dist = dist
+                            new_id = int(tid)
+                            best_candidate = t
+                    
+                    if new_id is not None and best_candidate is not None:
+                        log_debug(f"--> RELAXED RE-LOCK: Lost ID {int(target_track_id)}, switched to {new_id} (Dist: {min_dist:.1f}px)")
+                        target_track_id = new_id
+                        # Re-search with new ID
                         for t in tracks:
-                            x1, y1, x2, y2, tid, conf, cls = t[:7]
-                            cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-                            dist = np.sqrt((cx - prev_bbox_center[0])**2 + (cy - prev_bbox_center[1])**2)
-                            
-                            bbox_size = (x2 - x1) * (y2 - y1)
-                            confidence = float(conf)
-                            
-                            # STRICT: Must be inside crop region if one was provided
-                            in_crop = True
-                            if crop_region_norm is not None:
-                                rx1, ry1, rx2, ry2 = crop_region_norm
-                                crop_x1, crop_y1 = rx1 * width, ry1 * height
-                                crop_x2, crop_y2 = rx2 * width, ry2 * height
-                                in_crop = (cx >= crop_x1 and cx <= crop_x2 and cy >= crop_y1 and cy <= crop_y2)
-                            
-                            # Only consider if inside crop AND reasonable detection
-                            if in_crop and dist < min_dist and confidence > 0.5 and bbox_size > 1000:
-                                min_dist = dist
-                                new_id = int(tid)
-                                best_candidate = t
-                        
-                        if new_id is not None and best_candidate is not None:
-                            log_debug(f"--> RELAXED RE-LOCK: Lost ID {int(target_track_id)}, switched to {new_id} (Dist: {min_dist:.1f}px)")
-                            target_track_id = new_id
-                            # Re-search with new ID
-                            for t in tracks:
-                                if int(t[4]) == target_track_id:
-                                    x1, y1, x2, y2, tid, conf, cls = t[:7]
-                                    best_box = [float(x1), float(y1), float(x2), float(y2)]
-                                    best_conf = float(conf)
-                                    found = True
-                                    break
-                        else:
-                            if i % 30 == 0:
-                                log_debug(f"WARNING: Target ID {target_track_id} lost, no suitable re-lock IN CROP (closest: {min_dist:.1f}px)")
+                            if int(t[4]) == target_track_id:
+                                x1, y1, x2, y2, tid, conf, cls = t[:7]
+                                best_box = [float(x1), float(y1), float(x2), float(y2)]
+                                best_conf = float(conf)
+                                found = True
+                                break
+                    else:
+                        if i % 30 == 0:
+                            log_debug(f"WARNING: Target ID {target_track_id} lost, no suitable re-lock IN CROP (closest: {min_dist:.1f}px)")
         except Exception as e:
             log_debug(f"CRITICAL ERROR in Target Selection: {e}")
             traceback.print_exc()

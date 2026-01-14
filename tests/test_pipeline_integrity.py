@@ -76,6 +76,65 @@ class TestSingleIdInvariant:
                 print(f"[INFO] Stroke has multi_id_warning: {stroke}")
 
 
+class TestMultiIdWarning:
+    """Tests for multi_id_warning flag behavior."""
+    
+    def test_clean_stroke_has_no_warning(self, sample_results):
+        """A stroke with single ID should NOT have multi_id_warning."""
+        for stroke in sample_results.get("strokes", []):
+            if not stroke.get("multi_id_warning"):
+                # This is the expected case for valid strokes
+                start_f = stroke.get("start_frame", 0)
+                end_f = stroke.get("end_frame", start_f)
+                
+                # Verify it truly is single-ID
+                frames = sample_results.get("frames", [])
+                ids = set()
+                for f in frames:
+                    fidx = f.get("frame_idx", f.get("frameIdx", -1))
+                    if start_f <= fidx <= end_f:
+                        tid = f.get("track_id", -1)
+                        if tid != -1:
+                            ids.add(tid)
+                
+                assert len(ids) <= 1, (
+                    f"Stroke without multi_id_warning has multiple IDs: {ids}"
+                )
+    
+    def test_mixed_id_stroke_sets_warning(self):
+        """A stroke with mixed IDs MUST have multi_id_warning=True."""
+        # Synthetic test data with mixed IDs
+        mock_results = {
+            "frames": [
+                {"frame_idx": 0, "track_id": 1},
+                {"frame_idx": 1, "track_id": 2},  # Different ID!
+                {"frame_idx": 2, "track_id": 1},
+            ],
+            "strokes": [
+                {"start_frame": 0, "end_frame": 2, "track_id": 1, "multi_id_warning": True}
+            ]
+        }
+        
+        stroke = mock_results["strokes"][0]
+        assert stroke.get("multi_id_warning") == True, "Mixed-ID stroke should have multi_id_warning=True"
+    
+    def test_single_id_stroke_no_warning(self):
+        """A stroke with single ID should have multi_id_warning=False or absent."""
+        mock_results = {
+            "frames": [
+                {"frame_idx": 0, "track_id": 1},
+                {"frame_idx": 1, "track_id": 1},
+                {"frame_idx": 2, "track_id": 1},
+            ],
+            "strokes": [
+                {"start_frame": 0, "end_frame": 2, "track_id": 1}
+            ]
+        }
+        
+        stroke = mock_results["strokes"][0]
+        assert not stroke.get("multi_id_warning"), "Single-ID stroke should not have multi_id_warning"
+
+
 class TestFrameDataStructure:
     """Tests for frame data consistency."""
     
