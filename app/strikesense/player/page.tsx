@@ -411,17 +411,43 @@ function PlayerContent() {
                                                                     <p className="text-xs text-neutral-600 leading-relaxed">{coaching.benefit}</p>
                                                                 </div>
 
-                                                                {/* Jump to frame button */}
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        jumpToFrame(issue.firstFrame);
-                                                                    }}
-                                                                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-black text-white rounded-lg text-xs font-semibold hover:bg-neutral-800 transition"
-                                                                >
-                                                                    <Play className="w-3 h-3" />
-                                                                    Show Frame
-                                                                </button>
+                                                                {/* Frame Preview Thumbnail */}
+                                                                {analysisData?.videoUrl && (
+                                                                    <div>
+                                                                        <div className="text-[10px] font-semibold text-neutral-500 uppercase mb-1.5">📹 Frame Preview</div>
+                                                                        <div
+                                                                            className="relative rounded-lg overflow-hidden border border-neutral-300 cursor-pointer group"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                jumpToFrame(issue.firstFrame);
+                                                                            }}
+                                                                        >
+                                                                            <video
+                                                                                src={analysisData.videoUrl}
+                                                                                className="w-full h-auto max-h-32 object-cover bg-neutral-200"
+                                                                                muted
+                                                                                playsInline
+                                                                                preload="metadata"
+                                                                                onLoadedMetadata={(e) => {
+                                                                                    const video = e.currentTarget;
+                                                                                    video.currentTime = issue.firstFrame?.timestampSec || 0;
+                                                                                }}
+                                                                            />
+                                                                            <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition flex items-center justify-center">
+                                                                                <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                                                                                    <Play className="w-4 h-4 text-black ml-0.5" />
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
+                                                                                {(issue.firstFrame?.timestampSec || 0).toFixed(2)}s
+                                                                            </div>
+                                                                            <div className="absolute bottom-1 left-1 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-semibold">
+                                                                                Issue Frame
+                                                                            </div>
+                                                                        </div>
+                                                                        <p className="text-[10px] text-neutral-400 mt-1 text-center">Tap to view in player</p>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>
