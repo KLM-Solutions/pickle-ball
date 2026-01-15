@@ -307,14 +307,30 @@ def main():
     print(f"Processing {len(all_files)} frames (Analysis every {step} steps)...")
     tracker_failed_count = 0
     saved_frame_count = 0
+    frames_read_successfully = 0
+    frames_with_detections = 0
+    
     for i, frame_path in enumerate(all_files):
         # We update the tracker EVERY frame for stability, but only analyze every 'step'
         is_analysis_frame = (i % step == 0)
         img = cv2.imread(str(frame_path))
-        if img is None: continue
+        
+        # DEBUG: Log first few frames to check file reading
+        if i < 5:
+            if img is None:
+                log_debug(f"[FRAME_READ] Frame {i}: FAILED to read from {frame_path}")
+            else:
+                log_debug(f"[FRAME_READ] Frame {i}: OK - Size {img.shape[1]}x{img.shape[0]}, Path: {frame_path}")
+        
+        if img is None:
+            log_debug(f"[FRAME_READ] Frame {i}: cv2.imread returned None!") if i % 50 == 0 else None
+            continue
+        
+        frames_read_successfully += 1
         height, width = img.shape[:2]
         skeleton_canvas = np.zeros((height, width, 3), dtype=np.uint8)
         best_metrics = {} # Reset per frame
+        
         # A. Detection - HYBRID: YOLO only on analysis frames
         detections = np.empty((0, 6))
         if is_analysis_frame:
@@ -325,6 +341,18 @@ def main():
                 if yolo_preds.boxes is not None:
                     ds = yolo_preds.boxes.data.cpu().numpy()
                     detections = ds if len(ds) > 0 else np.empty((0, 6))
+                    
+                    # DEBUG: Log detection counts for first 10 frames
+                    if i < 30 or i % 100 == 0:
+                        log_debug(f"[YOLO] Frame {i}: {len(detections)} person(s) detected")
+                        if len(detections) > 0:
+                            frames_with_detections += 1
+                            for d_idx, det in enumerate(detections[:3]):  # Log first 3 detections
+                                x1, y1, x2, y2, conf, cls = det[:6]
+                                log_debug(f"  Detection {d_idx}: bbox=[{int(x1)},{int(y1)},{int(x2)},{int(y2)}], conf={conf:.2f}")
+                else:
+                    if i < 10:
+                        log_debug(f"[YOLO] Frame {i}: No boxes returned from YOLO")
             except Exception as e:
                 print(f"YOLO inference failed: {e}")
         # Else: detections remains empty, tracker will use Kalman prediction
@@ -921,6 +949,24 @@ def main():
         },
         "injury_risk_summary": injury_risk_summary  # NEW: Injury risk analysis
     }
+    
+    # ========================================================================
+    # DEBUG SUMMARY - Frame Reading & Detection Stats
+    # ========================================================================
+    print("\n")
+    print("=" * 70)
+    print("                    TRACK.PY - DEBUG SUMMARY")
+    print("=" * 70)
+    print(f"Total files found: {len(all_files)}")
+    print(f"Frames read successfully: {frames_read_successfully}")
+    print(f"Frames with YOLO detections: {frames_with_detections}")
+    print(f"Target track ID: {target_track_id}")
+    print(f"Tracker failed count: {tracker_failed_count}")
+    if frames_read_successfully == 0:
+        print("!!! CRITICAL: No frames were read from disk !!!")
+    elif frames_with_detections == 0:
+        print("!!! WARNING: YOLO detected 0 people in all frames !!!")
+    print("=" * 70)
     
     # ========================================================================
     # CONSOLE LOGGING - FINAL PAYLOAD
