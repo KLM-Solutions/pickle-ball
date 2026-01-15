@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Award, ChevronRight, BarChart3, AlertTriangle, TrendingUp, Play, Lightbulb } from "lucide-react";
 import VideoPanel from "../../components/VideoPanel";
 import { BiomechanicalMetrics } from "../../components/dashboard/BiomechanicalMetrics";
-import { filterFramesForIssues, getTopIssues, getFilterSummary, FilteredFrame, FilterSummary } from "@/lib/analysis";
+import { filterFramesForIssues, getTopIssues, getFilterSummary, getFullRecommendation, FilteredFrame, FilterSummary, CoachingRecommendation } from "@/lib/analysis";
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +20,7 @@ function PlayerContent() {
     const [playbackSpeed, setPlaybackSpeed] = useState(1);
     const [showMetrics, setShowMetrics] = useState(true);
     const [activeTab, setActiveTab] = useState<'metrics' | 'issues'>('metrics');
+    const [selectedIssue, setSelectedIssue] = useState<string | null>(null);
 
     useEffect(() => {
         if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
@@ -58,11 +59,11 @@ function PlayerContent() {
     const aggregates = useMemo(() => {
         const frames = analysisData?.frames || [];
         if (frames.length === 0) return { hip: 0, shoulder: 0, knee: 0 };
-        
+
         const validHip = frames.filter((f: any) => f.metrics?.hip_rotation_deg != null);
         const validShoulder = frames.filter((f: any) => f.metrics?.right_shoulder_abduction != null);
         const validKnee = frames.filter((f: any) => f.metrics?.right_knee_flexion != null);
-        
+
         return {
             hip: validHip.length > 0 ? Math.round(validHip.reduce((acc: number, f: any) => acc + f.metrics.hip_rotation_deg, 0) / validHip.length) : 0,
             shoulder: validShoulder.length > 0 ? Math.round(Math.max(...validShoulder.map((f: any) => f.metrics.right_shoulder_abduction))) : 0,
@@ -75,11 +76,11 @@ function PlayerContent() {
         if (!analysisData?.frames || analysisData.frames.length === 0) {
             return { filteredFrames: [], filterSummary: null, topIssues: [] };
         }
-        
+
         const filtered = filterFramesForIssues(analysisData.frames, strokeType);
         const summary = getFilterSummary(analysisData.frames, filtered);
         const top = getTopIssues(filtered, 5);
-        
+
         return { filteredFrames: filtered, filterSummary: summary, topIssues: top };
     }, [analysisData, strokeType]);
 
@@ -129,15 +130,14 @@ function PlayerContent() {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setShowMetrics(!showMetrics)}
-                            className={`lg:hidden p-2 rounded-lg transition border ${
-                                showMetrics 
-                                    ? 'bg-black text-white border-black' 
-                                    : 'bg-neutral-100 text-neutral-600 border-neutral-200 hover:text-black'
-                            }`}
+                            className={`lg:hidden p-2 rounded-lg transition border ${showMetrics
+                                ? 'bg-black text-white border-black'
+                                : 'bg-neutral-100 text-neutral-600 border-neutral-200 hover:text-black'
+                                }`}
                         >
                             <BarChart3 className="w-4 h-4" />
                         </button>
-                        
+
                         <button
                             onClick={() => router.push(`/strikesense/analysis?stroke=${strokeType}`)}
                             className="px-3 py-2 text-sm font-semibold bg-black text-white rounded-lg transition hover:bg-neutral-800 flex items-center gap-1.5"
@@ -180,22 +180,20 @@ function PlayerContent() {
                         <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg border border-neutral-200">
                             <button
                                 onClick={() => setActiveTab('metrics')}
-                                className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 ${
-                                    activeTab === 'metrics' 
-                                        ? 'bg-white text-black shadow-sm border border-neutral-200' 
-                                        : 'text-neutral-500 hover:text-black'
-                                }`}
+                                className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 ${activeTab === 'metrics'
+                                    ? 'bg-white text-black shadow-sm border border-neutral-200'
+                                    : 'text-neutral-500 hover:text-black'
+                                    }`}
                             >
                                 <BarChart3 className="w-3.5 h-3.5" />
                                 Metrics
                             </button>
                             <button
                                 onClick={() => setActiveTab('issues')}
-                                className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 ${
-                                    activeTab === 'issues' 
-                                        ? 'bg-white text-black shadow-sm border border-neutral-200' 
-                                        : 'text-neutral-500 hover:text-black'
-                                }`}
+                                className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 ${activeTab === 'issues'
+                                    ? 'bg-white text-black shadow-sm border border-neutral-200'
+                                    : 'text-neutral-500 hover:text-black'
+                                    }`}
                             >
                                 <Lightbulb className="w-3.5 h-3.5" />
                                 Issues
@@ -221,7 +219,7 @@ function PlayerContent() {
                                     <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide">
                                         Current Frame
                                     </h3>
-                                    
+
                                     <div className="grid grid-cols-2 gap-2 mb-3">
                                         <div className="bg-white rounded-lg p-3 border border-neutral-200">
                                             <div className="text-[10px] text-neutral-400 uppercase mb-0.5">Frame</div>
@@ -238,48 +236,45 @@ function PlayerContent() {
                                     </div>
 
                                     {/* Risk Status */}
-                                    <div className={`rounded-lg p-3 border min-h-[72px] ${
-                                        !currentFrame 
-                                            ? 'bg-neutral-100 border-neutral-200'
-                                            : currentFrame.injury_risk === 'high' 
-                                                ? 'bg-red-50 border-red-200' 
-                                                : currentFrame.injury_risk === 'medium'
-                                                    ? 'bg-amber-50 border-amber-200'
-                                                    : 'bg-green-50 border-green-200'
-                                    }`}>
+                                    <div className={`rounded-lg p-3 border min-h-[72px] ${!currentFrame
+                                        ? 'bg-neutral-100 border-neutral-200'
+                                        : currentFrame.injury_risk === 'high'
+                                            ? 'bg-red-50 border-red-200'
+                                            : currentFrame.injury_risk === 'medium'
+                                                ? 'bg-amber-50 border-amber-200'
+                                                : 'bg-green-50 border-green-200'
+                                        }`}>
                                         <div className="flex items-center justify-between">
                                             <span className="text-xs text-neutral-500">Form Status</span>
-                                            <span className={`text-sm font-bold uppercase ${
-                                                !currentFrame
-                                                    ? 'text-neutral-400'
-                                                    : currentFrame.injury_risk === 'high'
-                                                        ? 'text-red-600'
-                                                        : currentFrame.injury_risk === 'medium'
-                                                            ? 'text-amber-600'
-                                                            : 'text-green-600'
-                                            }`}>
-                                                {!currentFrame 
-                                                    ? '-- Waiting'
-                                                    : currentFrame.injury_risk === 'high' 
-                                                        ? '⚠️ High Risk' 
-                                                        : currentFrame.injury_risk === 'medium' 
-                                                            ? '⚡ Medium' 
-                                                            : '✓ Good'}
-                                            </span>
-                                        </div>
-                                        <p className={`text-xs mt-2 leading-relaxed min-h-[16px] ${
-                                            !currentFrame
+                                            <span className={`text-sm font-bold uppercase ${!currentFrame
                                                 ? 'text-neutral-400'
                                                 : currentFrame.injury_risk === 'high'
                                                     ? 'text-red-600'
                                                     : currentFrame.injury_risk === 'medium'
                                                         ? 'text-amber-600'
                                                         : 'text-green-600'
-                                        }`}>
-                                            {!currentFrame 
+                                                }`}>
+                                                {!currentFrame
+                                                    ? '-- Waiting'
+                                                    : currentFrame.injury_risk === 'high'
+                                                        ? '⚠️ High Risk'
+                                                        : currentFrame.injury_risk === 'medium'
+                                                            ? '⚡ Medium'
+                                                            : '✓ Good'}
+                                            </span>
+                                        </div>
+                                        <p className={`text-xs mt-2 leading-relaxed min-h-[16px] ${!currentFrame
+                                            ? 'text-neutral-400'
+                                            : currentFrame.injury_risk === 'high'
+                                                ? 'text-red-600'
+                                                : currentFrame.injury_risk === 'medium'
+                                                    ? 'text-amber-600'
+                                                    : 'text-green-600'
+                                            }`}>
+                                            {!currentFrame
                                                 ? 'Play video to see form analysis'
-                                                : currentFrame.feedback && currentFrame.feedback.length > 0 
-                                                    ? currentFrame.feedback[0] 
+                                                : currentFrame.feedback && currentFrame.feedback.length > 0
+                                                    ? currentFrame.feedback[0]
                                                     : 'No feedback for this frame'}
                                         </p>
                                     </div>
@@ -352,50 +347,86 @@ function PlayerContent() {
                                         <TrendingUp className="w-3.5 h-3.5" />
                                         Key Issues to Address
                                     </h3>
-                                    
+
                                     {topIssues.length > 0 ? (
                                         <div className="space-y-2">
-                                            {topIssues.map((issue, idx) => (
-                                                <button
-                                                    key={idx}
-                                                    onClick={() => jumpToFrame(issue.firstFrame)}
-                                                    className={`w-full text-left p-3 rounded-lg border transition hover:scale-[1.01] active:scale-[0.99] ${
-                                                        issue.severity === 'high' 
-                                                            ? 'bg-red-50 border-red-200 hover:bg-red-100' 
-                                                            : issue.severity === 'medium'
-                                                                ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
-                                                                : 'bg-white border-neutral-200 hover:bg-neutral-100'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <div className="flex items-start gap-2">
-                                                            {issue.severity === 'high' ? (
-                                                                <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                                                            ) : issue.severity === 'medium' ? (
-                                                                <TrendingUp className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                                                            ) : (
-                                                                <Lightbulb className="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
-                                                            )}
-                                                            <div>
-                                                                <div className={`text-xs font-semibold ${
-                                                                    issue.severity === 'high' ? 'text-red-700' 
-                                                                        : issue.severity === 'medium' ? 'text-amber-700' 
-                                                                        : 'text-neutral-700'
-                                                                }`}>
-                                                                    {getIssueLabel(issue.issue)}
+                                            {topIssues.map((issue, idx) => {
+                                                const coaching = getFullRecommendation(issue.issue, strokeType, issue.severity);
+                                                const isExpanded = selectedIssue === issue.issue;
+
+                                                return (
+                                                    <div key={idx} className="space-y-2">
+                                                        <button
+                                                            onClick={() => setSelectedIssue(isExpanded ? null : issue.issue)}
+                                                            className={`w-full text-left p-3 rounded-lg border transition hover:scale-[1.01] active:scale-[0.99] ${issue.severity === 'high'
+                                                                ? 'bg-red-50 border-red-200 hover:bg-red-100'
+                                                                : issue.severity === 'medium'
+                                                                    ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                                                                    : 'bg-white border-neutral-200 hover:bg-neutral-100'
+                                                                }`}
+                                                        >
+                                                            <div className="flex items-start justify-between gap-2">
+                                                                <div className="flex items-start gap-2">
+                                                                    {issue.severity === 'high' ? (
+                                                                        <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                                                                    ) : issue.severity === 'medium' ? (
+                                                                        <TrendingUp className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                                                                    ) : (
+                                                                        <Lightbulb className="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" />
+                                                                    )}
+                                                                    <div>
+                                                                        <div className={`text-xs font-semibold ${issue.severity === 'high' ? 'text-red-700'
+                                                                            : issue.severity === 'medium' ? 'text-amber-700'
+                                                                                : 'text-neutral-700'
+                                                                            }`}>
+                                                                            {coaching.title}
+                                                                        </div>
+                                                                        <div className="text-[10px] text-neutral-500 mt-0.5">
+                                                                            {issue.frameCount} frame{issue.frameCount !== 1 ? 's' : ''} • Tap for tips
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="text-[10px] text-neutral-500 mt-0.5">
-                                                                    {issue.frameCount} frame{issue.frameCount !== 1 ? 's' : ''} affected
-                                                                </div>
+                                                                <ChevronRight className={`w-4 h-4 text-neutral-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                                                             </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-1 text-[10px] text-neutral-400">
-                                                            <Play className="w-3 h-3" />
-                                                            Jump
-                                                        </div>
+                                                        </button>
+
+                                                        {/* Expanded Coaching Tips */}
+                                                        {isExpanded && (
+                                                            <div className="ml-2 p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+                                                                {/* Action */}
+                                                                <div>
+                                                                    <div className="text-[10px] font-semibold text-blue-600 uppercase mb-1">What to Change</div>
+                                                                    <p className="text-xs text-neutral-700 leading-relaxed">{coaching.message}</p>
+                                                                </div>
+
+                                                                {/* Drill */}
+                                                                <div className="bg-white rounded-lg p-2.5 border border-blue-100">
+                                                                    <div className="text-[10px] font-semibold text-green-600 uppercase mb-1">🏋️ Try This Drill</div>
+                                                                    <p className="text-xs text-neutral-700 leading-relaxed">{coaching.drill}</p>
+                                                                </div>
+
+                                                                {/* Benefit */}
+                                                                <div>
+                                                                    <div className="text-[10px] font-semibold text-purple-600 uppercase mb-1">Why It Matters</div>
+                                                                    <p className="text-xs text-neutral-600 leading-relaxed">{coaching.benefit}</p>
+                                                                </div>
+
+                                                                {/* Jump to frame button */}
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        jumpToFrame(issue.firstFrame);
+                                                                    }}
+                                                                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-black text-white rounded-lg text-xs font-semibold hover:bg-neutral-800 transition"
+                                                                >
+                                                                    <Play className="w-3 h-3" />
+                                                                    See Example Frame
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                </button>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     ) : (
                                         <div className="text-center py-6">
@@ -422,20 +453,18 @@ function PlayerContent() {
                                                     <button
                                                         key={idx}
                                                         onClick={() => jumpToFrame(ff.frame)}
-                                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition ${
-                                                            ff.category === 'injury_risk' 
-                                                                ? 'bg-red-50 hover:bg-red-100 border border-red-200' 
-                                                                : ff.category === 'form_improvement'
-                                                                    ? 'bg-amber-50 hover:bg-amber-100 border border-amber-200'
-                                                                    : 'bg-white hover:bg-neutral-100 border border-neutral-200'
-                                                        }`}
+                                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition ${ff.category === 'injury_risk'
+                                                            ? 'bg-red-50 hover:bg-red-100 border border-red-200'
+                                                            : ff.category === 'form_improvement'
+                                                                ? 'bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                                                                : 'bg-white hover:bg-neutral-100 border border-neutral-200'
+                                                            }`}
                                                     >
                                                         <div className="flex items-center gap-2">
-                                                            <span className={`text-xs font-mono font-bold ${
-                                                                ff.category === 'injury_risk' ? 'text-red-600' 
-                                                                    : ff.category === 'form_improvement' ? 'text-amber-600' 
+                                                            <span className={`text-xs font-mono font-bold ${ff.category === 'injury_risk' ? 'text-red-600'
+                                                                : ff.category === 'form_improvement' ? 'text-amber-600'
                                                                     : 'text-neutral-600'
-                                                            }`}>
+                                                                }`}>
                                                                 #{ff.frame.frameIdx}
                                                             </span>
                                                             <span className="text-[10px] text-neutral-500">
