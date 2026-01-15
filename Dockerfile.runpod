@@ -56,6 +56,11 @@ RUN mkdir -p /app/models && \
     "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task" && \
     echo "Pose landmarker model downloaded"
 
+# CACHE BUSTER - Forces fresh copy of Python code every build
+# Change this value to force a rebuild: 2026-01-15T20:30:00
+ARG CACHEBUST=1
+RUN echo "Cache bust: $CACHEBUST"
+
 # Copy Python application code (includes models/ folder)
 COPY python/ ./
 
