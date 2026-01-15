@@ -842,6 +842,48 @@ def main():
         "injury_risk_summary": injury_risk_summary  # NEW: Injury risk analysis
     }
     
+    # ========================================================================
+    # CONSOLE LOGGING - FINAL PAYLOAD
+    # ========================================================================
+    print("\n")
+    print("=" * 70)
+    print("                    TRACK.PY - FINAL OUTPUT PAYLOAD")
+    print("=" * 70)
+    print(f"Results JSON Path: {results_json}")
+    print(f"Total Frames Processed: {len(results)}")
+    print(f"Total Strokes Detected: {len(detected_strokes)}")
+    print("-" * 70)
+    print("SUMMARY:")
+    print(json.dumps(final_output.get("summary", {}), indent=2, cls=NumpyEncoder))
+    print("-" * 70)
+    print("INJURY RISK SUMMARY:")
+    print(json.dumps(injury_risk_summary, indent=2, cls=NumpyEncoder))
+    print("-" * 70)
+    print("STROKES:")
+    print(json.dumps(detected_strokes, indent=2, cls=NumpyEncoder))
+    print("-" * 70)
+    
+    # Log first 3 frames as sample
+    print("FRAMES SAMPLE (first 3):")
+    sample_frames = results[:3] if len(results) >= 3 else results
+    for idx, frame in enumerate(sample_frames):
+        frame_info = {
+            "frameIdx": frame.get("frameIdx"),
+            "timestampSec": frame.get("timestampSec"),
+            "bbox": frame.get("bbox"),
+            "confidence": frame.get("confidence"),
+            "track_id": frame.get("track_id"),
+            "landmarks_count": len(frame.get("landmarks", []) or [])
+        }
+        print(f"  Frame {idx}: {json.dumps(frame_info, cls=NumpyEncoder)}")
+    
+    print("-" * 70)
+    print(f"ANNOTATED VIDEO / SKELETON VIDEO PATH:")
+    print(f"  Skeleton Output: {skeleton_dir / 'skeleton_output.mp4'}")
+    print("=" * 70)
+    print("\n")
+    # ========================================================================
+    
     with open(results_json, "w") as f:
         json.dump(final_output, f, indent=2, cls=NumpyEncoder)
     
@@ -849,16 +891,18 @@ def main():
     
     if skeleton_writer is not None:
         skeleton_writer.release()
+        print(f"\n[VIDEO] Skeleton video finalized at: {skeleton_out_path}")
+        
         # CUSTOM: Copy to D:\pickle-ball-main\Skeleton view as requested
         try:
             target_skel_dir = Path("D:/pickle-ball-main/Skeleton view")
             target_skel_dir.mkdir(parents=True, exist_ok=True)
             target_skel_file = target_skel_dir / "skeleton_output.mp4"
-            print(f"Copying skeleton video to: {target_skel_file}")
+            print(f"[VIDEO] Copying skeleton video to: {target_skel_file}")
             shutil.copy2(skeleton_out_path, target_skel_file)
-            print("Copy successful.")
+            print("[VIDEO] Copy successful.")
         except Exception as e:
-            print(f"Failed to copy skeleton video to external dir: {e}")
+            print(f"[VIDEO] Failed to copy skeleton video to external dir: {e}")
 
 if __name__ == "__main__":
     main() 
