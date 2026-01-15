@@ -40,14 +40,37 @@ except Exception:
 import torch
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 log_debug(f"Using device: {DEVICE} (CUDA available: {torch.cuda.is_available()})")
+
+# MediaPipe Tasks API (0.10.x compatible)
+mp = None
+MP_TASKS_AVAILABLE = False
+PoseLandmarker = None
+PoseLandmarkerOptions = None
+BaseOptions = None
+VisionRunningMode = None
+
 try:
-    import mediapipe as mp  # type: ignore
+    import mediapipe as mp
+    # Try new Tasks API first (MediaPipe 0.10.x+)
     try:
-        if not hasattr(mp, 'solutions'):
-            raise ImportError("No solutions attribute")
-    except Exception:
-        mp = None
-except Exception:
+        from mediapipe.tasks import python as mp_tasks
+        from mediapipe.tasks.python import vision as mp_vision
+        PoseLandmarker = mp_vision.PoseLandmarker
+        PoseLandmarkerOptions = mp_vision.PoseLandmarkerOptions
+        BaseOptions = mp_tasks.BaseOptions
+        VisionRunningMode = mp_vision.RunningMode
+        MP_TASKS_AVAILABLE = True
+        log_debug("MediaPipe Tasks API loaded successfully (0.10.x compatible)")
+    except ImportError as e:
+        log_debug(f"MediaPipe Tasks API not available: {e}")
+        # Fallback: Check for legacy solutions API
+        if hasattr(mp, 'solutions'):
+            log_debug("Using legacy mp.solutions API")
+        else:
+            log_debug("WARNING: Neither Tasks API nor solutions API available!")
+            mp = None
+except ImportError as e:
+    log_debug(f"MediaPipe not installed: {e}")
     mp = None
 # NEW MODULAR IMPORTS - ENHANCED
 try:
@@ -154,24 +177,55 @@ def main():
             )
         except Exception as e:
             print(f"Tracker init failed: {e}. Proceeding without tracker.")
-    # Initialize MediaPipe Pose (optional)
-    pose = None
-    mp_pose = None
-    if mp is not None:
+    # Initialize MediaPipe Pose - NEW TASKS API (0.10.x compatible)
+    pose_landmarker = None
+    mp_pose = None  # Keep for legacy drawing utils reference
+    POSE_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'pose_landmarker_heavy.task')
+    
+    if MP_TASKS_AVAILABLE and PoseLandmarker is not None:
         try:
-            if not hasattr(mp, 'solutions'):
-                raise ImportError("MediaPipe module lookup failed: no 'solutions' attribute.")
+            # Check if model file exists, download if not
+            if not os.path.exists(POSE_MODEL_PATH):
+                log_debug(f"Pose model not found at {POSE_MODEL_PATH}, downloading...")
+                import urllib.request
+                os.makedirs(os.path.dirname(POSE_MODEL_PATH), exist_ok=True)
+                model_url = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"
+                urllib.request.urlretrieve(model_url, POSE_MODEL_PATH)
+                log_debug(f"Pose model downloaded to {POSE_MODEL_PATH}")
+            
+            # Create PoseLandmarker with VIDEO mode
+            options = PoseLandmarkerOptions(
+                base_options=BaseOptions(model_asset_path=POSE_MODEL_PATH),
+                running_mode=VisionRunningMode.VIDEO,
+                num_poses=1,
+                min_pose_detection_confidence=0.5,
+                min_pose_presence_confidence=0.5,
+                min_tracking_confidence=0.5,
+                output_segmentation_masks=False
+            )
+            pose_landmarker = PoseLandmarker.create_from_options(options)
+            log_debug("MediaPipe PoseLandmarker (Tasks API) initialized successfully")
+        except Exception as e:
+            log_debug(f"MediaPipe Tasks API init failed: {e}")
+            import traceback
+            traceback.print_exc()
+            pose_landmarker = None
+    elif mp is not None and hasattr(mp, 'solutions'):
+        # Fallback to legacy solutions API (MediaPipe < 0.10)
+        try:
             mp_pose = mp.solutions.pose
-            pose = mp_pose.Pose(
+            pose_landmarker = mp_pose.Pose(
                 static_image_mode=False,
                 model_complexity=1,
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5,
             )
+            log_debug("MediaPipe legacy solutions API initialized")
         except Exception as e:
-            print(f"MediaPipe init failed: {e}. Skipping pose.")
-            pose = None
-            mp_pose = None
+            log_debug(f"Legacy MediaPipe init failed: {e}")
+            pose_landmarker = None
+    else:
+        log_debug("WARNING: No MediaPipe pose detection available!")
     # Initialize Analysis Modules - ENHANCED
     bio_analyzer = BiomechanicsAnalyzer() if BiomechanicsAnalyzer is not None else None
     classifier = StrokeClassifier() if StrokeClassifier is not None else None
@@ -600,9 +654,9 @@ def main():
                 total_distance_m += d_px * scale
             prev_center = current_center
 
-            # --- FIXED: Enhanced MediaPipe Pose Estimation on Crop ---
+            # --- MediaPipe Pose Estimation (Tasks API 0.10.x compatible) ---
             # ONLY run for analysis frames to maintain performance
-            if is_analysis_frame and pose is not None:
+            if is_analysis_frame and pose_landmarker is not None:
                 try:
                     # FIXED: Better padding calculation
                     pad = max(10, int(bbox_h * 0.15))  # At least 10px padding, 15% of height
@@ -613,70 +667,63 @@ def main():
                     crop_width = x2_c - x1_c
                     crop_height = y2_c - y1_c
                     
+                    pose_result = None
+                    normalized_landmarks = None
+                    
                     if crop_width > 50 and crop_height > 80:  # Minimum size for pose detection
                         crop = img[y1_c:y2_c, x1_c:x2_c]
                         
                         # FIXED: Validate crop before processing
                         if crop.size > 0 and len(crop.shape) == 3:
                             crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
-                            # Run pose inference
-                            pose_results = pose.process(crop_rgb)
-                        else:
-                            pose_results = None
-                    else:
-                        pose_results = None
-
-                    # FIXED: Process pose results if available
-                    if pose_results is not None and pose_results.pose_landmarks:
-                        # ... Logic continues ...
-                        pass # Valid flow
+                            
+                            # Calculate timestamp in milliseconds for Tasks API
+                            frame_timestamp_ms = int(i * (1000 / fps))
+                            
+                            # NEW TASKS API (MediaPipe 0.10.x+)
+                            if MP_TASKS_AVAILABLE:
+                                # Create MediaPipe Image from numpy array
+                                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=crop_rgb)
+                                # Run pose detection with timestamp
+                                pose_result = pose_landmarker.detect_for_video(mp_image, frame_timestamp_ms)
+                                
+                                # Extract landmarks if detected
+                                if pose_result and pose_result.pose_landmarks and len(pose_result.pose_landmarks) > 0:
+                                    normalized_landmarks = pose_result.pose_landmarks[0]  # First detected pose
+                                    print(f"DEBUG: Frame {i} - Tasks API detected {len(normalized_landmarks)} landmarks")
+                            
+                            # LEGACY SOLUTIONS API FALLBACK (MediaPipe < 0.10)
+                            elif mp_pose is not None:
+                                legacy_result = pose_landmarker.process(crop_rgb)
+                                if legacy_result and legacy_result.pose_landmarks:
+                                    normalized_landmarks = legacy_result.pose_landmarks.landmark
+                                    print(f"DEBUG: Frame {i} - Legacy API detected {len(normalized_landmarks)} landmarks")
+                    
+                    # Process landmarks if detected
+                    if normalized_landmarks is not None:
                         crop_h, crop_w = crop.shape[:2]
-                        print(f"DEBUG: Found pose landmarks, crop size: {crop_w}x{crop_h}")
-                                                # FIXED: Enhanced visualization with proper yellow/red colors
-                        landmark_spec = mp.solutions.drawing_utils.DrawingSpec(
-                            color=(0, 0, 255),     # RED joints
-                            thickness=4,           # Slightly thicker for visibility
-                            circle_radius=4        # Larger radius for better visibility
-                        )
-                        connection_spec = mp.solutions.drawing_utils.DrawingSpec(
-                            color=(0, 255, 255),   # YELLOW connections 
-                            thickness=3,           # Thicker lines for visibility
-                            circle_radius=2        # Keep connection points smaller
-                        )
-                        # Filter connections to exclude head (indices 0-10)
-                        filtered_connections = [
-                            c for c in mp_pose.POSE_CONNECTIONS 
-                            if c[0] > 10 and c[1] > 10
-                        ]
-                                                # Hide head landmarks
-                        for idx in range(11): # 0 to 10
-                            if idx < len(pose_results.pose_landmarks.landmark):
-                                pose_results.pose_landmarks.landmark[idx].visibility = 0.0
-                        # FIXED: Draw on Main Image 
-                        try:
-                            mp.solutions.drawing_utils.draw_landmarks(
-                                img[y1_c:y2_c, x1_c:x2_c],
-                                pose_results.pose_landmarks,
-                                filtered_connections,
-                                landmark_drawing_spec=landmark_spec,
-                                connection_drawing_spec=connection_spec
-                            )
-                        except Exception as e:
-                            print(f"DEBUG: Failed to draw pose on main image: {e}")
-                                                # FIXED: Draw on Skeleton Canvas
-                        try:
-                            mp.solutions.drawing_utils.draw_landmarks(
-                                skeleton_canvas[y1_c:y2_c, x1_c:x2_c],
-                                pose_results.pose_landmarks,
-                                filtered_connections,
-                                landmark_drawing_spec=landmark_spec,
-                                connection_drawing_spec=connection_spec
-                            )
-                        except Exception as e:
-                            print(f"DEBUG: Failed to draw pose on skeleton canvas: {e}")
                         
-                        # SIMPLIFIED: Only extract and serialize landmarks
-                        # TypeScript will handle ALL biomechanics analysis
+                        # Draw skeleton on images
+                        # Define colors for visualization
+                        JOINT_COLOR = (0, 0, 255)      # RED for joints
+                        CONNECTION_COLOR = (0, 255, 255)  # YELLOW for connections
+                        JOINT_RADIUS = 4
+                        LINE_THICKNESS = 3
+                        
+                        # Define body connections (excluding head landmarks 0-10)
+                        POSE_CONNECTIONS = [
+                            (11, 12),  # shoulders
+                            (11, 13), (13, 15),  # left arm
+                            (12, 14), (14, 16),  # right arm
+                            (11, 23), (12, 24),  # torso
+                            (23, 24),  # hips
+                            (23, 25), (25, 27),  # left leg
+                            (24, 26), (26, 28),  # right leg
+                            (27, 29), (27, 31),  # left foot
+                            (28, 30), (28, 32),  # right foot
+                        ]
+                        
+                        # Extract landmark data for serialization and draw
                         LANDMARK_NAMES = [
                             'nose', 'left_eye_inner', 'left_eye', 'left_eye_outer',
                             'right_eye_inner', 'right_eye', 'right_eye_outer',
@@ -688,17 +735,50 @@ def main():
                             'left_ankle', 'right_ankle', 'left_heel', 'right_heel',
                             'left_foot_index', 'right_foot_index'
                         ]
+                        
                         best_landmarks = []
-                        for idx, lm in enumerate(pose_results.pose_landmarks.landmark):
+                        landmark_points = {}  # For drawing connections
+                        
+                        for idx, lm in enumerate(normalized_landmarks):
                             name = LANDMARK_NAMES[idx] if idx < len(LANDMARK_NAMES) else f'landmark_{idx}'
+                            
+                            # Handle both Tasks API and legacy API landmark formats
+                            if hasattr(lm, 'x'):
+                                lm_x, lm_y, lm_z = float(lm.x), float(lm.y), float(lm.z)
+                                lm_visibility = float(lm.visibility) if hasattr(lm, 'visibility') else 1.0
+                            else:
+                                # Dict-like format
+                                lm_x, lm_y, lm_z = lm['x'], lm['y'], lm['z']
+                                lm_visibility = lm.get('visibility', 1.0)
+                            
                             best_landmarks.append({
                                 'name': name,
-                                'x': float(lm.x),
-                                'y': float(lm.y),
-                                'z': float(lm.z),
-                                'visibility': float(lm.visibility)
+                                'x': lm_x,
+                                'y': lm_y,
+                                'z': lm_z,
+                                'visibility': lm_visibility
                             })
-                        print(f"DEBUG: Frame {i} - Extracted {len(best_landmarks)} landmarks")
+                            
+                            # Store pixel coordinates for drawing (skip head landmarks 0-10)
+                            if idx > 10:
+                                px = int(lm_x * crop_w)
+                                py = int(lm_y * crop_h)
+                                landmark_points[idx] = (px, py)
+                                
+                                # Draw joint on crop region
+                                if 0 <= px < crop_w and 0 <= py < crop_h:
+                                    cv2.circle(img[y1_c:y2_c, x1_c:x2_c], (px, py), JOINT_RADIUS, JOINT_COLOR, -1)
+                                    cv2.circle(skeleton_canvas[y1_c:y2_c, x1_c:x2_c], (px, py), JOINT_RADIUS, JOINT_COLOR, -1)
+                        
+                        # Draw connections
+                        for start_idx, end_idx in POSE_CONNECTIONS:
+                            if start_idx in landmark_points and end_idx in landmark_points:
+                                pt1 = landmark_points[start_idx]
+                                pt2 = landmark_points[end_idx]
+                                cv2.line(img[y1_c:y2_c, x1_c:x2_c], pt1, pt2, CONNECTION_COLOR, LINE_THICKNESS)
+                                cv2.line(skeleton_canvas[y1_c:y2_c, x1_c:x2_c], pt1, pt2, CONNECTION_COLOR, LINE_THICKNESS)
+                        
+                        print(f"DEBUG: Frame {i} - Extracted {len(best_landmarks)} landmarks, drew skeleton")
                             
                 except Exception as e:
                     print(f"Pose/Biomech Error: {e}")
