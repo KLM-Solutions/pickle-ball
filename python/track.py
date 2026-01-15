@@ -5,6 +5,7 @@ import os
 import cv2
 import sys
 import numpy as np
+import time
 import shutil
 from pathlib import Path
 import datetime
@@ -14,6 +15,17 @@ def log_debug(msg):
     print(f"[TRACK_PY_DEBUG {ts}] {msg}")
     sys.stdout.flush()
 log_debug("Script loading...")
+try:
+    import torch
+    print(f"CUDA Available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA Device Count: {torch.cuda.device_count()}")
+        print(f"CUDA Device Name: {torch.cuda.get_device_name(0)}")
+    else:
+        print("WARNING: CUDA IS NOT AVAILABLE. TORCH RUNNING ON CPU.")
+except ImportError:
+    torch = None
+    print("WARNING: Could not import torch explicitly.")
 class NumpyEncoder(json.JSONEncoder):
     """ Custom encoder for numpy data types """
     def default(self, obj):
@@ -35,48 +47,27 @@ try:
     from ultralytics import YOLO  # type: ignore
 except Exception:
     YOLO = None  # fallback to HOG detector
-
-# GPU Device Detection
-import torch
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-log_debug(f"Using device: {DEVICE} (CUDA available: {torch.cuda.is_available()})")
-
-# MediaPipe Tasks API (0.10.x compatible)
-mp = None
-MP_TASKS_AVAILABLE = False
-PoseLandmarker = None
-PoseLandmarkerOptions = None
-BaseOptions = None
-VisionRunningMode = None
-
 try:
-    import mediapipe as mp
-    # Try new Tasks API first (MediaPipe 0.10.x+)
+    import mediapipe as mp  # type: ignore
     try:
-        from mediapipe.tasks import python as mp_tasks
-        from mediapipe.tasks.python import vision as mp_vision
-        PoseLandmarker = mp_vision.PoseLandmarker
-        PoseLandmarkerOptions = mp_vision.PoseLandmarkerOptions
-        BaseOptions = mp_tasks.BaseOptions
-        VisionRunningMode = mp_vision.RunningMode
-        MP_TASKS_AVAILABLE = True
-        log_debug("MediaPipe Tasks API loaded successfully (0.10.x compatible)")
-    except ImportError as e:
-        log_debug(f"MediaPipe Tasks API not available: {e}")
-        # Fallback: Check for legacy solutions API
-        if hasattr(mp, 'solutions'):
-            log_debug("Using legacy mp.solutions API")
-        else:
-            log_debug("WARNING: Neither Tasks API nor solutions API available!")
-            mp = None
-except ImportError as e:
-    log_debug(f"MediaPipe not installed: {e}")
+        if not hasattr(mp, 'solutions'):
+            raise ImportError("No solutions attribute")
+    except Exception:
+        mp = None
+except Exception:
     mp = None
 # NEW MODULAR IMPORTS - ENHANCED
+# Ensure optional symbols are ALWAYS defined (avoid NameError in success-path imports).
+classify_stroke_enhanced = None
 try:
     from biomechanics import BiomechanicsAnalyzer, InjuryRiskDetector
     from biomechanics.angles import calculate_biomechanics_for_stroke
-    from classification import StrokeClassifier, classify_stroke_enhanced
+    from classification import StrokeClassifier
+    # Optional: enhanced classifier lives in classification/heuristics.py
+    try:
+        from classification.heuristics import classify_stroke_enhanced  # type: ignore
+    except Exception:
+        classify_stroke_enhanced = None
 except Exception as e:
     print(f"ERROR Importing Modules: {e}")
     BiomechanicsAnalyzer = None
@@ -113,11 +104,32 @@ def parse_args():
     parser.add_argument("--results_json", type=str, required=True, help="Path for output JSON")
     parser.add_argument("--yolo_model", type=str, default="yolov8n.pt", help="YOLOv8 weights")
     parser.add_argument("--reid_model", type=str, default="models/osnet_x1_0_msmt17.pt", help="Path to ReID weights")
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda:0",
+        help="Device for YOLO inference. Use 'cuda:0' (default) on GPU workers, or 'cpu' for local CPU validation."
+    )
     parser.add_argument("--target_point", type=str, default=None, help="Normalized click coordinates 'x,y'")
     parser.add_argument("--crop_region", type=str, default=None, help="Normalized crop region 'cx,cy,w,h'")
     parser.add_argument("--step", type=int, default=1, help="Process every Nth frame (frame skipping)")
     parser.add_argument("--stroke_type", type=str, default="serve", help="Hint for type of stroke being analyzed")
     parser.add_argument("--video_path", type=str, default=None, help="Path to the original video file for FPS detection")
+    # Performance / long-video controls
+    parser.add_argument(
+        "--analysis_windows",
+        type=str,
+        default=None,
+        help="Comma-separated time windows in seconds: 'start:end,start:end'. If set, metrics/pose are computed only inside windows."
+    )
+    parser.add_argument(
+        "--process_only_windows",
+        action="store_true",
+        help="If set with --analysis_windows, only process frames that fall inside those windows."
+    )
+    parser.add_argument("--no_video_output", action="store_true", help="Skip writing annotated frame PNGs (results.json still written).")
+    parser.add_argument("--no_skeleton_video", action="store_true", help="Skip writing skeleton_output.mp4 and drawing skeleton canvas.")
+    parser.add_argument("--coarse_mode", action="store_true", help="Coarse scan mode (looser thresholds) for two-pass long-video analysis.")
     return parser.parse_args()
 def get_video_fps(video_path):
     """Attempt to get FPS from video file."""
@@ -144,6 +156,34 @@ def main():
     original_video = args.video_path
     fps = get_video_fps(original_video)
     log_debug(f"Initial FPS detected (baseline): {fps}")
+    yolo_device = (args.device or "cuda:0").strip()
+
+    # Parse analysis windows (in seconds)
+    # Format: "start:end,start:end"
+    windows_sec = []
+    if args.analysis_windows:
+        try:
+            for part in str(args.analysis_windows).split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                a, b = part.split(":")
+                s = float(a)
+                e = float(b)
+                if e < s:
+                    s, e = e, s
+                windows_sec.append((max(0.0, s), max(0.0, e)))
+        except Exception as e:
+            print(f"Invalid --analysis_windows format: {args.analysis_windows} ({e})")
+            windows_sec = []
+
+    def _in_any_window(t: float) -> bool:
+        if not windows_sec:
+            return True
+        for s, e in windows_sec:
+            if s <= t <= e:
+                return True
+        return False
     # 1. Initialize detector (YOLO ONLY)
     model = None
     if YOLO is not None:
@@ -162,70 +202,56 @@ def main():
     else:
         print("CRITICAL ERROR: Ultralytics YOLO library not installed.")
         sys.exit(1)
-    # 2. Initialize Tracker via Factory (optional)
+    # 2. Initialize tracker (BoxMOT DeepOCSORT) if available
     tracker = None
-    if create_tracker is not None:
+    BOXMOT_AVAILABLE = create_tracker is not None # Define BOXMOT_AVAILABLE based on create_tracker import
+    if BOXMOT_AVAILABLE:
         try:
-            print(f"Loading DeepOCSORT via create_tracker: {args.reid_model}")
-            reid_weights = Path(args.reid_model)
-            tracker = create_tracker(
-                tracker_type='deepocsort', # DeepOCSORT for better reentry
-                reid_weights=reid_weights, # Enable Re-ID
-                device=DEVICE,  # Use GPU if available
-                half=DEVICE == 'cuda',  # Use FP16 on GPU for speed
-                per_class=False,
-            )
-        except Exception as e:
-            print(f"Tracker init failed: {e}. Proceeding without tracker.")
-    # Initialize MediaPipe Pose - NEW TASKS API (0.10.x compatible)
-    pose_landmarker = None
-    mp_pose = None  # Keep for legacy drawing utils reference
-    POSE_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'pose_landmarker_heavy.task')
-    
-    if MP_TASKS_AVAILABLE and PoseLandmarker is not None:
-        try:
-            # Check if model file exists, download if not
-            if not os.path.exists(POSE_MODEL_PATH):
-                log_debug(f"Pose model not found at {POSE_MODEL_PATH}, downloading...")
-                import urllib.request
-                os.makedirs(os.path.dirname(POSE_MODEL_PATH), exist_ok=True)
-                model_url = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"
-                urllib.request.urlretrieve(model_url, POSE_MODEL_PATH)
-                log_debug(f"Pose model downloaded to {POSE_MODEL_PATH}")
+            tracker_config_path = Path(args.reid_model) # Use args.reid_model for consistency
+            print(f"Loading DeepOCSORT via create_tracker: {tracker_config_path}")
             
-            # Create PoseLandmarker with VIDEO mode
-            options = PoseLandmarkerOptions(
-                base_options=BaseOptions(model_asset_path=POSE_MODEL_PATH),
-                running_mode=VisionRunningMode.VIDEO,
-                num_poses=1,
-                min_pose_detection_confidence=0.5,
-                min_pose_presence_confidence=0.5,
-                min_tracking_confidence=0.5,
-                output_segmentation_masks=False
+            # KEY FIX: Use integer 0 for device, not 'cuda' string
+            # The library requires specific device index for CUDA
+            # per_class=False is important for general person tracking
+            tracker_device = 0 if yolo_device.startswith("cuda") else "cpu"
+            tracker = create_tracker(
+                tracker_type='deepocsort',
+                reid_weights=tracker_config_path, # Use the path from args
+                device=tracker_device,
+                half=bool(yolo_device.startswith("cuda")),
+                per_class=False 
             )
-            pose_landmarker = PoseLandmarker.create_from_options(options)
-            log_debug("MediaPipe PoseLandmarker (Tasks API) initialized successfully")
+            print("Tracker initialized successfully.")
         except Exception as e:
-            log_debug(f"MediaPipe Tasks API init failed: {e}")
-            import traceback
-            traceback.print_exc()
-            pose_landmarker = None
-    elif mp is not None and hasattr(mp, 'solutions'):
-        # Fallback to legacy solutions API (MediaPipe < 0.10)
+            print(f"Tracker init failed: {e}")
+            tracker = None
+    
+    # Analyze CUDA environment (guard torch import)
+    if torch is not None and torch.cuda.is_available():
+        print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
+        print(f"torch.cuda.device_count(): {torch.cuda.device_count()}")
+        print(f"os.environ['CUDA_VISIBLE_DEVICES']: {os.environ.get('CUDA_VISIBLE_DEVICES', 'Not Set')}")
+
+    if tracker is None:
+        print("WARNING: Tracker unavailable. Proceeding without tracker.")
+    # Initialize MediaPipe Pose (optional)
+    pose = None
+    mp_pose = None
+    if mp is not None:
         try:
+            if not hasattr(mp, 'solutions'):
+                raise ImportError("MediaPipe module lookup failed: no 'solutions' attribute.")
             mp_pose = mp.solutions.pose
-            pose_landmarker = mp_pose.Pose(
+            pose = mp_pose.Pose(
                 static_image_mode=False,
                 model_complexity=1,
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5,
             )
-            log_debug("MediaPipe legacy solutions API initialized")
         except Exception as e:
-            log_debug(f"Legacy MediaPipe init failed: {e}")
-            pose_landmarker = None
-    else:
-        log_debug("WARNING: No MediaPipe pose detection available!")
+            print(f"MediaPipe init failed: {e}. Skipping pose.")
+            pose = None
+            mp_pose = None
     # Initialize Analysis Modules - ENHANCED
     bio_analyzer = BiomechanicsAnalyzer() if BiomechanicsAnalyzer is not None else None
     classifier = StrokeClassifier() if StrokeClassifier is not None else None
@@ -269,20 +295,43 @@ def main():
     # 3. Processing Loop
     all_files = sorted([p for p in input_dir.glob("*.png") if p.is_file()], key=lambda p: p.name)
     log_debug(f"Found {len(all_files)} total frames in input_dir.")
+
+    def _frame_idx_from_path(p: Path) -> int:
+        # Expected: frame_0001.png (1-based)
+        try:
+            return max(0, int(p.stem.split("_")[-1]) - 1)
+        except Exception:
+            return 0
+
+    # If requested, process only frames inside the windows (coarse→refine pass-2 optimization)
+    # IMPORTANT: Use frame index from filename so windowing doesn't break timestamps.
+    if args.process_only_windows and windows_sec and len(all_files) > 0:
+        filtered = []
+        for p in all_files:
+            fi = _frame_idx_from_path(p)
+            if _in_any_window(fi / fps):
+                filtered.append(p)
+        all_files = filtered
+        log_debug(f"Window-only processing enabled: {len(all_files)} frames selected from windows={windows_sec}")
     results = [] # Final frames to return to frontend
     all_frames_metrics = [] # To store metrics for sequence classification
-    first_lock_frame = -1
-    lock_wait_timeout = int(30 * 3) # Wait up to 3 seconds (assuming 30fps) for initial lock
-    target_track_id = None
     first_lock_frame = -1
     lock_wait_timeout = int(30 * 3) # Wait up to 3 seconds (assuming 30fps) for initial lock
     target_track_id = None
     lost_frames = 0 # Counter for frames where target is lost
     prev_wrist_px = None
     prev_time_sec = 0.0
+    
+    # NOTE: Single-ID invariant is enforced via POST-PROCESSING validation (see lines ~1070).
+    # Real-time mid-stroke lock is not implemented since strokes are detected after all frames are processed.
+    
     # Stats Tracking
     total_distance_m = 0.0
-    prev_center = None
+    # Keep these separate:
+    # - prev_bbox_center: used for re-lock / nearest-person logic (must be bbox center)
+    # - prev_bottom_center: used for distance traveled estimation (bottom of bbox)
+    prev_bbox_center = None
+    prev_bottom_center = None
         # --- Skeleton Video Init ---
     skeleton_dir = output_dir
     skeleton_dir.mkdir(parents=True, exist_ok=True)
@@ -293,7 +342,7 @@ def main():
     first_frame_path = all_files[0]
     temp_img = cv2.imread(str(first_frame_path))
     skeleton_writer = None
-    if temp_img is not None:
+    if temp_img is not None and (not args.no_skeleton_video) and (not args.no_video_output):
         h, w = temp_img.shape[:2]
         # Calculate resulting FPS after step
         # Base FPS is from original video (e.g. 30), result_fps is for output (e.g. 10)
@@ -303,60 +352,70 @@ def main():
         skeleton_writer = cv2.VideoWriter(str(skeleton_out_path), fourcc, result_fps, (w, h))
         print(f"Skeleton video will be saved to: {skeleton_out_path} at {result_fps} FPS")
     else:
-        print("Error: Could not read first frame.")
+        if temp_img is None:
+            print("Error: Could not read first frame.")
+        else:
+            print("Skeleton video disabled (no_skeleton_video or no_video_output).")
     print(f"Processing {len(all_files)} frames (Analysis every {step} steps)...")
     tracker_failed_count = 0
     saved_frame_count = 0
-    frames_read_successfully = 0
-    frames_with_detections = 0
-    
     for i, frame_path in enumerate(all_files):
+        # Use original frame index derived from filename so windowing doesn't break timestamps.
+        frame_idx = _frame_idx_from_path(frame_path)
         # We update the tracker EVERY frame for stability, but only analyze every 'step'
-        is_analysis_frame = (i % step == 0)
+        is_analysis_frame = (frame_idx % step == 0)
         img = cv2.imread(str(frame_path))
-        
-        # DEBUG: Log first few frames to check file reading
-        if i < 5:
-            if img is None:
-                log_debug(f"[FRAME_READ] Frame {i}: FAILED to read from {frame_path}")
-            else:
-                log_debug(f"[FRAME_READ] Frame {i}: OK - Size {img.shape[1]}x{img.shape[0]}, Path: {frame_path}")
-        
-        if img is None:
-            log_debug(f"[FRAME_READ] Frame {i}: cv2.imread returned None!") if i % 50 == 0 else None
-            continue
-        
-        frames_read_successfully += 1
+        if img is None: continue
         height, width = img.shape[:2]
-        skeleton_canvas = np.zeros((height, width, 3), dtype=np.uint8)
+        skeleton_canvas = None if args.no_skeleton_video else np.zeros((height, width, 3), dtype=np.uint8)
         best_metrics = {} # Reset per frame
-        
+        landmarks_out = None  # Optional: MediaPipe landmarks for TS analyzeFrames fallback
         # A. Detection - HYBRID: YOLO only on analysis frames
         detections = np.empty((0, 6))
         if is_analysis_frame:
             # YOLO Inference ONLY on analysis frames to maintain speed
             try:
                 # classes=[0] for person only, lower conf to 0.2
-                yolo_preds = model.predict(img, classes=[0], conf=0.2, verbose=False, device=DEVICE)[0]
+                yolo_preds = model.predict(img, classes=[0], conf=0.2, verbose=False, device=yolo_device)[0]
                 if yolo_preds.boxes is not None:
                     ds = yolo_preds.boxes.data.cpu().numpy()
                     detections = ds if len(ds) > 0 else np.empty((0, 6))
+
+                # STRICT CROP FILTERING: Remove distractors before they reach the tracker
+                if crop_region_norm is not None and len(detections) > 0:
+                    cr_x1, cr_y1, cr_x2, cr_y2 = crop_region_norm
+                    # Convert crop to pixels
+                    c_px_x1, c_px_y1 = cr_x1 * width, cr_y1 * height
+                    c_px_x2, c_px_y2 = cr_x2 * width, cr_y2 * height
                     
-                    # DEBUG: Log detection counts for first 10 frames
-                    if i < 30 or i % 100 == 0:
-                        log_debug(f"[YOLO] Frame {i}: {len(detections)} person(s) detected")
-                        if len(detections) > 0:
-                            frames_with_detections += 1
-                            for d_idx, det in enumerate(detections[:3]):  # Log first 3 detections
-                                x1, y1, x2, y2, conf, cls = det[:6]
-                                log_debug(f"  Detection {d_idx}: bbox=[{int(x1)},{int(y1)},{int(x2)},{int(y2)}], conf={conf:.2f}")
-                else:
-                    if i < 10:
-                        log_debug(f"[YOLO] Frame {i}: No boxes returned from YOLO")
+                    valid_dets = []
+                    for det in detections:
+                        dx1, dy1, dx2, dy2 = det[:4]
+                        dcx, dcy = (dx1 + dx2) / 2, (dy1 + dy2) / 2
+                        
+                        # Improved check: Intersection Area > 25% of detection area
+                        # This allows tracking even if center is slightly outside (edges)
+                        ix1 = max(dx1, c_px_x1)
+                        iy1 = max(dy1, c_px_y1)
+                        ix2 = min(dx2, c_px_x2)
+                        iy2 = min(dy2, c_px_y2)
+
+                        inter_area = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+                        det_area = (dx2 - dx1) * (dy2 - dy1)
+                        
+                        overlap_ratio = inter_area / det_area if det_area > 0 else 0
+                        
+                        if overlap_ratio > 0.25:
+                            valid_dets.append(det)
+                    
+                    if len(valid_dets) < len(detections):
+                         log_debug(f"Frame {i}: Filtered {len(detections) - len(valid_dets)} detections outside crop.")
+                    
+                    detections = np.array(valid_dets) if len(valid_dets) > 0 else np.empty((0, 6))
             except Exception as e:
                 print(f"YOLO inference failed: {e}")
         # Else: detections remains empty, tracker will use Kalman prediction
-        tracks = [] # Initialize to empty list to verify UnboundLocalError
+        tracks = []
         if tracker is not None:
             try:
                 # Update tracker every frame to maintain ID stability
@@ -378,10 +437,18 @@ def main():
                 if hasattr(detections, 'shape'):
                     log_debug(f"Detections shape was: {detections.shape}")
                 tracks = []
+        elif len(detections) > 0:
+             # FALLBACK: If tracker failed to init, use raw YOLO detections as 'tracks'
+             # Format: [x1, y1, x2, y2, id=-1, conf, cls]
+             tracks = []
+             for d in detections:
+                 tracks.append([d[0], d[1], d[2], d[3], -1, d[4], d[5]])
+             tracks = np.array(tracks)
+             if i % 30 == 0:
+                 log_debug(f"Frame {i}: Using RAW YOLO detections (Tracker unavailable)")
         best_box = None
         best_conf = 0.0
         best_metrics = {}
-        best_landmarks = None  # Store raw MediaPipe landmarks for TypeScript analysis
         found = False
         # C. Target Selection Logic - FIXED: Removed nested logic bug
         try:
@@ -456,9 +523,16 @@ def main():
                                 best_score = score
                                 best_track_id = int(tid)
                         
+
                         if best_track_id is not None and best_score > 0.3:  # RELAXED threshold
                             selected_id = best_track_id
                             log_debug(f"--> CROP MATCH FOUND on frame {i}: Selected ID {selected_id} with score {best_score:.3f}")
+                        
+                        # LAST RESORT FALLBACK: If we have waited too long, just pick the best candidate
+                        elif best_track_id is not None and i > (lock_wait_timeout // 2):
+                             selected_id = best_track_id
+                             log_debug(f"--> FORCE MATCH on frame {i}: Score {best_score:.3f} (Lower than threshold, but accepted as fallback)")
+
                         else:
                             # FALLBACK: If no track matches, try raw detections directly
                             if len(detections) > 0:
@@ -532,6 +606,27 @@ def main():
                         
                         if selected_id != -1:
                             print(f"--> AUTO MATCH: Selected Near-Court Target ID {selected_id} (Area: {int(max_area)})")
+
+                    # OPTION 3: Largest Area (Auto-selection fallback)
+                    # FIX: Strict Spatial + Size Filter
+                    # 1. Must be large (> 30000 px)
+                    # 2. Must be in NEAR COURT (Bottom 35% of screen, y2 > 0.65 * height)
+                    if selected_id == -1:
+                        max_area = 0
+                        min_y_threshold = height * 0.65 # Bottom 35%
+                        
+                        for t in tracks:
+                            x1, y1, x2, y2, tid, conf, cls = t[:7]
+                            area = (x2 - x1) * (y2 - y1)
+                            
+                            # Filter: Large AND Low (Near Camera)
+                            if area > 30000 and y2 > min_y_threshold:
+                                if area > max_area:
+                                    max_area = area
+                                    selected_id = int(tid)
+                        
+                        if selected_id != -1:
+                            print(f"--> AUTO MATCH: Selected Near-Court Target ID {selected_id} (Area: {int(max_area)})")
                     # Lock the target
                     if selected_id != -1:
                         target_track_id = selected_id
@@ -579,9 +674,9 @@ def main():
                         if not is_in_crop:
                             continue  # Skip detections outside crop
                         
-                        # Strict Distance Check (prev_center must exist if we are falling back)
-                        if prev_center is not None:
-                            dist = np.sqrt((dtcx - prev_center[0])**2 + (dtcy - prev_center[1])**2)
+                        # Strict Distance Check (prev_bbox_center must exist if we are falling back)
+                        if prev_bbox_center is not None:
+                            dist = np.sqrt((dtcx - prev_bbox_center[0])**2 + (dtcy - prev_bbox_center[1])**2)
                             if dist < 40:  # STRICT LIMIT (40px)
                                 if dist < best_fallback_dist:
                                     best_fallback_dist = dist
@@ -598,7 +693,10 @@ def main():
                 # Update Persistence Logic
                 if found:
                     lost_frames = 0
-                    prev_center = ((best_box[0] + best_box[2])/2, (best_box[1] + best_box[3])/2)
+                    prev_bbox_center = (
+                        (best_box[0] + best_box[2]) / 2,
+                        (best_box[1] + best_box[3]) / 2
+                    )
                 else:
                     lost_frames += 1
                     # TIMEOUT: Keep tracking for 60 frames (~2s at 30fps) - prevents long drift
@@ -608,47 +706,50 @@ def main():
                         # Only reset prev_center to force strict crop-based re-lock
                         lost_frames = 0
 
-                if not found and target_track_id is not None and prev_center is not None:
-                    # FIX: STRICT RE-LOCK - Only re-lock if candidate is INSIDE crop region
-                    margin = 50  # pixels
-                    px, py = prev_center
+                if not found and target_track_id is not None and prev_bbox_center is not None:
+                    # NOTE: Real-time mid-stroke lock is NOT implemented.
+                    # Single-ID invariant is enforced via post-processing validation.
+                    # RELAXED RE-LOCK - Allow larger jumps for re-entry
+                    margin = 100  # pixels (increased from 50)
+                    px, py = prev_bbox_center
                     is_near_edge = (px < margin or px > width - margin or 
                                     py < margin or py > height - margin)
                     
                     # Initialize variables before conditional
                     new_id = None
                     best_candidate = None
-                    min_dist = 30  # STRICT: Max 30px distance for re-lock
+                    # RELAXED: Allow up to 200px jump if near edge or lost for a while
+                    min_dist = 200 if (is_near_edge or lost_frames > 15) else 50
                     
                     if is_near_edge:
                         if i % 30 == 0:
                             log_debug(f"Target ID {target_track_id} waiting near edge ({int(px)},{int(py)})...")
                     
-                    # RELAXED RE-LOCK: Search for candidates near previous position
+                    # STRICT RE-LOCK: Only consider candidates INSIDE the crop region
                     for t in tracks:
                         x1, y1, x2, y2, tid, conf, cls = t[:7]
                         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-                        dist = np.sqrt((cx - prev_center[0])**2 + (cy - prev_center[1])**2)
+                        dist = np.sqrt((cx - prev_bbox_center[0])**2 + (cy - prev_bbox_center[1])**2)
                         
                         bbox_size = (x2 - x1) * (y2 - y1)
                         confidence = float(conf)
                         
                         # STRICT: Must be inside crop region if one was provided
-                        is_in_crop = True
+                        in_crop = True
                         if crop_region_norm is not None:
                             rx1, ry1, rx2, ry2 = crop_region_norm
                             crop_x1, crop_y1 = rx1 * width, ry1 * height
                             crop_x2, crop_y2 = rx2 * width, ry2 * height
-                            is_in_crop = (crop_x1 <= cx <= crop_x2 and crop_y1 <= cy <= crop_y2)
+                            in_crop = (cx >= crop_x1 and cx <= crop_x2 and cy >= crop_y1 and cy <= crop_y2)
                         
-                        # Only consider high-confidence, reasonably-sized detections INSIDE crop
-                        if dist < min_dist and confidence > 0.5 and bbox_size > 1000 and is_in_crop:
+                        # Only consider if inside crop AND reasonable detection
+                        if in_crop and dist < min_dist and confidence > 0.5 and bbox_size > 1000:
                             min_dist = dist
                             new_id = int(tid)
                             best_candidate = t
                     
-                    if new_id is not None and best_candidate is not None and min_dist < 30:  # STRICT: 30px max
-                        log_debug(f"--> STRICT RE-LOCK: Lost ID {int(target_track_id)}, switched to {new_id} (Dist: {min_dist:.1f}px, IN CROP)")
+                    if new_id is not None and best_candidate is not None:
+                        log_debug(f"--> RELAXED RE-LOCK: Lost ID {int(target_track_id)}, switched to {new_id} (Dist: {min_dist:.1f}px)")
                         target_track_id = new_id
                         # Re-search with new ID
                         for t in tracks:
@@ -673,18 +774,23 @@ def main():
                 cv2.putText(img, f"TARGET ID:{target_track_id}", (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             
             # Distance Stats
-            current_center = ((x1 + x2) / 2, y2)
+            current_bottom_center = ((x1 + x2) / 2, y2)
             bbox_h = y2 - y1
-            if prev_center is not None and bbox_h > 0:
-                d_px = np.sqrt((current_center[0] - prev_center[0])**2 + (current_center[1] - prev_center[1])**2)
+            if prev_bottom_center is not None and bbox_h > 0:
+                d_px = np.sqrt(
+                    (current_bottom_center[0] - prev_bottom_center[0])**2 +
+                    (current_bottom_center[1] - prev_bottom_center[1])**2
+                )
                 # Sanity check: if distance is too large, it might be a swap, but we allow it for re-lock
                 scale = 1.75 / bbox_h # Assume 1.75m height
                 total_distance_m += d_px * scale
-            prev_center = current_center
+            prev_bottom_center = current_bottom_center
+            # Keep bbox-center updated for future re-lock logic (even if we skip analysis on some frames)
+            prev_bbox_center = ((x1 + x2) / 2, (y1 + y2) / 2)
 
-            # --- MediaPipe Pose Estimation (Tasks API 0.10.x compatible) ---
-            # ONLY run for analysis frames to maintain performance
-            if is_analysis_frame and pose_landmarker is not None:
+        # --- FIXED: Enhanced MediaPipe Pose Estimation on Crop ---
+        # ONLY run for analysis frames, and only inside analysis windows (if provided)
+        if is_analysis_frame and found and pose is not None and _in_any_window(frame_idx / fps):
                 try:
                     # FIXED: Better padding calculation
                     pad = max(10, int(bbox_h * 0.15))  # At least 10px padding, 15% of height
@@ -695,118 +801,120 @@ def main():
                     crop_width = x2_c - x1_c
                     crop_height = y2_c - y1_c
                     
-                    pose_result = None
-                    normalized_landmarks = None
-                    
                     if crop_width > 50 and crop_height > 80:  # Minimum size for pose detection
                         crop = img[y1_c:y2_c, x1_c:x2_c]
                         
                         # FIXED: Validate crop before processing
                         if crop.size > 0 and len(crop.shape) == 3:
                             crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
-                            
-                            # Calculate timestamp in milliseconds for Tasks API
-                            frame_timestamp_ms = int(i * (1000 / fps))
-                            
-                            # NEW TASKS API (MediaPipe 0.10.x+)
-                            if MP_TASKS_AVAILABLE:
-                                # Create MediaPipe Image from numpy array
-                                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=crop_rgb)
-                                # Run pose detection with timestamp
-                                pose_result = pose_landmarker.detect_for_video(mp_image, frame_timestamp_ms)
-                                
-                                # Extract landmarks if detected
-                                if pose_result and pose_result.pose_landmarks and len(pose_result.pose_landmarks) > 0:
-                                    normalized_landmarks = pose_result.pose_landmarks[0]  # First detected pose
-                                    print(f"DEBUG: Frame {i} - Tasks API detected {len(normalized_landmarks)} landmarks")
-                            
-                            # LEGACY SOLUTIONS API FALLBACK (MediaPipe < 0.10)
-                            elif mp_pose is not None:
-                                legacy_result = pose_landmarker.process(crop_rgb)
-                                if legacy_result and legacy_result.pose_landmarks:
-                                    normalized_landmarks = legacy_result.pose_landmarks.landmark
-                                    print(f"DEBUG: Frame {i} - Legacy API detected {len(normalized_landmarks)} landmarks")
-                    
-                    # Process landmarks if detected
-                    if normalized_landmarks is not None:
+                            # Run pose inference
+                            pose_results = pose.process(crop_rgb)
+                        else:
+                            pose_results = None
+                    else:
+                        pose_results = None
+
+                    # FIXED: Process pose results if available
+                    if pose_results is not None and pose_results.pose_landmarks:
+                        # ... Logic continues ...
+                        pass # Valid flow
                         crop_h, crop_w = crop.shape[:2]
-                        
-                        # Draw skeleton on images
-                        # Define colors for visualization
-                        JOINT_COLOR = (0, 0, 255)      # RED for joints
-                        CONNECTION_COLOR = (0, 255, 255)  # YELLOW for connections
-                        JOINT_RADIUS = 4
-                        LINE_THICKNESS = 3
-                        
-                        # Define body connections (excluding head landmarks 0-10)
-                        POSE_CONNECTIONS = [
-                            (11, 12),  # shoulders
-                            (11, 13), (13, 15),  # left arm
-                            (12, 14), (14, 16),  # right arm
-                            (11, 23), (12, 24),  # torso
-                            (23, 24),  # hips
-                            (23, 25), (25, 27),  # left leg
-                            (24, 26), (26, 28),  # right leg
-                            (27, 29), (27, 31),  # left foot
-                            (28, 30), (28, 32),  # right foot
+                        print(f"DEBUG: Found pose landmarks, crop size: {crop_w}x{crop_h}")
+
+                        # Export landmarks (MediaPipe order) for TS metrics fallback
+                        try:
+                            landmark_names = [
+                                "nose",
+                                "left_eye_inner", "left_eye", "left_eye_outer",
+                                "right_eye_inner", "right_eye", "right_eye_outer",
+                                "left_ear", "right_ear",
+                                "mouth_left", "mouth_right",
+                                "left_shoulder", "right_shoulder",
+                                "left_elbow", "right_elbow",
+                                "left_wrist", "right_wrist",
+                                "left_pinky", "right_pinky",
+                                "left_index", "right_index",
+                                "left_thumb", "right_thumb",
+                                "left_hip", "right_hip",
+                                "left_knee", "right_knee",
+                                "left_ankle", "right_ankle",
+                                "left_heel", "right_heel",
+                                "left_foot_index", "right_foot_index",
+                            ]
+                            landmarks_out = []
+                            for li, lm in enumerate(pose_results.pose_landmarks.landmark):
+                                landmarks_out.append({
+                                    "name": landmark_names[li] if li < len(landmark_names) else "",
+                                    "x": float(lm.x),
+                                    "y": float(lm.y),
+                                    "z": float(lm.z),
+                                    "visibility": float(lm.visibility),
+                                })
+                        except Exception as e:
+                            print(f"DEBUG: Failed to export landmarks: {e}")
+                            landmarks_out = None
+                                                # FIXED: Enhanced visualization with proper yellow/red colors
+                        landmark_spec = mp.solutions.drawing_utils.DrawingSpec(
+                            color=(0, 0, 255),     # RED joints
+                            thickness=4,           # Slightly thicker for visibility
+                            circle_radius=4        # Larger radius for better visibility
+                        )
+                        connection_spec = mp.solutions.drawing_utils.DrawingSpec(
+                            color=(0, 255, 255),   # YELLOW connections 
+                            thickness=3,           # Thicker lines for visibility
+                            circle_radius=2        # Keep connection points smaller
+                        )
+                        # Filter connections to exclude head (indices 0-10)
+                        filtered_connections = [
+                            c for c in mp_pose.POSE_CONNECTIONS 
+                            if c[0] > 10 and c[1] > 10
                         ]
+                                                # Hide head landmarks
+                        for idx in range(11): # 0 to 10
+                            if idx < len(pose_results.pose_landmarks.landmark):
+                                pose_results.pose_landmarks.landmark[idx].visibility = 0.0
+                        # FIXED: Draw on Main Image 
+                        try:
+                            mp.solutions.drawing_utils.draw_landmarks(
+                                img[y1_c:y2_c, x1_c:x2_c],
+                                pose_results.pose_landmarks,
+                                filtered_connections,
+                                landmark_drawing_spec=landmark_spec,
+                                connection_drawing_spec=connection_spec
+                            )
+                        except Exception as e:
+                            print(f"DEBUG: Failed to draw pose on main image: {e}")
+                        # FIXED: Draw on Skeleton Canvas (optional)
+                        if skeleton_canvas is not None:
+                            try:
+                                mp.solutions.drawing_utils.draw_landmarks(
+                                    skeleton_canvas[y1_c:y2_c, x1_c:x2_c],
+                                    pose_results.pose_landmarks,
+                                    filtered_connections,
+                                    landmark_drawing_spec=landmark_spec,
+                                    connection_drawing_spec=connection_spec
+                                )
+                            except Exception as e:
+                                print(f"DEBUG: Failed to draw pose on skeleton canvas: {e}")
+                        # --- ENHANCED BIOMECHANICS ANALYSIS ---
+                        # OPTIMIZATION: Python only extracts Landmarks. TypeScript handles the Math.
                         
-                        # Extract landmark data for serialization and draw
-                        LANDMARK_NAMES = [
-                            'nose', 'left_eye_inner', 'left_eye', 'left_eye_outer',
-                            'right_eye_inner', 'right_eye', 'right_eye_outer',
-                            'left_ear', 'right_ear', 'mouth_left', 'mouth_right',
-                            'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
-                            'left_wrist', 'right_wrist', 'left_pinky', 'right_pinky',
-                            'left_index', 'right_index', 'left_thumb', 'right_thumb',
-                            'left_hip', 'right_hip', 'left_knee', 'right_knee',
-                            'left_ankle', 'right_ankle', 'left_heel', 'right_heel',
-                            'left_foot_index', 'right_foot_index'
-                        ]
+                        # Just pass basic structure for classifier
+                        metrics = {} 
                         
-                        best_landmarks = []
-                        landmark_points = {}  # For drawing connections
+                        # Still run classifier if needed for segmentation, but it might lack full metrics
+                        # For now, we rely on TypeScript to backfill metrics
+                        metrics["frame_idx"] = i
+                        metrics["time_sec"] = round(i / fps, 3)
                         
-                        for idx, lm in enumerate(normalized_landmarks):
-                            name = LANDMARK_NAMES[idx] if idx < len(LANDMARK_NAMES) else f'landmark_{idx}'
-                            
-                            # Handle both Tasks API and legacy API landmark formats
-                            if hasattr(lm, 'x'):
-                                lm_x, lm_y, lm_z = float(lm.x), float(lm.y), float(lm.z)
-                                lm_visibility = float(lm.visibility) if hasattr(lm, 'visibility') else 1.0
-                            else:
-                                # Dict-like format
-                                lm_x, lm_y, lm_z = lm['x'], lm['y'], lm['z']
-                                lm_visibility = lm.get('visibility', 1.0)
-                            
-                            best_landmarks.append({
-                                'name': name,
-                                'x': lm_x,
-                                'y': lm_y,
-                                'z': lm_z,
-                                'visibility': lm_visibility
-                            })
-                            
-                            # Store pixel coordinates for drawing (skip head landmarks 0-10)
-                            if idx > 10:
-                                px = int(lm_x * crop_w)
-                                py = int(lm_y * crop_h)
-                                landmark_points[idx] = (px, py)
-                                
-                                # Draw joint on crop region
-                                if 0 <= px < crop_w and 0 <= py < crop_h:
-                                    cv2.circle(img[y1_c:y2_c, x1_c:x2_c], (px, py), JOINT_RADIUS, JOINT_COLOR, -1)
-                                    cv2.circle(skeleton_canvas[y1_c:y2_c, x1_c:x2_c], (px, py), JOINT_RADIUS, JOINT_COLOR, -1)
+                        best_metrics = metrics
+                        all_frames_metrics.append(metrics)
                         
-                        # Draw connections
-                        for start_idx, end_idx in POSE_CONNECTIONS:
-                            if start_idx in landmark_points and end_idx in landmark_points:
-                                pt1 = landmark_points[start_idx]
-                                pt2 = landmark_points[end_idx]
-                                cv2.line(img[y1_c:y2_c, x1_c:x2_c], pt1, pt2, CONNECTION_COLOR, LINE_THICKNESS)
-                                cv2.line(skeleton_canvas[y1_c:y2_c, x1_c:x2_c], pt1, pt2, CONNECTION_COLOR, LINE_THICKNESS)
-                        
-                        print(f"DEBUG: Frame {i} - Extracted {len(best_landmarks)} landmarks, drew skeleton")
+                        # Disabled Python-side Heavy Math:
+                        # if bio_analyzer is not None:
+                        #    bio_analyzer.update_landmarks(pose_results.pose_landmarks, crop_w, crop_h)
+                        #    metrics = bio_analyzer.analyze_metrics(stroke_type=args.stroke_type)
+                        #    ...
                             
                 except Exception as e:
                     print(f"Pose/Biomech Error: {e}")
@@ -819,23 +927,26 @@ def main():
         # Save Frame Result - FIXED: Use sequential counter for out_filename
         saved_frame_count += 1
         out_filename = f"frame_{saved_frame_count:04d}.png" 
-        time_sec = i / fps
+        time_sec = frame_idx / fps
         res_entry = {
-            "frameIdx": i,  # Original frame index for TypeScript
+            "frameIdx": int(saved_frame_count - 1),
+            "frame_idx": int(frame_idx),
             "frameFilename": out_filename,
             "timestampSec": round(time_sec, 3),
             "bbox": best_box.tolist() if hasattr(best_box, 'tolist') else (best_box if best_box is not None else [0.0, 0.0, 0.0, 0.0]),
             "confidence": best_conf,
             "track_id": int(target_track_id) if target_track_id else -1,
-            "landmarks": best_landmarks  # Raw MediaPipe landmarks for TypeScript analysis
+            "metrics": best_metrics if isinstance(best_metrics, dict) else {},
+            "landmarks": landmarks_out
         }
         results.append(res_entry)
         
-        # Write Frame
-        out_path = output_dir / out_filename
-        cv2.imwrite(str(out_path), img)
-        if skeleton_writer is not None:
-            skeleton_writer.write(skeleton_canvas)
+        # Write Frame (optional)
+        if not args.no_video_output:
+            out_path = output_dir / out_filename
+            cv2.imwrite(str(out_path), img)
+            if skeleton_writer is not None and skeleton_canvas is not None:
+                skeleton_writer.write(skeleton_canvas)
 
     log_debug(f"Final FPS used: {fps}")
     
@@ -846,17 +957,21 @@ def main():
     classifier = StrokeClassifier() if StrokeClassifier else None
     
     if classifier is not None and len(all_frames_metrics) > 0:
-        # Detect segments automatically with BIAS
-        raw_segments = classifier.detect_segments(all_frames_metrics, target_type=args.stroke_type)
+        # Detect segments automatically with BIAS (guard signature/API mismatches)
+        try:
+            raw_segments = classifier.detect_segments(all_frames_metrics, target_type=args.stroke_type)
+        except Exception as e:
+            print(f"Classifier detect_segments failed (disabling classifier): {e}")
+            classifier = None
+            raw_segments = []
         
         # STRICT FILTERING: Only keep strokes matching the user's selection
         if args.stroke_type and args.stroke_type.lower() not in ['overall', 'none', '']:
             detected_strokes = []
             dropped_types = []
             for s in raw_segments:
-                # Accept if matches target OR if it's our forced fallback
-                if (s['stroke_type'].lower() == args.stroke_type.lower() or 
-                    s['stroke_type'] == 'forced_fallback'):
+                # Accept ONLY exact matches to requested stroke type
+                if s['stroke_type'].lower() == args.stroke_type.lower():
                     
                     s['confidence'] = float(s['confidence']) # Ensure float
                     
@@ -872,7 +987,7 @@ def main():
                     for m in all_frames_metrics:
                         f_idx = m.get('frame_idx', -1)
                         if s_start <= f_idx <= s_end:
-                            v = m.get('wrist_velocity_y', 0.0)
+                            v = m.get('wrist_velocity_mag', m.get('wrist_velocity_y', 0.0))
                             if v > max_v:
                                 max_v = v
                                 max_v_frame = f_idx
@@ -897,12 +1012,108 @@ def main():
         else:
             detected_strokes = raw_segments
 
-        # Final Cleanup for output
+        # Per-stroke filtering + cooldown (multi-stroke for long videos)
+        stroke_key = (args.stroke_type or "").lower()
+        cfg_by_type = {
+            # NOTE: peak_velocity is based on wrist_velocity_mag (normalized coords/sec).
+            "serve": {"min_conf": 0.78, "min_peak_v": 0.18, "min_len_frames": 4, "cooldown_sec": 1.0},
+            "groundstroke": {"min_conf": 0.78, "min_peak_v": 0.16, "min_len_frames": 4, "cooldown_sec": 0.8},
+            "drive": {"min_conf": 0.78, "min_peak_v": 0.16, "min_len_frames": 4, "cooldown_sec": 0.8},
+            "volley": {"min_conf": 0.75, "min_peak_v": 0.10, "min_len_frames": 3, "cooldown_sec": 0.6},
+            "dink": {"min_conf": 0.72, "min_peak_v": 0.06, "min_len_frames": 3, "cooldown_sec": 0.6},
+            "overhead": {"min_conf": 0.80, "min_peak_v": 0.14, "min_len_frames": 3, "cooldown_sec": 1.0},
+        }
+        cfg = cfg_by_type.get(stroke_key, {"min_conf": 0.75, "min_peak_v": 0.10, "min_len_frames": 3, "cooldown_sec": 0.8})
+
+        if args.coarse_mode:
+            # Coarse pass: more lenient to find candidate windows.
+            cfg = {
+                **cfg,
+                "min_conf": max(0.55, float(cfg["min_conf"]) - 0.18),
+                "min_peak_v": max(0.0, float(cfg["min_peak_v"]) * 0.5),
+                "cooldown_sec": 0.0,
+            }
+
+        cooldown_frames = int(float(cfg.get("cooldown_sec", 0.0)) * float(fps))
+        filtered = []
+        for s in sorted(detected_strokes, key=lambda x: int(x.get("start_frame", 0))):
+            try:
+                start_f = int(s.get("start_frame", 0))
+                end_f = int(s.get("end_frame", start_f))
+                seg_len = (end_f - start_f + 1)
+                peak_v = float(s.get("peak_velocity", 0.0) or 0.0)
+                conf = float(s.get("confidence", 0.0) or 0.0)
+            except Exception:
+                continue
+
+            if seg_len < int(cfg.get("min_len_frames", 3)):
+                continue
+            if conf < float(cfg.get("min_conf", 0.75)):
+                continue
+            if peak_v < float(cfg.get("min_peak_v", 0.0)):
+                continue
+
+            # Cooldown: prevent duplicates around the same physical hit
+            if cooldown_frames > 0 and filtered:
+                prev_end = int(filtered[-1].get("end_frame", filtered[-1].get("start_frame", 0)))
+                if start_f <= prev_end + cooldown_frames:
+                    continue
+
+            filtered.append(s)
+
+        detected_strokes = filtered
+        
+        # ============================================================
+        # SINGLE-ID INVARIANT: Validate and attach track_id to strokes
+        # ============================================================
+        # Each stroke MUST be associated with exactly one track_id.
+        # If frames in a stroke window have mixed IDs, we flag it.
+        validated_strokes = []
         for s in detected_strokes:
-             s["startSec"] = round(s["start_frame"] * step / fps, 2)
-             s["confidence"] = float(s["confidence"])
-             
-        print(f"Final Output strokes: {[s['stroke_type'] for s in detected_strokes]}")
+            start_f = int(s.get("start_frame", 0))
+            end_f = int(s.get("end_frame", start_f))
+            
+            # Collect track_ids from all frames in this stroke window
+            stroke_track_ids = set()
+            for res in results:
+                res_frame_idx = res.get("frame_idx", res.get("frameIdx", -1))
+                if start_f <= res_frame_idx <= end_f:
+                    tid = res.get("track_id", -1)
+                    if tid != -1:
+                        stroke_track_ids.add(tid)
+            
+            # SINGLE-ID INVARIANT CHECK
+            if len(stroke_track_ids) == 0:
+                # No valid track_id found; use target_track_id as fallback
+                s["track_id"] = int(target_track_id) if target_track_id else -1
+                validated_strokes.append(s)
+            elif len(stroke_track_ids) == 1:
+                # ✓ VALID: Single ID throughout stroke
+                s["track_id"] = int(stroke_track_ids.pop())
+                validated_strokes.append(s)
+            else:
+                # ⚠ VIOLATION: Multiple IDs in one stroke window
+                print(f"[WARNING] Single-ID violation in stroke {s.get('stroke_type')} "
+                      f"frames {start_f}-{end_f}: IDs={stroke_track_ids}")
+                # Use the DOMINANT track_id (most occurrences)
+                id_counts = {}
+                for res in results:
+                    res_frame_idx = res.get("frame_idx", res.get("frameIdx", -1))
+                    if start_f <= res_frame_idx <= end_f:
+                        tid = res.get("track_id", -1)
+                        if tid != -1:
+                            id_counts[tid] = id_counts.get(tid, 0) + 1
+                
+                if id_counts:
+                    dominant_id = max(id_counts.keys(), key=lambda k: id_counts[k])
+                    s["track_id"] = int(dominant_id)
+                    s["multi_id_warning"] = True  # Flag for debugging
+                    validated_strokes.append(s)
+                    print(f"         -> Using dominant ID: {dominant_id} (counts: {id_counts})")
+        
+        detected_strokes = validated_strokes
+        print(f"[SINGLE-ID] Validated {len(detected_strokes)} strokes")
+        print(f"Final Output strokes: {[s.get('stroke_type') for s in detected_strokes]}")
     else:
         # Fallback if classifier failed or no metrics
         print("Classifier unavailable or no metrics collected. Using hint.")
@@ -927,6 +1138,21 @@ def main():
         # Ensure type is present
         if "type" not in s and "stroke_type" in s:
             s["type"] = s["stroke_type"]
+
+    # Debug logging: stroke timing summary for RunPod logs
+    try:
+        for s in detected_strokes:
+            stype = s.get("stroke_type", s.get("type", "unknown"))
+            start_sec = s.get("startSec", 0.0)
+            end_sec = s.get("endSec", start_sec)
+            peak_ts = s.get("peak_timestamp", None)
+            peak_v = s.get("peak_velocity", None)
+            if peak_ts is not None and peak_v is not None:
+                print(f"[STROKE] {stype} | {start_sec:.2f}s → {end_sec:.2f}s | peak @ {float(peak_ts):.2f}s | v={float(peak_v):.2f}")
+            else:
+                print(f"[STROKE] {stype} | {start_sec:.2f}s → {end_sec:.2f}s")
+    except Exception as e:
+        print(f"[STROKE] logging failed: {e}")
     # ENHANCED: Get injury risk summary
     injury_risk_summary = {}
     if injury_detector is not None:
@@ -950,66 +1176,6 @@ def main():
         "injury_risk_summary": injury_risk_summary  # NEW: Injury risk analysis
     }
     
-    # ========================================================================
-    # DEBUG SUMMARY - Frame Reading & Detection Stats
-    # ========================================================================
-    print("\n")
-    print("=" * 70)
-    print("                    TRACK.PY - DEBUG SUMMARY")
-    print("=" * 70)
-    print(f"Total files found: {len(all_files)}")
-    print(f"Frames read successfully: {frames_read_successfully}")
-    print(f"Frames with YOLO detections: {frames_with_detections}")
-    print(f"Target track ID: {target_track_id}")
-    print(f"Tracker failed count: {tracker_failed_count}")
-    if frames_read_successfully == 0:
-        print("!!! CRITICAL: No frames were read from disk !!!")
-    elif frames_with_detections == 0:
-        print("!!! WARNING: YOLO detected 0 people in all frames !!!")
-    print("=" * 70)
-    
-    # ========================================================================
-    # CONSOLE LOGGING - FINAL PAYLOAD
-    # ========================================================================
-    print("\n")
-    print("=" * 70)
-    print("                    TRACK.PY - FINAL OUTPUT PAYLOAD")
-    print("=" * 70)
-    print(f"Results JSON Path: {results_json}")
-    print(f"Total Frames Processed: {len(results)}")
-    print(f"Total Strokes Detected: {len(detected_strokes)}")
-    print("-" * 70)
-    print("SUMMARY:")
-    print(json.dumps(final_output.get("summary", {}), indent=2, cls=NumpyEncoder))
-    print("-" * 70)
-    print("INJURY RISK SUMMARY:")
-    print(json.dumps(injury_risk_summary, indent=2, cls=NumpyEncoder))
-    print("-" * 70)
-    print("STROKES:")
-    print(json.dumps(detected_strokes, indent=2, cls=NumpyEncoder))
-    print("-" * 70)
-    
-    # Log first 3 frames as sample
-    print("FRAMES SAMPLE (first 3):")
-    sample_frames = results[:3] if len(results) >= 3 else results
-    for idx, frame in enumerate(sample_frames):
-        frame_info = {
-            "frameIdx": frame.get("frameIdx"),
-            "timestampSec": frame.get("timestampSec"),
-            "bbox": frame.get("bbox"),
-            "confidence": frame.get("confidence"),
-            "track_id": frame.get("track_id"),
-            "landmarks_count": len(frame.get("landmarks", []) or [])
-        }
-        print(f"  Frame {idx}: {json.dumps(frame_info, cls=NumpyEncoder)}")
-    
-    print("-" * 70)
-    print(f"ANNOTATED VIDEO / SKELETON VIDEO PATH:")
-    print(f"  Skeleton Output: {skeleton_dir / 'skeleton_output.mp4'}")
-    print("=" * 70)
-    print("\n")
-    # ========================================================================
-    
     with open(results_json, "w") as f:
         json.dump(final_output, f, indent=2, cls=NumpyEncoder)
     
@@ -1017,20 +1183,6 @@ def main():
     
     if skeleton_writer is not None:
         skeleton_writer.release()
-        print(f"\n[VIDEO] Skeleton video finalized at: {skeleton_out_path}")
-        
-        # CUSTOM: Copy to D:\pickle-ball-main\Skeleton view as requested
-        try:
-            target_skel_dir = Path("D:/pickle-ball-main/Skeleton view")
-            target_skel_dir.mkdir(parents=True, exist_ok=True)
-            target_skel_file = target_skel_dir / "skeleton_output.mp4"
-            print(f"[VIDEO] Copying skeleton video to: {target_skel_file}")
-            shutil.copy2(skeleton_out_path, target_skel_file)
-            print("[VIDEO] Copy successful.")
-        except Exception as e:
-            print(f"[VIDEO] Failed to copy skeleton video to external dir: {e}")
 
 if __name__ == "__main__":
-    main() 
-
-
+    main()

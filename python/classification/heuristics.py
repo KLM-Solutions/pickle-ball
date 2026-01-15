@@ -1,255 +1,355 @@
 """
 Enhanced stroke classification with research-based heuristics.
 Based on comprehensive pickleball biomechanics research.
+
+Key insight: Strokes are distinguished by MOTION (velocity) not just POSITION.
 """
 from typing import Tuple, Dict, Any, Optional, List
+import math
 
-# Research-based thresholds from biomechanics knowledge base
+# ============================================================================
+# RESEARCH-BASED THRESHOLDS
+# ============================================================================
+# Based on pickleball biomechanics:
+# - Serve: Underhand, wrist below waist, UPWARD swing with HIGH velocity
+# - Groundstroke: Horizontal swing, wrist at waist, strong hip rotation
+# - Volley: Compact punch, minimal backswing, at kitchen line
+# - Overhead: Wrist above head, high shoulder abduction, downward swing
+# - Dink: Soft touch, minimal swing, low body position
+# ============================================================================
+
 THRESHOLDS = {
     'overhead': {
-        'min_shoulder_abduction': 120,
-        'min_wrist_height_ratio': 0.9,  # Relative to head
-        'confidence_high': 140  # Shoulder abduction for high confidence
+        'min_shoulder_abduction': 110,      # High arm position
+        'min_wrist_above_nose': 0.05,       # Wrist clearly above head (normalized)
+        'confidence_high': 130              # Very high shoulder for max confidence
     },
     'serve': {
-        'max_wrist_height_ratio': 1.05,  # Relative to waist (slightly above for tolerance)
-        'min_elbow_angle': 90,
-        'max_elbow_angle': 130,
-        'min_hip_rotation': 5  # Minimum rotation for serve
-    },
-    'dink': {
-        'max_shoulder_abduction': 40,
-        'max_backswing_frames': 3,  # Minimal backswing
-        'min_knee_flexion': 30,  # Stay low
-        'max_knee_flexion': 45
-    },
-    'volley': {
-        'min_shoulder_abduction': 40,
-        'max_shoulder_abduction': 90,
-        'punch_min_shoulder': 60,  # Punch volley uses more shoulder
-        'block_max_shoulder': 60   # Block volley minimal shoulder
+        # Position thresholds
+        'max_wrist_above_hip': 0.20,        # Wrist at/below waist (generous tolerance)
+        'min_shoulder_abduction': 20,       # Some arm extension
+        'max_shoulder_abduction': 100,      # Not overhead
+        'min_hip_rotation': 3,              # Minimal body rotation required
+        # Velocity thresholds - LOWERED for normalized coords (0-1 space)
+        'min_wrist_velocity': 0.008,        # Normalized velocity per frame
+        'peak_velocity_threshold': 0.02,    # Peak velocity for strong serve
+        # Temporal thresholds
+        'min_upward_frames': 2,             # Need sustained upward motion
     },
     'groundstroke': {
-        'min_shoulder_abduction': 60,
-        'min_hip_rotation': 30,  # Good power generation
-        'drive_min_shoulder': 70   # Offensive drive
+        'min_shoulder_abduction': 45,       # Moderate arm extension
+        'max_shoulder_abduction': 110,      # Below overhead
+        'min_hip_rotation': 10,             # Good rotation for power
+        'min_horizontal_velocity': 0.01,    # Side-to-side motion
+    },
+    'volley': {
+        'min_shoulder_abduction': 30,
+        'max_shoulder_abduction': 85,
+        'max_wrist_velocity': 0.015,        # Compact motion
+        'punch_min_shoulder': 55,           # Punch volley threshold
+    },
+    'dink': {
+        'max_shoulder_abduction': 55,       # Low arm position
+        'max_wrist_velocity': 0.012,        # Very soft touch
+        'min_knee_flexion': 15,             # Some knee bend
+        'max_knee_flexion': 70,             # Not too low
     }
 }
 
 
-def is_overhead(metrics: Dict[str, Any]) -> Tuple[bool, float]:
+def compute_velocity(current: Dict, history: List[Dict], key_y: str, key_x: str = None) -> Tuple[float, float, float]:
     """
-    Detect overhead smash based on research criteria.
+    Compute velocity from frame history.
+    Returns: (velocity_y, velocity_x, velocity_magnitude)
     
-    Criteria:
-    - Wrist above head
-    - Shoulder abduction > 120°
+    velocity_y < 0 means moving UP (y increases downward in image coords)
+    """
+    if len(history) < 1:
+        return (0.0, 0.0, 0.0)
     
-    Returns: (is_overhead, confidence)
+    curr_y = current.get(key_y, 0.5)
+    prev_y = history[-1].get(key_y, curr_y)
+    
+    vel_y = curr_y - prev_y  # negative = moving up
+    
+    vel_x = 0.0
+    if key_x:
+        curr_x = current.get(key_x, 0.5)
+        prev_x = history[-1].get(key_x, curr_x)
+        vel_x = curr_x - prev_x
+    
+    magnitude = math.sqrt(vel_y**2 + vel_x**2)
+    
+    return (vel_y, vel_x, magnitude)
+
+
+def count_upward_frames(history: List[Dict], key: str = 'right_wrist_y', min_frames: int = 3) -> int:
+    """Count consecutive frames with upward wrist motion at end of history."""
+    if len(history) < 2:
+        return 0
+    
+    count = 0
+    for i in range(len(history) - 1, 0, -1):
+        curr_y = history[i].get(key, 0.5)
+        prev_y = history[i-1].get(key, 0.5)
+        if curr_y < prev_y:  # Moving up
+            count += 1
+        else:
+            break
+    return count
+
+
+# ============================================================================
+# STROKE DETECTION FUNCTIONS
+# ============================================================================
+
+def is_overhead(metrics: Dict[str, Any], history: List[Dict] = None) -> Tuple[bool, float]:
+    """
+    Detect overhead smash.
+    
+    Key criteria:
+    - Wrist ABOVE head (nose)
+    - High shoulder abduction (> 110°)
+    - Downward velocity at contact
     """
     wrist_y = metrics.get('right_wrist_y', 1.0)
-    head_y = metrics.get('nose_y', 0.0)
+    nose_y = metrics.get('nose_y', 0.5)
     shoulder_abd = metrics.get('right_shoulder_abduction', 0)
     
-    # Primary check: wrist above head
-    wrist_above_head = wrist_y < (head_y - 0.05)  # Small buffer
+    # Wrist above head check (y decreases upward)
+    wrist_above_head = (nose_y - wrist_y) >= THRESHOLDS['overhead']['min_wrist_above_nose']
     
-    # Secondary check: high shoulder abduction
+    # High shoulder check
     high_shoulder = shoulder_abd >= THRESHOLDS['overhead']['min_shoulder_abduction']
     
     if wrist_above_head and high_shoulder:
-        # Higher confidence if shoulder > 140°
+        confidence = 0.85
         if shoulder_abd >= THRESHOLDS['overhead']['confidence_high']:
-            return (True, 0.95)
-        else:
-            return (True, 0.85)
+            confidence = 0.95
+        return (True, confidence)
     
     return (False, 0.0)
 
 
-def is_serve(metrics: Dict[str, Any], frame_history: List[Dict]) -> Tuple[bool, float]:
+def is_serve(metrics: Dict[str, Any], history: List[Dict]) -> Tuple[bool, float]:
     """
-    Detect serve based on research criteria.
+    Detect serve based on VELOCITY + POSITION.
     
-    Criteria:
-    - Paddle (wrist) below waist
-    - Upward arc motion
-    - Elbow angle 90-130°
-    - Hip rotation present
+    Key criteria (ALL required for high confidence):
+    1. Wrist at or below waist level
+    2. UPWARD wrist velocity (the swing)
+    3. Moderate shoulder abduction (20-100°)
+    4. Hip rotation present (> 3°)
     
-    Returns: (is_serve, confidence)
+    The key differentiator: UPWARD VELOCITY at contact point.
+    Also accounts for follow-through phase (wrist going UP after contact).
     """
     wrist_y = metrics.get('right_wrist_y', 0.5)
     hip_y = metrics.get('right_hip_y', 0.5)
-    elbow_angle = metrics.get('right_elbow_flexion', 0)
-    hip_rotation = metrics.get('hip_rotation_deg', 0)
+    shoulder_abd = metrics.get('right_shoulder_abduction', 0)
+    hip_rotation = abs(metrics.get('hip_rotation_deg', 0))
     
-    # Primary check: wrist below waist (y increases downward)
-    wrist_below_waist = wrist_y > (hip_y - 0.05)  # Small tolerance
+    # 1. Position check: wrist at/below waist (with generous tolerance for follow-through)
+    wrist_height_diff = hip_y - wrist_y  # positive = wrist above hip
+    wrist_at_waist = wrist_height_diff <= THRESHOLDS['serve']['max_wrist_above_hip']
+    # Also allow wrist ABOVE waist during follow-through (wrist rising after contact)
+    wrist_during_followthrough = wrist_y < hip_y  # Wrist is above waist
     
-    # Check upward motion from frame history
-    upward_motion = False
-    if len(frame_history) >= 2:
-        prev_wrist_y = frame_history[-1].get('right_wrist_y', wrist_y)
-        upward_motion = wrist_y < prev_wrist_y  # Moving up
+    # 2. Shoulder in serve range (not overhead, not too low)
+    shoulder_in_range = (THRESHOLDS['serve']['min_shoulder_abduction'] <= 
+                         shoulder_abd <= 
+                         THRESHOLDS['serve']['max_shoulder_abduction'])
     
-    # Check elbow angle in optimal range
-    elbow_optimal = (THRESHOLDS['serve']['min_elbow_angle'] <= 
-                     elbow_angle <= 
-                     THRESHOLDS['serve']['max_elbow_angle'])
-    
-    # Check hip rotation
+    # 3. Hip rotation check
     has_hip_rotation = hip_rotation >= THRESHOLDS['serve']['min_hip_rotation']
     
-    # Calculate confidence
-    if wrist_below_waist:
-        confidence = 0.70  # Base
-        if upward_motion:
-            confidence += 0.10
-        if elbow_optimal:
-            confidence += 0.05
-        if has_hip_rotation:
-            confidence += 0.05
-        
-        return (True, min(confidence, 0.95))
+    # 4. VELOCITY check (CRITICAL)
+    vel_y, _, vel_mag = compute_velocity(metrics, history, 'right_wrist_y')
+    is_moving_up = vel_y < -0.005  # Moving upward (negative y = up)
+    is_moving_down = vel_y > 0.005  # Moving downward (follow-through)
+    has_velocity = vel_mag >= THRESHOLDS['serve']['min_wrist_velocity']
+    has_strong_velocity = vel_mag >= THRESHOLDS['serve']['peak_velocity_threshold']
+    
+    # 5. Check if RECENT history had a serve-like peak (sticky detection)
+    recent_had_serve_velocity = False
+    if len(history) >= 2:
+        # Check last 5 frames for high velocity
+        for i in range(max(0, len(history) - 5), len(history)):
+            if i > 0:
+                prev = history[i]
+                prev_wrist = prev.get('right_wrist_y', 0.5)
+                earlier_wrist = history[i-1].get('right_wrist_y', prev_wrist)
+                prev_vel_mag = abs(prev_wrist - earlier_wrist)
+                if prev_vel_mag >= 0.015:  # Had significant velocity recently
+                    recent_had_serve_velocity = True
+                    break
+    
+    # 6. Sustained upward motion check
+    upward_frames = count_upward_frames(history + [metrics], 'right_wrist_y')
+    sustained_upward = upward_frames >= THRESHOLDS['serve']['min_upward_frames']
+    
+    # Scoring: Need multiple criteria to pass
+    score = 0
+    if wrist_at_waist:
+        score += 1
+    if shoulder_in_range:
+        score += 1
+    if has_hip_rotation:
+        score += 1
+    if is_moving_up:
+        score += 2  # Double weight for upward motion (the key serve signature)
+    if has_velocity:
+        score += 1
+    if sustained_upward:
+        score += 1
+    if has_strong_velocity:
+        score += 2  # Double weight for strong velocity
+    
+    # STICKY: If recently had serve velocity AND wrist is in follow-through position
+    if recent_had_serve_velocity and wrist_during_followthrough and shoulder_in_range:
+        score += 2  # Boost for follow-through phase
+    
+    # Need at least 3 points to classify as serve
+    if score >= 3:
+        confidence = min(0.55 + (score - 3) * 0.06, 0.95)
+        return (True, confidence)
     
     return (False, 0.0)
 
 
-def is_dink(metrics: Dict[str, Any], frame_history: List[Dict]) -> Tuple[bool, float, str]:
+def is_groundstroke(metrics: Dict[str, Any], history: List[Dict] = None) -> Tuple[bool, float, str]:
     """
-    Detect dink shot based on research criteria.
+    Detect groundstroke (forehand/backhand drive).
     
-    Criteria:
-    - Low shoulder abduction (< 40°)
-    - Minimal backswing
-    - Low body position (knee flexion 30-45°)
-    - Wrist below waist
-    
-    Returns: (is_dink, confidence, sub_type)
+    Key criteria:
+    - Moderate shoulder abduction (45-110°)
+    - Hip rotation present (> 15°)
+    - Horizontal swing path
     """
     shoulder_abd = metrics.get('right_shoulder_abduction', 0)
-    knee_flexion = metrics.get('right_knee_flexion', 180)
-    wrist_y = metrics.get('right_wrist_y', 0.5)
-    hip_y = metrics.get('right_hip_y', 0.5)
+    hip_rotation = abs(metrics.get('hip_rotation_deg', 0))
     
-    # Primary check: low shoulder abduction
-    low_shoulder = shoulder_abd <= THRESHOLDS['dink']['max_shoulder_abduction']
+    # Shoulder range check
+    shoulder_in_range = (THRESHOLDS['groundstroke']['min_shoulder_abduction'] <= 
+                         shoulder_abd <= 
+                         THRESHOLDS['groundstroke']['max_shoulder_abduction'])
     
-    # Check low body position
-    low_body = (THRESHOLDS['dink']['min_knee_flexion'] <= 
-                knee_flexion <= 
-                THRESHOLDS['dink']['max_knee_flexion'])
-    
-    # Check minimal backswing from history
-    minimal_backswing = True
-    if len(frame_history) >= THRESHOLDS['dink']['max_backswing_frames']:
-        # Check if shoulder abduction stayed low
-        for prev_frame in frame_history[-3:]:
-            if prev_frame.get('right_shoulder_abduction', 0) > 50:
-                minimal_backswing = False
-                break
-    
-    # Contact point check
-    low_contact = wrist_y > hip_y
-    
-    if low_shoulder and low_body:
-        confidence = 0.80  # Base
-        if minimal_backswing:
-            confidence += 0.07
-        if low_contact:
-            confidence += 0.05
-        
-        return (True, min(confidence, 0.95), 'soft_game')
-    
-    return (False, 0.0, '')
-
-
-def is_volley(metrics: Dict[str, Any], position_data: Optional[Dict] = None) -> Tuple[bool, float, str]:
-    """
-    Detect volley based on research criteria.
-    
-    Criteria:
-    - Moderate shoulder abduction (40-90°)
-    - At kitchen line (if position data available)
-    - Compact motion
-    
-    Sub-types:
-    - Punch volley: Higher shoulder (> 60°), more aggressive
-    - Block volley: Lower shoulder (< 60°), defensive
-    
-    Returns: (is_volley, confidence, sub_type)
-    """
-    shoulder_abd = metrics.get('right_shoulder_abduction', 0)
-    
-    # Check shoulder range for volley
-    in_volley_range = (THRESHOLDS['volley']['min_shoulder_abduction'] <= 
-                       shoulder_abd <= 
-                       THRESHOLDS['volley']['max_shoulder_abduction'])
-    
-    if not in_volley_range:
+    if not shoulder_in_range:
         return (False, 0.0, '')
     
-    # Determine sub-type
+    # Hip rotation check
+    has_hip_rotation = hip_rotation >= THRESHOLDS['groundstroke']['min_hip_rotation']
+    
+    # Determine forehand vs backhand
+    r_shoulder_x = metrics.get('right_shoulder_x', 0.5)
+    l_shoulder_x = metrics.get('left_shoulder_x', 0.5)
+    is_forehand = r_shoulder_x > l_shoulder_x
+    
+    confidence = 0.75
+    if has_hip_rotation:
+        confidence += 0.10
+    
+    sub_type = 'forehand' if is_forehand else 'backhand'
+    if shoulder_abd >= 70:
+        sub_type += '_drive'
+    else:
+        sub_type += '_control'
+    
+    return (True, min(confidence, 0.95), sub_type)
+
+
+def is_volley(metrics: Dict[str, Any], history: List[Dict] = None, position_data: Optional[Dict] = None) -> Tuple[bool, float, str]:
+    """
+    Detect volley (punch or block).
+    
+    Key criteria:
+    - Moderate shoulder abduction (30-80°)
+    - Compact motion (low velocity)
+    - At kitchen line (if position available)
+    """
+    shoulder_abd = metrics.get('right_shoulder_abduction', 0)
+    
+    # Shoulder range check
+    shoulder_in_range = (THRESHOLDS['volley']['min_shoulder_abduction'] <= 
+                         shoulder_abd <= 
+                         THRESHOLDS['volley']['max_shoulder_abduction'])
+    
+    if not shoulder_in_range:
+        return (False, 0.0, '')
+    
+    # Velocity check (volleys are compact)
+    _, _, vel_mag = compute_velocity(metrics, history or [], 'right_wrist_y')
+    is_compact = vel_mag <= THRESHOLDS['volley']['max_wrist_velocity']
+    
+    if not is_compact and history:
+        return (False, 0.0, '')
+    
+    # Sub-type
     if shoulder_abd >= THRESHOLDS['volley']['punch_min_shoulder']:
         sub_type = 'punch'
-        confidence = 0.88
+        confidence = 0.85
     else:
         sub_type = 'block'
-        confidence = 0.85
+        confidence = 0.80
     
-    # Boost confidence if at kitchen line
+    # Boost for kitchen line
     if position_data and position_data.get('at_kitchen_line'):
         confidence += 0.05
     
     return (True, min(confidence, 0.95), sub_type)
 
 
-def is_groundstroke(metrics: Dict[str, Any]) -> Tuple[bool, float, str]:
+def is_dink(metrics: Dict[str, Any], history: List[Dict]) -> Tuple[bool, float, str]:
     """
-    Detect groundstroke based on research criteria.
+    Detect dink shot.
     
-    Criteria:
-    - Moderate to high shoulder abduction (> 60°)
-    - Hip rotation present
-    
-    Sub-types:
-    - Forehand: Right side dominant
-    - Backhand: Left side dominant
-    - Drive: High shoulder (> 70°), offensive
-    
-    Returns: (is_groundstroke, confidence, sub_type)
+    Key criteria:
+    - Low shoulder abduction (< 50°)
+    - Very low velocity (soft touch)
+    - Low body position (knee flexion)
+    - Wrist below waist
     """
     shoulder_abd = metrics.get('right_shoulder_abduction', 0)
-    hip_rotation = metrics.get('hip_rotation_deg', 0)
+    knee_flexion = metrics.get('right_knee_flexion', 180)
+    wrist_y = metrics.get('right_wrist_y', 0.5)
+    hip_y = metrics.get('right_hip_y', 0.5)
     
-    # Check shoulder range
-    is_groundstroke_range = shoulder_abd >= THRESHOLDS['groundstroke']['min_shoulder_abduction']
+    # Low shoulder check
+    low_shoulder = shoulder_abd <= THRESHOLDS['dink']['max_shoulder_abduction']
     
-    if not is_groundstroke_range:
-        return (False, 0.0, '')
+    # Velocity check (soft touch)
+    _, _, vel_mag = compute_velocity(metrics, history, 'right_wrist_y')
+    soft_touch = vel_mag <= THRESHOLDS['dink']['max_wrist_velocity']
     
-    # Determine sub-type
-    if shoulder_abd >= THRESHOLDS['groundstroke']['drive_min_shoulder']:
-        sub_type = 'drive'
-        confidence = 0.85
-    else:
-        sub_type = 'control'
-        confidence = 0.80
+    # Low body check
+    low_body = (THRESHOLDS['dink']['min_knee_flexion'] <= 
+                knee_flexion <= 
+                THRESHOLDS['dink']['max_knee_flexion'])
     
-    # Boost confidence with good hip rotation
-    if hip_rotation >= THRESHOLDS['groundstroke']['min_hip_rotation']:
-        confidence += 0.05
+    # Contact point check
+    wrist_below_waist = wrist_y >= hip_y
     
-    # Determine forehand vs backhand (simplified)
-    # In real implementation, would use shoulder positions
-    if metrics.get('right_shoulder_x', 0.5) > metrics.get('left_shoulder_x', 0.5):
-        sub_type = f'forehand_{sub_type}'
-    else:
-        sub_type = f'backhand_{sub_type}'
+    # Need multiple criteria
+    score = 0
+    if low_shoulder:
+        score += 1
+    if soft_touch:
+        score += 2  # Double weight
+    if low_body:
+        score += 1
+    if wrist_below_waist:
+        score += 1
     
-    return (True, min(confidence, 0.95), sub_type)
+    if score >= 3:
+        confidence = min(0.70 + (score - 3) * 0.08, 0.95)
+        return (True, confidence, 'soft_game')
+    
+    return (False, 0.0, '')
 
+
+# ============================================================================
+# MAIN CLASSIFICATION FUNCTION
+# ============================================================================
 
 def classify_stroke_enhanced(
     metrics: Dict[str, Any],
@@ -258,116 +358,76 @@ def classify_stroke_enhanced(
     target_type: Optional[str] = None
 ) -> Tuple[str, float, str]:
     """
-    Enhanced stroke classification using research-based heuristics.
+    Enhanced stroke classification using velocity + position heuristics.
     
-    Args:
-        metrics: Current frame biomechanics metrics
-        frame_history: Previous frames for motion analysis
-        position_data: Optional court position data
-        target_type: Optional user-specified stroke type to bias towards
-    
-    Returns:
-        (stroke_type, confidence, sub_type)
+    Priority order (most distinctive first):
+    1. Overhead (wrist above head)
+    2. Serve (upward velocity + waist contact)
+    3. Dink (soft touch + low position)
+    4. Volley (compact punch)
+    5. Groundstroke (default for baseline shots)
     """
     
-    # Priority order based on distinctiveness
-    
-    # 1. OVERHEAD - Most distinctive (wrist above head)
-    is_oh, oh_conf = is_overhead(metrics)
-    if is_oh:
+    # 1. OVERHEAD - Most distinctive
+    is_oh, oh_conf = is_overhead(metrics, frame_history)
+    if is_oh and oh_conf >= 0.80:
         return ('overhead', oh_conf, 'smash')
     
-    # 2. SERVE - Distinctive (below waist, upward motion)
+    # 2. SERVE - Check with velocity
     is_srv, srv_conf = is_serve(metrics, frame_history)
     
-    # BIAS LOGIC for Serve
     if target_type == 'serve':
-        if is_srv:
-            # If it passes is_serve, boost confidence
+        # Serve videos must be STRICT to avoid flagging "walking/ready stance" as serves.
+        # Only emit 'serve' when serve criteria are actually met.
+        if is_srv and srv_conf >= 0.75:
             return ('serve', max(srv_conf, 0.85), 'underhand')
-        
-        # FALLBACK: Many serves look like groundstrokes. If it's a groundstroke and we want a serve, take it.
-        is_gs_fallback, _, _ = is_groundstroke(metrics)
-        if is_gs_fallback:
-             return ('serve', 0.80, 'underhand_drive')
     else:
-        # Standard strict check
-        if is_srv and srv_conf > 0.75:
+        # Strict mode
+        if is_srv and srv_conf >= 0.75:
             return ('serve', srv_conf, 'underhand')
-
-    # BIAS LOGIC for Groundstroke/Drive (Check BEFORE Dink/Volley)
-    if target_type in ['groundstroke', 'drive']:
-        # 1. Standard Check
-        is_gs, gs_conf, gs_sub = is_groundstroke(metrics)
-        if is_gs:
-            return ('groundstroke', max(gs_conf, 0.85), gs_sub)
-            
-        # 2. RELAXED Check (Ambiguous shots)
-        # Often drives are low (confused with dink) or have less rotation (arm shots)
-        shoulder_abd = metrics.get('right_shoulder_abduction', 0)
-        hip_rot = metrics.get('hip_rotation_deg', 0)
-        
-        # Relaxed Thresholds: Shoulder > 45 (vs 60), Hip > 10 (vs 30)
-        if shoulder_abd > 45 and hip_rot > 10:
-             return ('groundstroke', 0.80, 'drive_recreational')
     
-    # BIAS LOGIC for Dink (Check BEFORE Standard Checks)
-    if target_type == 'dink':
-        # 1. Standard Check
+    # 3. DINK - Low, soft shots (SKIP if target is serve)
+    if target_type != 'serve':
         is_dnk, dnk_conf, dnk_sub = is_dink(metrics, frame_history)
-        if is_dnk:
-             return ('dink', max(dnk_conf, 0.85), dnk_sub)
         
-        # 2. RELAXED Check for Recreational Dinks
-        # Recreational players often rely on back/arm without bending knees
-        shoulder_abd = metrics.get('right_shoulder_abduction', 0)
-        wrist_y = metrics.get('right_wrist_y', 0.5)
-        hip_y = metrics.get('right_hip_y', 0.5)
+        if target_type == 'dink':
+            if is_dnk and dnk_conf >= 0.70:
+                return ('dink', max(dnk_conf, 0.80), dnk_sub)
+        else:
+            if is_dnk and dnk_conf >= 0.75:
+                return ('dink', dnk_conf, dnk_sub)
+    
+    # 4. VOLLEY - Compact punch (SKIP if target is serve)
+    if target_type != 'serve':
+        is_vol, vol_conf, vol_sub = is_volley(metrics, frame_history, position_data)
+        if is_vol and vol_conf >= 0.75:
+            return ('volley', vol_conf, vol_sub)
+    
+    # 5. GROUNDSTROKE - Default for baseline (SKIP if target is serve)
+    if target_type != 'serve':
+        is_gs, gs_conf, gs_sub = is_groundstroke(metrics, frame_history)
         
-        # Relaxed: Shoulder < 80 (allow defensive high dinks), No knee check
-        low_arm = shoulder_abd < 80
-        low_contact = wrist_y > (hip_y - 0.2) # Generous waist tolerance
-        
-        if low_arm and low_contact:
-            return ('dink', 0.80, 'dink_recreational')
-            
-        # 3. CONFLICT RESOLUTION: "Block Volley" -> Dink
-        # Block volleys often look like dinks near the kitchen
-        is_vol, _, sub = is_volley(metrics, position_data)
-        if is_vol: # Catch ANY volley (punch or block) if target is dink
-            return ('dink', 0.75, 'dink_high')
-
-    # 3. DINK - Distinctive (low shoulder, low body)
-    is_dnk, dnk_conf, dnk_sub = is_dink(metrics, frame_history)
-    if is_dnk and dnk_conf > 0.80:
-        return ('dink', dnk_conf, dnk_sub)
+        if target_type in ['groundstroke', 'drive']:
+            if is_gs:
+                return ('groundstroke', max(gs_conf, 0.80), gs_sub)
+        else:
+            if is_gs:
+                return ('groundstroke', gs_conf, gs_sub)
     
-    # 4. VOLLEY - Moderate shoulder, kitchen line
-    is_vol, vol_conf, vol_sub = is_volley(metrics, position_data)
-    if is_vol and vol_conf > 0.80:
-        return ('volley', vol_conf, vol_sub)
-    
-    # 5. GROUNDSTROKE - Default for baseline shots
-    is_gs, gs_conf, gs_sub = is_groundstroke(metrics)
-    if is_gs:
-        return ('groundstroke', gs_conf, gs_sub)
-    
-    # CRITICAL FALLBACK: If we have a specific target and found SOME motion/tracking,
-    # but couldn't classify it, FORCE it to the target type.
-    if target_type:
-        return (target_type, 0.60, 'forced_fallback')
-    
-    # Fallback
-    return ('groundstroke', 0.60, 'unknown')
+    # Default fallback
+    return ('unknown', 0.40, 'unclassified')
 
 
-def classify_frame(metrics: Dict[str, float], landmarks: Any, target_type: Optional[str] = None) -> str:
+def classify_frame(metrics: Dict[str, float], landmarks: Any, target_type: Optional[str] = None) -> Optional[str]:
     """
     Legacy compatibility function.
-    Simplified classification for single frame without history.
+    Single frame classification (no history).
     
-    Returns: stroke_type string
+    Returns: stroke_type string or None if unclassified
     """
-    # Use enhanced classification with empty history
-    stroke_type, _, _ = classify_stroke_enhanced(metrics, [], None, target_type=target_type)
-    return stroke_type
+    stroke_type, conf, _ = classify_stroke_enhanced(metrics, [], None, target_type=target_type)
+    
+    # Only return if confidence is decent
+    if conf >= 0.55:
+        return stroke_type
+    return None
