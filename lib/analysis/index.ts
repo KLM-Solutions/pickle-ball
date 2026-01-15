@@ -22,17 +22,29 @@ export * from './types';
 export { calculateMetrics } from './angles';
 export { detectRisks } from './risk';
 export { generateFeedback } from './feedback';
-export { 
-  filterFramesForIssues, 
-  getKeyFramesByIssue, 
-  getFilterSummary, 
+export {
+  filterFramesForIssues,
+  getKeyFramesByIssue,
+  getFilterSummary,
   getTopIssues,
+  getFullRecommendation,
   type FilteredFrame,
   type FrameIssue,
   type FilterSummary,
   type KeyIssue,
   type IssueType,
 } from './filter';
+
+// Export recommendations module
+export {
+  getEnhancedRecommendation,
+  getRecommendationsForIssues,
+  getQuickRecommendation,
+  getDrillForIssue,
+  getAllIssueTypes,
+  type RecommendationTemplate,
+  type CoachingRecommendation,
+} from './recommendations';
 
 /**
  * Analyze all frames and generate complete analysis result
@@ -52,35 +64,35 @@ export function analyzeFrames(
   fps?: number
 ): AnalysisResult {
   const stroke = strokeType as StrokeType;
-  
+
   // Analyze each frame
   const analyzedFrames: AnalyzedFrame[] = rawFrames.map(frame => {
     // Calculate metrics from landmarks
-    const metrics = frame.landmarks 
+    const metrics = frame.landmarks
       ? calculateMetrics(frame.landmarks)
       : {
-          right_elbow_flexion: null,
-          left_elbow_flexion: null,
-          right_knee_flexion: null,
-          left_knee_flexion: null,
-          right_shoulder_abduction: null,
-          left_shoulder_abduction: null,
-          hip_rotation_deg: null,
-          wrist_above_waist: false,
-          wrist_above_head: false,
-          nose_y: null,
-          right_wrist_y: null,
-          right_hip_y: null,
-        };
-    
+        right_elbow_flexion: null,
+        left_elbow_flexion: null,
+        right_knee_flexion: null,
+        left_knee_flexion: null,
+        right_shoulder_abduction: null,
+        left_shoulder_abduction: null,
+        hip_rotation_deg: null,
+        wrist_above_waist: false,
+        wrist_above_head: false,
+        nose_y: null,
+        right_wrist_y: null,
+        right_hip_y: null,
+      };
+
     // Detect injury risks
     const { risks, level } = detectRisks(metrics, stroke);
-    
+
     // Generate feedback
-    const feedback = frame.landmarks 
+    const feedback = frame.landmarks
       ? generateFeedback(metrics, stroke)
       : [];
-    
+
     return {
       frameIdx: frame.frameIdx,
       timestampSec: frame.timestampSec,
@@ -93,21 +105,21 @@ export function analyzeFrames(
       feedback,
     };
   });
-  
+
   // Calculate FPS from frames if not provided
   const calculatedFps = fps || estimateFps(rawFrames);
-  
+
   // Calculate duration
-  const duration = rawFrames.length > 0 
-    ? rawFrames[rawFrames.length - 1].timestampSec 
+  const duration = rawFrames.length > 0
+    ? rawFrames[rawFrames.length - 1].timestampSec
     : 0;
-  
+
   // Calculate risk percentages
   const riskPercentages = calculateRiskPercentages(analyzedFrames);
-  
+
   // Determine overall risk
   const overallRisk = getOverallRisk(riskPercentages);
-  
+
   // Build summary
   const summary: AnalysisSummary = {
     total_frames: rawFrames.length,
@@ -118,7 +130,7 @@ export function analyzeFrames(
     overall_risk: overallRisk,
     risk_percentages: riskPercentages,
   };
-  
+
   return {
     job_id: jobId,
     stroke_type: strokeType,
@@ -133,11 +145,11 @@ export function analyzeFrames(
  */
 function estimateFps(frames: RawFrame[]): number {
   if (frames.length < 2) return 30; // Default
-  
+
   // Calculate average time between frames
   let totalDelta = 0;
   let count = 0;
-  
+
   for (let i = 1; i < Math.min(frames.length, 30); i++) {
     const delta = frames[i].timestampSec - frames[i - 1].timestampSec;
     if (delta > 0) {
@@ -145,9 +157,9 @@ function estimateFps(frames: RawFrame[]): number {
       count++;
     }
   }
-  
+
   if (count === 0) return 30;
-  
+
   const avgDelta = totalDelta / count;
   return Math.round(1 / avgDelta);
 }
@@ -160,27 +172,27 @@ export function analyzeFrame(
   strokeType: StrokeType | string
 ): AnalyzedFrame {
   const stroke = strokeType as StrokeType;
-  
-  const metrics = frame.landmarks 
+
+  const metrics = frame.landmarks
     ? calculateMetrics(frame.landmarks)
     : {
-        right_elbow_flexion: null,
-        left_elbow_flexion: null,
-        right_knee_flexion: null,
-        left_knee_flexion: null,
-        right_shoulder_abduction: null,
-        left_shoulder_abduction: null,
-        hip_rotation_deg: null,
-        wrist_above_waist: false,
-        wrist_above_head: false,
-        nose_y: null,
-        right_wrist_y: null,
-        right_hip_y: null,
-      };
-  
+      right_elbow_flexion: null,
+      left_elbow_flexion: null,
+      right_knee_flexion: null,
+      left_knee_flexion: null,
+      right_shoulder_abduction: null,
+      left_shoulder_abduction: null,
+      hip_rotation_deg: null,
+      wrist_above_waist: false,
+      wrist_above_head: false,
+      nose_y: null,
+      right_wrist_y: null,
+      right_hip_y: null,
+    };
+
   const { risks, level } = detectRisks(metrics, stroke);
   const feedback = frame.landmarks ? generateFeedback(metrics, stroke) : [];
-  
+
   return {
     frameIdx: frame.frameIdx,
     timestampSec: frame.timestampSec,
