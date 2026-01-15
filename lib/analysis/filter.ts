@@ -301,22 +301,23 @@ export function getFilterSummary(
 
 /**
  * Get recommendation text for issue type
+ * Uses enhanced coaching templates from recommendations.ts
  */
-function getRecommendationForIssue(type: string): string {
-  const recommendations: Record<string, string> = {
-    shoulder_overuse: 'Focus on hip rotation for power. Reduce reliance on shoulder.',
-    shoulder_over_rotation: 'Lower your swing plane. Keep shoulder relaxed.',
-    shoulder_under_rotation: 'Increase backswing. Engage shoulder in preparation.',
-    poor_kinetic_chain: 'Start power from legs through hips. Let arm follow naturally.',
-    insufficient_hip_rotation: 'Rotate hips toward target before contact.',
-    knee_stress: 'Avoid deep squatting. Maintain athletic ready position.',
-    excessive_knee_bend: 'Stand taller. Keep knees slightly bent, not deep.',
-    insufficient_knee_bend: 'Lower your center of gravity. Bend knees more.',
-    elbow_form: 'Adjust arm position for better paddle control.',
-    elbow_strain: 'Keep elbow angle consistent through contact.',
-  };
+import { getQuickRecommendation, getEnhancedRecommendation, CoachingRecommendation } from './recommendations';
 
-  return recommendations[type] || 'Work on this aspect of your technique.';
+function getRecommendationForIssue(type: string): string {
+  return getQuickRecommendation(type);
+}
+
+/**
+ * Get full coaching recommendation with drill and benefit
+ */
+export function getFullRecommendation(
+  issueType: string,
+  strokeType?: StrokeType | string,
+  severity?: 'high' | 'medium' | 'low'
+): CoachingRecommendation {
+  return getEnhancedRecommendation(issueType, strokeType, severity);
 }
 
 /**
@@ -333,8 +334,8 @@ export function getTopIssues(
       if (!issueMap[issue.type]) {
         issueMap[issue.type] = { severity: issue.severity, frames: [] };
       }
-      if (issue.severity === 'high' || 
-          (issue.severity === 'medium' && issueMap[issue.type].severity !== 'high')) {
+      if (issue.severity === 'high' ||
+        (issue.severity === 'medium' && issueMap[issue.type].severity !== 'high')) {
         issueMap[issue.type].severity = issue.severity;
       }
       issueMap[issue.type].frames.push(ff.frame);
