@@ -1,12 +1,52 @@
 """Orchestrates per-frame biomech metrics."""
 import numpy as np
-import mediapipe as mp
-from typing import Any, Dict
+from typing import Any, Dict, Optional, List
 from biomechanics.angles import calculate_angle, calculate_hip_rotation, calculate_wrist_position
 
+# MediaPipe Pose Landmark indices (compatible with both legacy and Tasks API)
+# These are constants from MediaPipe PoseLandmark enum
+class PoseLandmarkIndex:
+    NOSE = 0
+    LEFT_EYE_INNER = 1
+    LEFT_EYE = 2
+    LEFT_EYE_OUTER = 3
+    RIGHT_EYE_INNER = 4
+    RIGHT_EYE = 5
+    RIGHT_EYE_OUTER = 6
+    LEFT_EAR = 7
+    RIGHT_EAR = 8
+    MOUTH_LEFT = 9
+    MOUTH_RIGHT = 10
+    LEFT_SHOULDER = 11
+    RIGHT_SHOULDER = 12
+    LEFT_ELBOW = 13
+    RIGHT_ELBOW = 14
+    LEFT_WRIST = 15
+    RIGHT_WRIST = 16
+    LEFT_PINKY = 17
+    RIGHT_PINKY = 18
+    LEFT_INDEX = 19
+    RIGHT_INDEX = 20
+    LEFT_THUMB = 21
+    RIGHT_THUMB = 22
+    LEFT_HIP = 23
+    RIGHT_HIP = 24
+    LEFT_KNEE = 25
+    RIGHT_KNEE = 26
+    LEFT_ANKLE = 27
+    RIGHT_ANKLE = 28
+    LEFT_HEEL = 29
+    RIGHT_HEEL = 30
+    LEFT_FOOT_INDEX = 31
+    RIGHT_FOOT_INDEX = 32
+
+
 class BiomechanicsAnalyzer:
+    """Analyzes pose landmarks to extract biomechanical metrics."""
+    
     def __init__(self):
-        self.mp_pose = mp.solutions.pose
+        # Use local landmark index constants (compatible with MediaPipe 0.10.x Tasks API)
+        self.landmark_idx = PoseLandmarkIndex
         self.pose_landmarks = None
         self.crop_w = 0
         self.crop_h = 0
@@ -18,9 +58,29 @@ class BiomechanicsAnalyzer:
         self.crop_h = crop_h
     
     def get_landmark(self, index):
-        """Safe accessor for landmarks"""
-        if self.pose_landmarks and index < len(self.pose_landmarks.landmark):
-            return self.pose_landmarks.landmark[index]
+        """Safe accessor for landmarks - works with both list and object formats"""
+        if self.pose_landmarks is None:
+            return None
+        
+        # Handle list format (from track.py serialization)
+        if isinstance(self.pose_landmarks, list):
+            if index < len(self.pose_landmarks):
+                lm = self.pose_landmarks[index]
+                # Return object-like wrapper for dict
+                if isinstance(lm, dict):
+                    return type('Landmark', (), lm)()
+                return lm
+            return None
+        
+        # Handle legacy landmark object format
+        if hasattr(self.pose_landmarks, 'landmark'):
+            if index < len(self.pose_landmarks.landmark):
+                return self.pose_landmarks.landmark[index]
+        
+        # Handle Tasks API format (list of NormalizedLandmark)
+        if hasattr(self.pose_landmarks, '__len__') and index < len(self.pose_landmarks):
+            return self.pose_landmarks[index]
+        
         return None
 
     def analyze_metrics(self, stroke_type="serve"):
@@ -33,22 +93,22 @@ class BiomechanicsAnalyzer:
 
         metrics = {}
         
-        # Access common landmarks
+        # Access common landmarks using index constants
         # Right Side
-        r_shoulder = self.get_landmark(self.mp_pose.PoseLandmark.RIGHT_SHOULDER)
-        r_elbow = self.get_landmark(self.mp_pose.PoseLandmark.RIGHT_ELBOW)
-        r_wrist = self.get_landmark(self.mp_pose.PoseLandmark.RIGHT_WRIST)
-        r_hip = self.get_landmark(self.mp_pose.PoseLandmark.RIGHT_HIP)
-        r_knee = self.get_landmark(self.mp_pose.PoseLandmark.RIGHT_KNEE)
-        r_ankle = self.get_landmark(self.mp_pose.PoseLandmark.RIGHT_ANKLE)
+        r_shoulder = self.get_landmark(self.landmark_idx.RIGHT_SHOULDER)
+        r_elbow = self.get_landmark(self.landmark_idx.RIGHT_ELBOW)
+        r_wrist = self.get_landmark(self.landmark_idx.RIGHT_WRIST)
+        r_hip = self.get_landmark(self.landmark_idx.RIGHT_HIP)
+        r_knee = self.get_landmark(self.landmark_idx.RIGHT_KNEE)
+        r_ankle = self.get_landmark(self.landmark_idx.RIGHT_ANKLE)
         
         # Left Side
-        l_shoulder = self.get_landmark(self.mp_pose.PoseLandmark.LEFT_SHOULDER)
-        l_elbow = self.get_landmark(self.mp_pose.PoseLandmark.LEFT_ELBOW)
-        l_wrist = self.get_landmark(self.mp_pose.PoseLandmark.LEFT_WRIST)
-        l_hip = self.get_landmark(self.mp_pose.PoseLandmark.LEFT_HIP)
-        l_knee = self.get_landmark(self.mp_pose.PoseLandmark.LEFT_KNEE)
-        l_ankle = self.get_landmark(self.mp_pose.PoseLandmark.LEFT_ANKLE)
+        l_shoulder = self.get_landmark(self.landmark_idx.LEFT_SHOULDER)
+        l_elbow = self.get_landmark(self.landmark_idx.LEFT_ELBOW)
+        l_wrist = self.get_landmark(self.landmark_idx.LEFT_WRIST)
+        l_hip = self.get_landmark(self.landmark_idx.LEFT_HIP)
+        l_knee = self.get_landmark(self.landmark_idx.LEFT_KNEE)
+        l_ankle = self.get_landmark(self.landmark_idx.LEFT_ANKLE)
 
         # 1. Elbow Flexion (Right arm - assuming right handed for MVP)
         if r_shoulder and r_elbow and r_wrist:
@@ -92,7 +152,7 @@ class BiomechanicsAnalyzer:
             metrics["wrist_above_waist"] = bool(r_wrist.y < mid_hip_y)
             
             # Check wrist vs head for overhead
-            nose = self.get_landmark(self.mp_pose.PoseLandmark.NOSE)
+            nose = self.get_landmark(self.landmark_idx.NOSE)
             if nose:
                 metrics["wrist_above_head"] = bool(r_wrist.y < nose.y)
 
@@ -107,7 +167,7 @@ class BiomechanicsAnalyzer:
         
         if r_wrist: metrics["right_wrist_y"] = r_wrist.y
         if r_hip: metrics["right_hip_y"] = r_hip.y
-        nose = self.get_landmark(self.mp_pose.PoseLandmark.NOSE)
+        nose = self.get_landmark(self.landmark_idx.NOSE)
         if nose: metrics["nose_y"] = nose.y
 
         # --- PRD: STROKE SPECIFIC FEEDBACK ---
