@@ -420,7 +420,7 @@ function PlayerContent() {
                                                                     className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-black text-white rounded-lg text-xs font-semibold hover:bg-neutral-800 transition"
                                                                 >
                                                                     <Play className="w-3 h-3" />
-                                                                    See Example Frame
+                                                                    Show Frame
                                                                 </button>
                                                             </div>
                                                         )}
