@@ -238,10 +238,8 @@ export default function CameraAngleValidator({
 
                 {/* Stats footer */}
                 {result && status !== 'loading' && (
-                    <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-neutral-100 flex justify-center gap-2 sm:gap-4 text-[9px] sm:text-[10px] text-neutral-400 flex-wrap">
-                        <span>Frames: {result.framesSampled}</span>
-                        <span className="hidden sm:inline">•</span>
-                        <span>Time: {(result.analysisTimeMs / 1000).toFixed(1)}s</span>
+                    <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-neutral-100 text-center text-[9px] sm:text-[10px] text-neutral-400">
+                        <span>Analyzed first 10 seconds of video</span>
                     </div>
                 )}
             </div>
