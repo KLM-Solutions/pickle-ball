@@ -92,17 +92,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Try Demo Banner */}
-        <div className="mb-8 flex justify-center">
-          <button
-            onClick={() => router.push('/demo')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-full text-sm font-medium text-neutral-700 hover:text-black transition-all"
-          >
-            🎬 <span>Try Demo</span>
-            <span className="text-[10px] text-neutral-400">(No sign-up)</span>
-          </button>
-        </div>
-
         {/* Stroke Selection */}
         <div className="mb-8">
           <h3 className="text-center text-[10px] md:text-sm font-medium text-neutral-400 uppercase tracking-wider mb-6 md:mb-8">
