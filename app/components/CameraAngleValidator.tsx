@@ -71,7 +71,7 @@ export default function CameraAngleValidator({
     };
 
     return (
-        <div className="bg-white rounded-xl sm:rounded-2xl border border-neutral-200 overflow-hidden shadow-xl w-full max-w-[95vw] sm:max-w-sm md:max-w-md">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-neutral-200 overflow-hidden shadow-xl w-full max-w-[95vw] sm:max-w-sm md:max-w-md max-h-[85vh] sm:max-h-[90vh] flex flex-col">
             {/* Header */}
             <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-neutral-50 border-b border-neutral-200 flex items-center justify-between">
                 <div className="flex items-center gap-1.5 sm:gap-2">
@@ -88,7 +88,7 @@ export default function CameraAngleValidator({
                 )}
             </div>
 
-            <div className="p-3 sm:p-4 md:p-5">
+            <div className="p-3 sm:p-4 md:p-5 flex-1 overflow-y-auto">
                 {/* Loading State */}
                 {status === 'loading' && (
                     <div className="text-center py-4 sm:py-6">
