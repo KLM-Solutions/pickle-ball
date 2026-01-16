@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Clock } from "lucide-react";
 import {
     SignInButton,
@@ -12,6 +12,12 @@ import {
 
 export default function Header() {
     const router = useRouter();
+    const pathname = usePathname();
+
+    // Hide header on demo page
+    if (pathname === '/demo') {
+        return null;
+    }
 
     return (
         <header className="relative z-10 flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-neutral-200 bg-white">

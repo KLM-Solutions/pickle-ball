@@ -1,37 +1,49 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Pause, ArrowLeft, ArrowRight, Volume2, VolumeX } from "lucide-react";
+import { Play, Pause, X } from "lucide-react";
 
 /**
- * Demo Page - Shows video walkthrough of StrikeSense
+ * Demo Page - Fullscreen video walkthrough
  * 
- * Plays the demo video showing the complete app flow
+ * Clean, immersive video player for the demo
+ * Plays at 2x speed, muted by default
  */
 export default function DemoPage() {
     const router = useRouter();
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [isMuted, setIsMuted] = useState(true);
     const [progress, setProgress] = useState(0);
+    const [showControls, setShowControls] = useState(true);
+
+    useEffect(() => {
+        // Set 2x playback speed when video loads
+        if (videoRef.current) {
+            videoRef.current.playbackRate = 2.0;
+        }
+    }, []);
+
+    useEffect(() => {
+        // Auto-hide controls after 3 seconds
+        let timeout: NodeJS.Timeout;
+        if (isPlaying && showControls) {
+            timeout = setTimeout(() => setShowControls(false), 3000);
+        }
+        return () => clearTimeout(timeout);
+    }, [isPlaying, showControls]);
 
     const togglePlay = () => {
         if (videoRef.current) {
             if (isPlaying) {
                 videoRef.current.pause();
             } else {
+                videoRef.current.playbackRate = 2.0; // Ensure 2x speed
                 videoRef.current.play();
             }
             setIsPlaying(!isPlaying);
         }
-    };
-
-    const toggleMute = () => {
-        if (videoRef.current) {
-            videoRef.current.muted = !isMuted;
-            setIsMuted(!isMuted);
-        }
+        setShowControls(true);
     };
 
     const handleTimeUpdate = () => {
@@ -44,90 +56,102 @@ export default function DemoPage() {
     const handleVideoEnd = () => {
         setIsPlaying(false);
         setProgress(0);
+        setShowControls(true);
+    };
+
+    const handleClose = () => {
+        router.push('/');
+    };
+
+    const handleTryNow = () => {
+        router.push('/strikesense/guide?stroke=serve');
     };
 
     return (
-        <div className="min-h-screen bg-black flex flex-col">
-            {/* Header */}
-            <header className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm border-b border-neutral-800">
-                <button
-                    onClick={() => router.push('/')}
-                    className="flex items-center gap-2 text-neutral-400 hover:text-white transition"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                    <span className="text-sm">Back</span>
-                </button>
-                <div className="flex items-center gap-2">
-                    <span className="px-2 py-1 bg-neutral-800 rounded-full text-[10px] font-medium text-neutral-400">
-                        DEMO
-                    </span>
-                    <span className="text-sm font-medium text-white">StrikeSense Walkthrough</span>
-                </div>
-                <button
-                    onClick={() => router.push('/strikesense/guide?stroke=serve')}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-white text-black rounded-full text-xs font-medium hover:bg-neutral-200 transition"
-                >
-                    Try Now <ArrowRight className="w-3 h-3" />
-                </button>
-            </header>
+        <div
+            className="fixed inset-0 z-50 bg-black flex flex-col"
+            onClick={() => setShowControls(true)}
+        >
+            {/* Close Button - Always visible */}
+            <button
+                onClick={handleClose}
+                className="absolute top-4 left-4 z-20 p-2 bg-black/60 hover:bg-black/80 rounded-full text-white/80 hover:text-white transition"
+            >
+                <X className="w-5 h-5" />
+            </button>
 
-            {/* Video Container */}
-            <div className="flex-1 flex items-center justify-center p-4">
-                <div className="relative w-full max-w-4xl aspect-video bg-neutral-900 rounded-2xl overflow-hidden shadow-2xl">
-                    <video
-                        ref={videoRef}
-                        src="/images/video.MP4"
-                        className="w-full h-full object-contain"
-                        muted={isMuted}
-                        playsInline
-                        onTimeUpdate={handleTimeUpdate}
-                        onEnded={handleVideoEnd}
-                        onClick={togglePlay}
-                    />
-
-                    {/* Play/Pause Overlay */}
-                    {!isPlaying && (
-                        <div
-                            className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer"
-                            onClick={togglePlay}
-                        >
-                            <div className="w-20 h-20 rounded-full bg-white/90 flex items-center justify-center hover:scale-110 transition-transform">
-                                <Play className="w-10 h-10 text-black ml-1" />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Progress Bar */}
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-700">
-                        <div
-                            className="h-full bg-white transition-all duration-100"
-                            style={{ width: `${progress}%` }}
-                        />
-                    </div>
-
-                    {/* Controls */}
-                    <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                        <button
-                            onClick={toggleMute}
-                            className="p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition"
-                        >
-                            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                        </button>
-                    </div>
-                </div>
+            {/* Demo Badge + Speed indicator */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+                <span className="px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-full text-xs font-medium text-white/80">
+                    Demo Walkthrough
+                </span>
+                <span className="px-2 py-1 bg-white/20 rounded-full text-[10px] font-bold text-white">
+                    2x
+                </span>
             </div>
 
-            {/* Caption */}
-            <div className="text-center pb-8 px-4">
-                <p className="text-neutral-400 text-sm mb-4">
-                    See how StrikeSense analyzes your pickleball technique
-                </p>
-                <button
-                    onClick={() => router.push('/strikesense/guide?stroke=serve')}
-                    className="px-6 py-3 bg-white text-black rounded-xl font-bold text-sm hover:bg-neutral-200 transition"
-                >
-                    Start Your Own Analysis →
-                </button>
+            {/* Video Container - Fullscreen */}
+            <div className="flex-1 flex items-center justify-center">
+                <video
+                    ref={videoRef}
+                    src="/images/video.MP4"
+                    className="w-full h-full object-contain"
+                    muted
+                    playsInline
+                    disablePictureInPicture
+                    controlsList="nodownload nofullscreen noremoteplayback"
+                    onTimeUpdate={handleTimeUpdate}
+                    onEnded={handleVideoEnd}
+                    onClick={togglePlay}
+                />
+
+                {/* Play Button Overlay */}
+                {!isPlaying && (
+                    <div
+                        className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                        onClick={togglePlay}
+                    >
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/90 flex items-center justify-center hover:scale-110 transition-transform shadow-2xl">
+                                <Play className="w-10 h-10 sm:w-12 sm:h-12 text-black ml-1" />
+                            </div>
+                            <p className="text-white/70 text-sm font-medium">Tap to play</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Bottom Controls - Fade in/out */}
+            <div
+                className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    }`}
+            >
+                {/* Progress Bar */}
+                <div className="h-1 bg-white/20">
+                    <div
+                        className="h-full bg-white transition-all duration-100"
+                        style={{ width: `${progress}%` }}
+                    />
+                </div>
+
+                {/* Controls Bar */}
+                <div className="flex items-center justify-between px-4 py-4 bg-gradient-to-t from-black/80 to-transparent">
+                    {/* Left Controls */}
+                    <button
+                        onClick={togglePlay}
+                        className="p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition"
+                    >
+                        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                    </button>
+
+                    {/* CTA Button */}
+                    <button
+                        onClick={handleTryNow}
+                        className="px-4 py-2 bg-white text-black rounded-full text-sm font-bold hover:bg-neutral-200 transition"
+                    >
+                        Try It Yourself →
+                    </button>
+                </div>
             </div>
         </div>
     );
