@@ -91,11 +91,11 @@ export default function DemoPage() {
             </div>
 
             {/* Video Container - Fullscreen */}
-            <div className="flex-1 flex items-center justify-center w-full">
+            <div className="flex-1 flex items-center justify-center w-full px-0">
                 <video
                     ref={videoRef}
                     src="https://tnfqqcjstysyuqajfoqr.supabase.co/storage/v1/object/public/videos/Untitled%20video%20-%20Made%20with%20Clipchamp%20(16).mp4"
-                    className="w-full h-auto max-h-[80vh] object-contain"
+                    className="max-w-full max-h-full h-[70vh] sm:h-[75vh] object-contain"
                     muted
                     playsInline
                     disablePictureInPicture
