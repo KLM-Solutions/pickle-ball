@@ -96,7 +96,7 @@ export default function CameraAngleValidator({
                             <RefreshCw className="w-12 h-12 sm:w-16 sm:h-16 text-blue-500 animate-spin" />
                         </div>
                         <h3 className="text-base sm:text-lg font-bold text-neutral-800 mb-1.5 sm:mb-2">Analyzing Camera Angle...</h3>
-                        <p className="text-xs sm:text-sm text-neutral-500 mb-3 sm:mb-4">Sending frames to AI for analysis</p>
+                        <p className="text-xs sm:text-sm text-neutral-500 mb-3 sm:mb-4">Analyzing video...</p>
 
                         {/* Progress bar */}
                         <div className="w-full bg-neutral-200 rounded-full h-1.5 sm:h-2 mb-1.5 sm:mb-2">
