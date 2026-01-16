@@ -95,7 +95,7 @@ export default function DemoPage() {
                 <video
                     ref={videoRef}
                     src="https://tnfqqcjstysyuqajfoqr.supabase.co/storage/v1/object/public/videos/Untitled%20video%20-%20Made%20with%20Clipchamp%20(16).mp4"
-                    className="max-w-full max-h-full h-[70vh] sm:h-[75vh] object-contain"
+                    className="w-auto h-[75vh] min-h-[400px]"
                     muted
                     playsInline
                     disablePictureInPicture
