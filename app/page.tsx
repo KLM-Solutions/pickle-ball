@@ -92,6 +92,17 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Try Demo Banner */}
+        <div className="mb-8 flex justify-center">
+          <button
+            onClick={() => router.push('/demo')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-full text-sm font-medium text-neutral-700 hover:text-black transition-all"
+          >
+            🎬 <span>Try Demo</span>
+            <span className="text-[10px] text-neutral-400">(No sign-up)</span>
+          </button>
+        </div>
+
         {/* Stroke Selection */}
         <div className="mb-8">
           <h3 className="text-center text-[10px] md:text-sm font-medium text-neutral-400 uppercase tracking-wider mb-6 md:mb-8">
@@ -204,8 +215,17 @@ export default function Home() {
                   </button>
                 </SignInButton>
                 <button
+                  onClick={() => {
+                    setShowSignInPrompt(false);
+                    router.push('/demo');
+                  }}
+                  className="w-full py-3 bg-neutral-100 text-neutral-700 rounded-xl font-semibold text-sm hover:bg-neutral-200 transition-colors"
+                >
+                  🎬 Try Demo Instead
+                </button>
+                <button
                   onClick={() => setShowSignInPrompt(false)}
-                  className="w-full py-3 text-neutral-500 text-sm font-medium hover:text-black transition-colors"
+                  className="w-full py-2 text-neutral-500 text-sm font-medium hover:text-black transition-colors"
                 >
                   Cancel
                 </button>
