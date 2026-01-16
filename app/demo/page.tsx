@@ -8,7 +8,7 @@ import { Play, Pause, X } from "lucide-react";
  * Demo Page - Fullscreen video walkthrough
  * 
  * Clean, immersive video player for the demo
- * Plays at 2x speed, muted by default
+ * Plays at normal speed, muted by default
  */
 export default function DemoPage() {
     const router = useRouter();
@@ -18,9 +18,9 @@ export default function DemoPage() {
     const [showControls, setShowControls] = useState(true);
 
     useEffect(() => {
-        // Set 2x playback speed when video loads
+        // Set normal playback speed when video loads
         if (videoRef.current) {
-            videoRef.current.playbackRate = 2.0;
+            videoRef.current.playbackRate = 1.0;
         }
     }, []);
 
@@ -38,7 +38,7 @@ export default function DemoPage() {
             if (isPlaying) {
                 videoRef.current.pause();
             } else {
-                videoRef.current.playbackRate = 2.0; // Ensure 2x speed
+                videoRef.current.playbackRate = 1.0; // Ensure normal speed
                 videoRef.current.play();
             }
             setIsPlaying(!isPlaying);
@@ -86,7 +86,7 @@ export default function DemoPage() {
                     Demo Walkthrough
                 </span>
                 <span className="px-2 py-1 bg-white/20 rounded-full text-[10px] font-bold text-white">
-                    2x
+                    1x
                 </span>
             </div>
 
