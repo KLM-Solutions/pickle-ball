@@ -17,16 +17,16 @@ export default function Header() {
         <header className="relative z-10 flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
             <div className="flex items-center gap-3 md:gap-4">
                 <div className="flex items-center gap-2 md:gap-3">
-                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-black flex items-center justify-center text-lg md:text-xl">
+                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-black dark:bg-white flex items-center justify-center text-lg md:text-xl">
                         🏓
                     </div>
                     <div>
-                        <h1 className="text-lg md:text-xl font-bold tracking-tight">StrikeSense</h1>
-                        <p className="text-[10px] md:text-xs text-neutral-500 hidden sm:block">AI Stroke Analysis</p>
+                        <h1 className="text-lg md:text-xl font-bold tracking-tight text-black dark:text-white">StrikeSense</h1>
+                        <p className="text-[10px] md:text-xs text-neutral-500 dark:text-neutral-400 hidden sm:block">AI Stroke Analysis</p>
                     </div>
                 </div>
-                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-xs text-neutral-600">
-                    <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
+                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-600 dark:text-neutral-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white animate-pulse" />
                     AI-Powered Biomechanics
                 </div>
             </div>
@@ -35,12 +35,12 @@ export default function Header() {
                 {/* Auth Buttons */}
                 <SignedOut>
                     <SignInButton mode="modal">
-                        <button className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-2 text-xs md:text-sm font-medium text-white bg-black rounded-full hover:bg-neutral-800 transition-all duration-300 cursor-pointer">
+                        <button className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-2 text-xs md:text-sm font-medium text-white bg-black dark:bg-white dark:text-black rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-300 cursor-pointer">
                             Sign In
                         </button>
                     </SignInButton>
                     <SignUpButton mode="modal">
-                        <button className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-2 text-xs md:text-sm font-medium text-neutral-500 border border-neutral-200 rounded-full hover:bg-neutral-100 hover:text-black transition-all duration-300 cursor-pointer">
+                        <button className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-2 text-xs md:text-sm font-medium text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-black dark:hover:text-white transition-all duration-300 cursor-pointer">
                             Sign Up
                         </button>
                     </SignUpButton>
@@ -58,7 +58,7 @@ export default function Header() {
                 {/* History Button */}
                 <button
                     onClick={() => router.push('/strikesense/history')}
-                    className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-2 text-xs md:text-sm font-medium text-neutral-500 border border-neutral-200 rounded-full hover:bg-neutral-100 hover:text-black transition-all duration-300"
+                    className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-2 text-xs md:text-sm font-medium text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-black dark:hover:text-white transition-all duration-300"
                 >
                     <Clock className="w-3.5 h-3.5 md:w-4 md:h-4" />
                     <span className="hidden sm:inline">History</span>
