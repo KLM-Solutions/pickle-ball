@@ -222,6 +222,28 @@ def main():
                 per_class=False 
             )
             print("Tracker initialized successfully.")
+
+            # --- PORTED TUNING FROM PICKLEBALL2 ---
+            if tracker is not None:
+                # FIXED: More conservative settings for stable tracking
+                if hasattr(tracker, 'model') and hasattr(tracker.model, 'max_age'):
+                    tracker.model.max_age = 300  # Keep ID for 10 seconds
+                if hasattr(tracker, 'max_age'):
+                    tracker.max_age = 300
+                
+                # FIXED: Require more consistent detections before assigning ID
+                if hasattr(tracker, 'model') and hasattr(tracker.model, 'min_hits'):
+                    tracker.model.min_hits = 1  # immediate ID
+                if hasattr(tracker, 'min_hits'):
+                    tracker.min_hits = 1
+                    
+                # Lower IOU threshold to prevent swaps
+                if hasattr(tracker, 'model') and hasattr(tracker.model, 'iou_threshold'):
+                    tracker.model.iou_threshold = 0.3  
+                if hasattr(tracker, 'iou_threshold'):
+                    tracker.iou_threshold = 0.3
+            # --------------------------------------
+
         except Exception as e:
             print(f"Tracker init failed: {e}")
             tracker = None
@@ -381,37 +403,30 @@ def main():
                     ds = yolo_preds.boxes.data.cpu().numpy()
                     detections = ds if len(ds) > 0 else np.empty((0, 6))
 
-                # STRICT CROP FILTERING: Remove distractors before they reach the tracker
-                if crop_region_norm is not None and len(detections) > 0:
-                    cr_x1, cr_y1, cr_x2, cr_y2 = crop_region_norm
-                    # Convert crop to pixels
-                    c_px_x1, c_px_y1 = cr_x1 * width, cr_y1 * height
-                    c_px_x2, c_px_y2 = cr_x2 * width, cr_y2 * height
-                    
-                    valid_dets = []
-                    for det in detections:
-                        dx1, dy1, dx2, dy2 = det[:4]
-                        dcx, dcy = (dx1 + dx2) / 2, (dy1 + dy2) / 2
-                        
-                        # Improved check: Intersection Area > 25% of detection area
-                        # This allows tracking even if center is slightly outside (edges)
-                        ix1 = max(dx1, c_px_x1)
-                        iy1 = max(dy1, c_px_y1)
-                        ix2 = min(dx2, c_px_x2)
-                        iy2 = min(dy2, c_px_y2)
+                # STRICT CROP FILTERING: DISABLED
+                # Reason: It filters out large foreground players if the crop is tight (low overlap ratio).
+                # We want to track them and let the Selection Logic decide based on Crop Fill.
+                # if crop_region_norm is not None and len(detections) > 0:
+                #     cr_x1, cr_y1, cr_x2, cr_y2 = crop_region_norm
+                #     c_px_x1, c_px_y1 = cr_x1 * width, cr_y1 * height
+                #     c_px_x2, c_px_y2 = cr_x2 * width, cr_y2 * height
+                #     
+                #     valid_dets = []
+                #     for det in detections:
+                #         dx1, dy1, dx2, dy2 = det[:4]
+                #         ix1 = max(dx1, c_px_x1)
+                #         iy1 = max(dy1, c_px_y1)
+                #         ix2 = min(dx2, c_px_x2)
+                #         iy2 = min(dy2, c_px_y2)
+                #         inter_area = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+                #         det_area = (dx2 - dx1) * (dy2 - dy1)
+                #         overlap_ratio = inter_area / det_area if det_area > 0 else 0
+                #         if overlap_ratio > 0.25:
+                #             valid_dets.append(det)
+                #     if len(valid_dets) < len(detections):
+                #          log_debug(f"Frame {i}: Filtered {len(detections) - len(valid_dets)} detections outside crop.")
+                #     detections = np.array(valid_dets) if len(valid_dets) > 0 else np.empty((0, 6))
 
-                        inter_area = max(0, ix2 - ix1) * max(0, iy2 - iy1)
-                        det_area = (dx2 - dx1) * (dy2 - dy1)
-                        
-                        overlap_ratio = inter_area / det_area if det_area > 0 else 0
-                        
-                        if overlap_ratio > 0.25:
-                            valid_dets.append(det)
-                    
-                    if len(valid_dets) < len(detections):
-                         log_debug(f"Frame {i}: Filtered {len(detections) - len(valid_dets)} detections outside crop.")
-                    
-                    detections = np.array(valid_dets) if len(valid_dets) > 0 else np.empty((0, 6))
             except Exception as e:
                 print(f"YOLO inference failed: {e}")
         # Else: detections remains empty, tracker will use Kalman prediction
@@ -699,59 +714,51 @@ def main():
                     )
                 else:
                     lost_frames += 1
-                    # TIMEOUT: Keep tracking for 60 frames (~2s at 30fps) - prevents long drift
-                    if lost_frames > 60 and target_track_id is not None:
+                    # TIMEOUT: Keep tracking for 300 frames (10s at 30fps) - matches DeepOCSORT max_age
+                    if lost_frames > 300 and target_track_id is not None:
                         log_debug(f"Target ID {target_track_id} lost for {lost_frames} frames (TIMEOUT). Keeping last known position.")
                         # DON'T reset target_track_id - keep trying to find the same person
                         # Only reset prev_center to force strict crop-based re-lock
                         lost_frames = 0
 
                 if not found and target_track_id is not None and prev_bbox_center is not None:
-                    # NOTE: Real-time mid-stroke lock is NOT implemented.
-                    # Single-ID invariant is enforced via post-processing validation.
-                    # RELAXED RE-LOCK - Allow larger jumps for re-entry
-                    margin = 100  # pixels (increased from 50)
+                    # FIX: EDGE RE-ENTRY LOGIC
+                    # If target is lost, check if a NEW track has appeared very close to the last known position.
+                    # This handles the case where DeepOCSORT drops the ID (e.g. ID 1) and assigns a new one (ID 5) upon re-entry.
+                    
                     px, py = prev_bbox_center
+                    margin = 150
                     is_near_edge = (px < margin or px > width - margin or 
                                     py < margin or py > height - margin)
                     
-                    # Initialize variables before conditional
-                    new_id = None
-                    best_candidate = None
-                    # RELAXED: Allow up to 200px jump if near edge or lost for a while
-                    min_dist = 200 if (is_near_edge or lost_frames > 15) else 50
+                    # Search radius: Stricter than before to avoid swapping
+                    # 100px normally, 150px if near edge (fast movement off-screen)
+                    max_relock_dist = 150 if is_near_edge else 80 
                     
-                    if is_near_edge:
-                        if i % 30 == 0:
-                            log_debug(f"Target ID {target_track_id} waiting near edge ({int(px)},{int(py)})...")
+                    # Log waiting state periodically
+                    if i % 30 == 0:
+                        log_debug(f"Target ID {target_track_id} lost. Scanning for re-entry within {max_relock_dist}px (Edge: {is_near_edge})...")
                     
-                    # STRICT RE-LOCK: Only consider candidates INSIDE the crop region
+                    best_new_id = None
+                    best_dist = float('inf')
+                    
                     for t in tracks:
                         x1, y1, x2, y2, tid, conf, cls = t[:7]
                         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-                        dist = np.sqrt((cx - prev_bbox_center[0])**2 + (cy - prev_bbox_center[1])**2)
                         
-                        bbox_size = (x2 - x1) * (y2 - y1)
-                        confidence = float(conf)
+                        dist = np.sqrt((cx - px)**2 + (cy - py)**2)
                         
-                        # STRICT: Must be inside crop region if one was provided
-                        in_crop = True
-                        if crop_region_norm is not None:
-                            rx1, ry1, rx2, ry2 = crop_region_norm
-                            crop_x1, crop_y1 = rx1 * width, ry1 * height
-                            crop_x2, crop_y2 = rx2 * width, ry2 * height
-                            in_crop = (cx >= crop_x1 and cx <= crop_x2 and cy >= crop_y1 and cy <= crop_y2)
-                        
-                        # Only consider if inside crop AND reasonable detection
-                        if in_crop and dist < min_dist and confidence > 0.5 and bbox_size > 1000:
-                            min_dist = dist
-                            new_id = int(tid)
-                            best_candidate = t
-                    
-                    if new_id is not None and best_candidate is not None:
-                        log_debug(f"--> RELAXED RE-LOCK: Lost ID {int(target_track_id)}, switched to {new_id} (Dist: {min_dist:.1f}px)")
-                        target_track_id = new_id
-                        # Re-search with new ID
+                        # Conditions for Re-Lock:
+                        # 1. Distance valid
+                        # 2. Not an unreasonable jump (prevents cross-court swaps)
+                        if dist < max_relock_dist and dist < best_dist:
+                            best_dist = dist
+                            best_new_id = int(tid)
+                            
+                    if best_new_id is not None:
+                        log_debug(f"--> RELOCK SUCCESS: Switched from lost ID {target_track_id} to new ID {best_new_id} (Dist: {best_dist:.1f}px)")
+                        target_track_id = best_new_id
+                        # Update found status immediately
                         for t in tracks:
                             if int(t[4]) == target_track_id:
                                 x1, y1, x2, y2, tid, conf, cls = t[:7]
@@ -759,9 +766,6 @@ def main():
                                 best_conf = float(conf)
                                 found = True
                                 break
-                    else:
-                        if i % 30 == 0:
-                            log_debug(f"WARNING: Target ID {target_track_id} lost, no suitable re-lock IN CROP (closest: {min_dist:.1f}px)")
         except Exception as e:
             log_debug(f"CRITICAL ERROR in Target Selection: {e}")
             traceback.print_exc()
