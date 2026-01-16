@@ -18,7 +18,7 @@ function AnalysisContent() {
     const strokeType = searchParams.get('stroke') || 'serve';
     const [analysisData, setAnalysisData] = useState<any>(null);
     const [expandedCoach, setExpandedCoach] = useState(true);
-    
+
     const [llmResponse, setLlmResponse] = useState<string | null>(null);
     const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -28,7 +28,7 @@ function AnalysisContent() {
             try {
                 const parsed = JSON.parse(storedResult);
                 setAnalysisData(parsed);
-                
+
                 // Use cached LLM response from database
                 if (parsed.llm_response) {
                     setLlmResponse(parsed.llm_response);
@@ -47,11 +47,11 @@ function AnalysisContent() {
                 <div className="text-center">
                     <div className="text-black mb-2 animate-pulse">Loading analysis...</div>
                     <button
-                            onClick={() => router.push('/strikesense/upload')}
+                        onClick={() => router.push('/strikesense/upload')}
                         className="text-sm text-neutral-500 hover:text-black underline"
-                        >
+                    >
                         Start over
-                        </button>
+                    </button>
                 </div>
             </div>
         );
@@ -75,7 +75,7 @@ function AnalysisContent() {
         low: frames.filter((f: any) => f.injury_risk === 'low').length
     };
     const totalRiskFrames = riskCounts.high + riskCounts.medium + riskCounts.low;
-    const riskScore = totalRiskFrames > 0 
+    const riskScore = totalRiskFrames > 0
         ? Math.round(((riskCounts.low * 100 + riskCounts.medium * 50 + riskCounts.high * 0) / totalRiskFrames))
         : 100;
 
@@ -91,7 +91,7 @@ function AnalysisContent() {
     const hipScore = hipRotations.length > 0 ? Math.min(100, (getAverage(hipRotations) || 0) * 3) : 70;
     const kneeScore = calculateScore(kneeFlexions, 120, 170);
     const overallScore = Math.round((shoulderScore + hipScore + kneeScore + riskScore) / 4);
-    
+
     const getGrade = (score: number) => {
         if (score >= 90) return 'A';
         if (score >= 80) return 'B+';
@@ -125,9 +125,9 @@ function AnalysisContent() {
                     avgKnee: getAverage(kneeFlexions),
                     avgElbow: getAverage(elbowAngles),
                     llmResponse,
-                    generatedAt: new Date().toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
+                    generatedAt: new Date().toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
                         day: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit'
@@ -193,7 +193,7 @@ function AnalysisContent() {
                             className="p-2.5 bg-neutral-100 border border-neutral-200 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-black transition"
                         >
                             <Home className="w-4 h-4" />
-                    </button>
+                        </button>
                     </div>
                 </div>
 
@@ -208,8 +208,8 @@ function AnalysisContent() {
                     </h1>
                     <p className="text-neutral-500 text-sm">
                         {strokeType.charAt(0).toUpperCase() + strokeType.slice(1)} Analysis • {new Date().toLocaleDateString()}
-                                </p>
-                            </div>
+                    </p>
+                </div>
 
                 {/* Grade Card */}
                 <div className="bg-neutral-50 rounded-2xl p-6 md:p-8 border border-neutral-200 mb-6">
@@ -226,40 +226,40 @@ function AnalysisContent() {
                         <div className="w-20 h-20 md:w-24 md:h-24 relative">
                             <svg className="w-full h-full transform -rotate-90">
                                 <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="8" className="text-neutral-200" />
-                                <circle 
-                                    cx="50%" cy="50%" r="45%" fill="none" stroke="black" strokeWidth="8" 
+                                <circle
+                                    cx="50%" cy="50%" r="45%" fill="none" stroke="black" strokeWidth="8"
                                     strokeLinecap="round"
                                     strokeDasharray={`${overallScore * 2.83} 283`}
                                 />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <Award className="w-8 h-8 md:w-10 md:h-10 text-black" />
-                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Key Metrics Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                    <MetricCard 
+                    <MetricCard
                         icon={<Target className="w-4 h-4" />}
                         label="Frames Analyzed"
                         value={frames.length.toString()}
                         subtext={`${summary.duration_sec?.toFixed(1) || '0'}s duration`}
                     />
-                    <MetricCard 
+                    <MetricCard
                         icon={<Shield className="w-4 h-4" />}
                         label="Form Safety"
                         value={`${riskScore}%`}
                         subtext={riskCounts.high > 0 ? `${riskCounts.high} caution` : 'Looking good'}
                     />
-                    <MetricCard 
+                    <MetricCard
                         icon={<Activity className="w-4 h-4" />}
                         label="Avg Hip Rotation"
                         value={getAverage(hipRotations)?.toFixed(0) || '--'}
                         subtext="degrees"
                     />
-                    <MetricCard 
+                    <MetricCard
                         icon={<Zap className="w-4 h-4" />}
                         label="Shoulder Range"
                         value={`${getMin(shoulderAngles)?.toFixed(0) || '--'}-${getMax(shoulderAngles)?.toFixed(0) || '--'}`}
@@ -271,28 +271,28 @@ function AnalysisContent() {
                 <div className="bg-neutral-50 rounded-2xl p-5 md:p-6 border border-neutral-200 mb-6">
                     <h2 className="text-lg font-semibold text-black mb-5 flex items-center gap-2">
                         <TrendingUp className="w-5 h-5 text-neutral-600" />
-                        Biomechanics Breakdown
+                        Technique Analysis
                     </h2>
 
                     <div className="space-y-5">
-                        <MetricBar 
-                            label="Shoulder Mechanics" 
-                            value={Math.round(shoulderScore)} 
+                        <MetricBar
+                            label="Shoulder Mechanics"
+                            value={Math.round(shoulderScore)}
                             detail={getAverage(shoulderAngles) ? `Avg: ${getAverage(shoulderAngles)?.toFixed(0)}°` : 'No data'}
                         />
-                        <MetricBar 
-                            label="Hip Power Transfer" 
-                            value={Math.round(hipScore)} 
+                        <MetricBar
+                            label="Hip Power Transfer"
+                            value={Math.round(hipScore)}
                             detail={getAverage(hipRotations) ? `Avg: ${getAverage(hipRotations)?.toFixed(0)}°` : 'No data'}
                         />
-                        <MetricBar 
-                            label="Knee Stability" 
-                            value={Math.round(kneeScore)} 
+                        <MetricBar
+                            label="Knee Stability"
+                            value={Math.round(kneeScore)}
                             detail={getAverage(kneeFlexions) ? `Avg: ${getAverage(kneeFlexions)?.toFixed(0)}°` : 'No data'}
                         />
-                        <MetricBar 
-                            label="Elbow Extension" 
-                            value={elbowAngles.length > 0 ? Math.round(calculateScore(elbowAngles, 90, 150)) : 80} 
+                        <MetricBar
+                            label="Elbow Extension"
+                            value={elbowAngles.length > 0 ? Math.round(calculateScore(elbowAngles, 90, 150)) : 80}
                             detail={getAverage(elbowAngles) ? `Avg: ${getAverage(elbowAngles)?.toFixed(0)}°` : 'No data'}
                         />
                     </div>
@@ -409,7 +409,7 @@ function MetricBar({ label, value, detail }: { label: string; value: number; det
                 </div>
             </div>
             <div className="h-2 bg-neutral-200 rounded-full overflow-hidden">
-                <div 
+                <div
                     className="h-full bg-black transition-all duration-700"
                     style={{ width: `${value}%` }}
                 />

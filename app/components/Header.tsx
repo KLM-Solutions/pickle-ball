@@ -27,7 +27,7 @@ export default function Header() {
                 </div>
                 <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-xs text-neutral-600">
                     <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
-                    AI-Powered Biomechanics
+                    Pro Stroke Analysis
                 </div>
             </div>
 

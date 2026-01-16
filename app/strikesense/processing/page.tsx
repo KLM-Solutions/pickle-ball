@@ -22,7 +22,7 @@ function ProcessingContent() {
     { id: 'upload', label: 'Sending to cloud', icon: '☁️', status: 'pending' },
     { id: 'pose', label: 'Detecting pose', icon: '🤖', status: 'pending' },
     { id: 'strokes', label: 'Classifying strokes', icon: '🎾', status: 'pending' },
-    { id: 'biomechanics', label: 'Calculating biomechanics', icon: '📊', status: 'pending' },
+    { id: 'biomechanics', label: 'Analyzing technique', icon: '📊', status: 'pending' },
     { id: 'insights', label: 'Generating insights', icon: '✨', status: 'pending' }
   ]);
   const [overallProgress, setOverallProgress] = useState(0);
@@ -32,7 +32,7 @@ function ProcessingContent() {
   const [jobCompleted, setJobCompleted] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [copied, setCopied] = useState(false);
-  
+
   const hasStarted = useRef(false);
 
   const setStageStatus = (index: number, status: 'pending' | 'active' | 'complete') => {
@@ -125,7 +125,7 @@ function ProcessingContent() {
         setJobId(newJobId);
         setJobCreated(true);
         sessionStorage.setItem('currentJobId', newJobId);
-        
+
         setStageStatus(0, 'complete');
         setOverallProgress(20);
 
@@ -138,7 +138,7 @@ function ProcessingContent() {
           pollCount++;
 
           const statusResponse = await fetch(`/api/analyze/status?job_id=${newJobId}`);
-          
+
           if (!statusResponse.ok) {
             continue;
           }
@@ -195,14 +195,14 @@ function ProcessingContent() {
           </div>
           <h1 className="text-2xl md:text-3xl font-bold mb-2 text-black">Analysis Complete! 🎾</h1>
           <p className="text-neutral-500 mb-6 text-sm md:text-base">Your stroke analysis is ready to view</p>
-          
+
           <button
             onClick={() => router.push(`/strikesense/player?stroke=${strokeType}&job_id=${jobId}`)}
             className="flex items-center justify-center gap-2 w-full py-3.5 bg-black hover:bg-neutral-800 text-white rounded-xl font-bold transition text-sm md:text-base mb-3"
           >
             <Play className="w-5 h-5" /> View Results
           </button>
-          
+
           <div className="flex gap-3">
             <button
               onClick={() => router.push('/')}
@@ -252,8 +252,8 @@ function ProcessingContent() {
     <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
       <div className="relative z-10 max-w-xl w-full text-center">
         <h1 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-black">Analyzing Your Stroke</h1>
-        <p className="text-neutral-500 mb-1.5 md:mb-2 text-sm md:text-base">GPU-powered AI analysis in progress</p>
-        <p className="text-[10px] md:text-xs text-neutral-400 mb-6 md:mb-8">Processing on RunPod Serverless</p>
+        <p className="text-neutral-500 mb-1.5 md:mb-2 text-sm md:text-base">Analyzing your technique</p>
+        <p className="text-[10px] md:text-xs text-neutral-400 mb-6 md:mb-8">This may take a moment</p>
 
         {/* Job Created Success Card */}
         {jobCreated && jobId && (
@@ -262,7 +262,7 @@ function ProcessingContent() {
               <CheckCircle className="w-5 h-5 text-black" />
               <span className="text-black font-semibold text-sm">Job Created Successfully!</span>
             </div>
-            
+
             <div className="flex items-center justify-center gap-2 mb-3">
               <span className="text-neutral-500 text-xs">Job ID:</span>
               <code className="bg-white border border-neutral-200 px-2 py-1 rounded text-xs text-black font-mono">
@@ -290,7 +290,7 @@ function ProcessingContent() {
                 <Home className="w-3.5 h-3.5" />
                 Go Home
               </button>
-              
+
               <button
                 onClick={() => router.push('/strikesense/history')}
                 className="flex-1 flex items-center justify-center gap-2 py-2 bg-neutral-200 hover:bg-neutral-300 text-black rounded-lg text-xs font-medium transition"
@@ -354,10 +354,9 @@ function ProcessingContent() {
             >
               <div className="flex items-center gap-3 md:gap-4">
                 <span className="text-xl md:text-2xl flex-shrink-0">{stage.icon}</span>
-                <span className={`flex-1 text-left font-medium text-xs md:text-sm ${
-                  stage.status === 'active' ? 'text-black' : 
-                  stage.status === 'complete' ? 'text-neutral-700' : 'text-neutral-400'
-                }`}>
+                <span className={`flex-1 text-left font-medium text-xs md:text-sm ${stage.status === 'active' ? 'text-black' :
+                    stage.status === 'complete' ? 'text-neutral-700' : 'text-neutral-400'
+                  }`}>
                   {stage.label}
                 </span>
                 {stage.status === 'complete' && (

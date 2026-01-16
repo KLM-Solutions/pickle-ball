@@ -274,7 +274,7 @@ function UploadContent() {
                         <div className="grid grid-cols-3 gap-2 md:gap-3 mt-4 md:mt-6">
                             {[
                                 { icon: Cloud, label: 'Cloud Upload', desc: 'Fast & secure' },
-                                { icon: Zap, label: 'GPU Analysis', desc: 'AI-powered' },
+                                { icon: Zap, label: 'Fast Analysis', desc: 'Pro-level' },
                                 { icon: Shield, label: 'Private', desc: 'Your data safe' },
                             ].map((feature, i) => (
                                 <div key={i} className="bg-neutral-50 border border-neutral-200 rounded-xl md:rounded-2xl p-3 md:p-4 text-center">

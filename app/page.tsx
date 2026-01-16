@@ -151,7 +151,7 @@ export default function Home() {
             {[
               { step: "1", title: "Upload Video", desc: "Record your stroke from any angle", icon: Target },
               { step: "2", title: "Select Player", desc: "Draw a box around yourself", icon: Zap },
-              { step: "3", title: "Get Analysis", desc: "View biomechanics & feedback", icon: Shield },
+              { step: "3", title: "Get Analysis", desc: "View detailed feedback", icon: Shield },
             ].map((item, i) => (
               <div key={i} className="flex flex-col items-center">
                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-black flex items-center justify-center text-base md:text-lg font-bold mb-2 md:mb-3 text-white">
@@ -178,7 +178,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="relative z-10 text-center py-6 md:py-8 border-t border-neutral-200 mt-8">
         <p className="text-xs md:text-sm text-neutral-400 px-4">
-          © 2024 StrikeSense • AI-Powered Pickleball Analysis
+          © 2024 StrikeSense • Pickleball Analysis
         </p>
       </footer>
 
