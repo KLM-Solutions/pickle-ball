@@ -94,7 +94,7 @@ export default function DemoPage() {
             <div className="flex-1 flex items-center justify-center">
                 <video
                     ref={videoRef}
-                    src="/images/video.MP4"
+                    src="https://tnfqqcjstysyuqajfoqr.supabase.co/storage/v1/object/public/videos/Untitled%20video%20-%20Made%20with%20Clipchamp%20(16).mp4"
                     className="w-full h-full object-contain"
                     muted
                     playsInline
