@@ -131,6 +131,13 @@ If the setup looks good, respond with high score and empty issues array.`;
         // Extract the response text
         const responseText = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text;
 
+        // Log the LLM response for debugging
+        console.log('=== GEMINI CAMERA VALIDATION RESPONSE ===');
+        console.log('Stroke Type:', strokeType);
+        console.log('Frames Analyzed:', frames.length);
+        console.log('Raw Response:', responseText);
+        console.log('==========================================');
+
         if (!responseText) {
             console.error('No response from Gemini');
             return NextResponse.json(
