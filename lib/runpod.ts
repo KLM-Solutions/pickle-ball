@@ -7,7 +7,7 @@
 
 const RUNPOD_API_KEY = process.env.RUNPOD_API_KEY;
 const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
-const USE_LOCAL_SERVER = process.env.USE_LOCAL_SERVER === 'true';
+const USE_LOCAL_SERVER = process.env.USE_LOCAL_SERVER === 'false';
 
 // Use local server if flag is set, otherwise use RunPod
 const RUNPOD_BASE_URL = USE_LOCAL_SERVER
