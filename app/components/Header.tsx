@@ -14,7 +14,7 @@ export default function Header() {
     const router = useRouter();
 
     return (
-        <header className="relative z-10 flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-neutral-200 bg-white">
+        <header className="relative z-10 flex items-center justify-between px-4 md:px-6 py-4 md:py-5 border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
             <div className="flex items-center gap-3 md:gap-4">
                 <div className="flex items-center gap-2 md:gap-3">
                     <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-black flex items-center justify-center text-lg md:text-xl">
