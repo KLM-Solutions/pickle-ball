@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Upload, ArrowLeft, Cloud, Zap, Shield, Film } from "lucide-react";
 
 import { uploadVideo } from "@/lib/supabase";
+import CameraAngleValidator from "@/app/components/CameraAngleValidator";
+import { ValidationResult, StrokeType as CameraStrokeType } from "@/lib/analysis/cameraValidation";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +14,7 @@ function UploadContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const strokeType = searchParams.get('stroke') || 'serve';
-    
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -20,6 +22,12 @@ function UploadContent() {
     const [error, setError] = useState<string | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
 
+    // Camera angle validation state
+    const [showValidation, setShowValidation] = useState(false);
+    const [pendingFile, setPendingFile] = useState<File | null>(null);
+    const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+
+    // Triggered when user selects a file - shows validation first
     const handleFileSelect = async (file: File) => {
         if (!file || !file.type.startsWith('video/')) {
             setError('Please select a valid video file');
@@ -32,10 +40,45 @@ function UploadContent() {
             return;
         }
 
+        // Store file and show validation modal
+        setError(null);
+        setPendingFile(file);
+        setFileName(file.name);
+        setShowValidation(true);
+    };
+
+    // Called when validation completes
+    const handleValidationComplete = (result: ValidationResult, proceed: boolean) => {
+        setValidationResult(result);
+        setShowValidation(false);
+
+        if (proceed && pendingFile) {
+            // Store validation result in session for later reference
+            sessionStorage.setItem('cameraValidation', JSON.stringify({
+                score: result.score,
+                passed: result.passed,
+                issues: result.issues.map(i => i.message),
+            }));
+
+            proceedWithUpload(pendingFile);
+        } else {
+            // User chose to re-record
+            setPendingFile(null);
+            setFileName(null);
+        }
+    };
+
+    // Cancel validation and go back
+    const handleValidationCancel = () => {
+        setShowValidation(false);
+        setPendingFile(null);
+        setFileName(null);
+    };
+
+    // Proceed with actual upload after validation
+    const proceedWithUpload = async (file: File) => {
         try {
             setIsUploading(true);
-            setFileName(file.name);
-            setError(null);
             setUploadProgress(10);
 
             const progressInterval = setInterval(() => {
@@ -60,6 +103,7 @@ function UploadContent() {
             setError(err.message || 'Failed to upload video. Please try again.');
             setIsUploading(false);
             setUploadProgress(0);
+            setPendingFile(null);
         }
     };
 
@@ -72,6 +116,20 @@ function UploadContent() {
 
     return (
         <div className="min-h-screen bg-white text-neutral-900">
+            {/* Camera Angle Validation Modal */}
+            {showValidation && pendingFile && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="w-full max-w-sm animate-in fade-in zoom-in-95 duration-200">
+                        <CameraAngleValidator
+                            videoFile={pendingFile}
+                            strokeType={(strokeType as CameraStrokeType) || 'groundstroke'}
+                            onValidationComplete={handleValidationComplete}
+                            onCancel={handleValidationCancel}
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <header className="relative z-10 px-4 py-3 md:py-4">
                 <div className="max-w-lg mx-auto flex items-center justify-between">
@@ -91,7 +149,7 @@ function UploadContent() {
             {/* Main Content */}
             <main className="relative z-10 px-4 pb-6 md:pb-8">
                 <div className="max-w-lg mx-auto">
-                    
+
                     {/* Hero */}
                     <div className="text-center pt-2 md:pt-4 pb-6 md:pb-8">
                         <div className="inline-flex w-16 h-16 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-black items-center justify-center text-3xl md:text-4xl mb-4 md:mb-5">
@@ -119,8 +177,8 @@ function UploadContent() {
                         onClick={() => !isUploading && fileInputRef.current?.click()}
                         className={`
                             relative rounded-2xl md:rounded-3xl p-6 md:p-8 text-center cursor-pointer transition-all duration-300
-                            ${isDragging 
-                                ? 'bg-black scale-[1.02]' 
+                            ${isDragging
+                                ? 'bg-black scale-[1.02]'
                                 : 'bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-300 hover:border-neutral-400'
                             }
                             ${isUploading ? 'pointer-events-none' : ''}
@@ -131,7 +189,7 @@ function UploadContent() {
                             <div className="py-4 md:py-6">
                                 {/* Progress Ring */}
                                 <div className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 mx-auto mb-5 md:mb-6">
-                                    <svg 
+                                    <svg
                                         className="w-full h-full transform -rotate-90"
                                         viewBox="0 0 100 100"
                                     >
@@ -166,7 +224,7 @@ function UploadContent() {
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 <h3 className="text-lg sm:text-xl md:text-2xl font-bold mb-2">Uploading...</h3>
                                 <p className="text-neutral-500 text-xs sm:text-sm mb-2 truncate max-w-[220px] sm:max-w-[280px] mx-auto px-2">{fileName}</p>
                                 <p className="text-neutral-400 text-[10px] sm:text-xs">Securely uploading to cloud</p>
