@@ -23,6 +23,9 @@ export interface RawFrame {
 
 // Calculated metrics for a frame
 export interface FrameMetrics {
+  // Index signature for dynamic access (required by classification functions)
+  [key: string]: number | boolean | null | undefined;
+
   // Joint angles
   right_elbow_flexion: number | null;
   left_elbow_flexion: number | null;
@@ -31,17 +34,15 @@ export interface FrameMetrics {
   right_shoulder_abduction: number | null;
   left_shoulder_abduction: number | null;
   hip_rotation_deg: number | null;
-  
+
   // Position checks
   wrist_above_waist: boolean;
   wrist_above_head: boolean;
-  
+
   // Raw positions for reference
   nose_y: number | null;
   right_wrist_y: number | null;
   right_hip_y: number | null;
-<<<<<<< HEAD
-=======
 
   // Velocity fields (added for stroke classification)
   wrist_velocity_x?: number;
@@ -67,7 +68,6 @@ export interface FrameMetrics {
   // Frame timing (for segmentation)
   frame_idx?: number;
   time_sec?: number;
->>>>>>> 6f54442 (Complete 3D biomechanics upgrade)
 }
 
 // Risk level
@@ -118,6 +118,20 @@ export interface AnalysisResult {
   frames: AnalyzedFrame[];
   summary: AnalysisSummary;
   processingTime?: number;
+  strokes?: StrokeSegment[];  // NEW: Detected stroke segments
+}
+
+// Detected stroke segment
+export interface StrokeSegment {
+  strokeType: StrokeType | 'unknown';
+  startFrame: number;
+  endFrame: number;
+  startSec: number;
+  endSec: number;
+  peakFrameIdx: number;
+  peakTimestamp: number;
+  peakVelocity: number;
+  confidence: number;
 }
 
 // Stroke type
