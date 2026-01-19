@@ -8,11 +8,17 @@ This document explains all biomechanical calculations performed by StrikeSense f
 
 ### How Angles Are Calculated
 
-All joint angles use **3D vector math** with the dot product formula:
+Calculations use a **Hybrid 2D/3D Approach** to maximize accuracy where depth data is reliable:
 
-```
-cos(θ) = (BA · BC) / (|BA| × |BC|)
-```
+1.  **Joint Angles (Elbow, Knee, Shoulder)**: Calculated in **3D**.
+    *   Uses `x, y, z` coordinates from MediaPipe Pose.
+    *   Formula: `cos(θ) = (BA · BC) / (|BA| × |BC|)` (Vector Dot Product)
+    *   *Why 3D?* Calculating limb angles strictly in 2D is inaccurate when limbs are foreshortened (pointing at camera).
+
+2.  **Hip Rotation**: Calculated in **2D**.
+    *   Uses `x, y` coordinates only.
+    *   Formula: `arctan(|Y_diff| / |X_diff|)`
+    *   *Why 2D?* Single-camera depth estimation for torso rotation is noisy. 2D projection (measuring how "stacked" the hips look) is a more stable proxy for rotation relative to the camera plane.
 
 Where:
 - **Points A, B, C** form an angle at point B
