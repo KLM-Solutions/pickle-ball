@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import AICoachModal from "@/app/components/dashboard/AICoachModal";
 import {
     ArrowLeft,
     BarChart3,
@@ -19,6 +20,7 @@ import {
     XCircle,
     Minus,
     Dumbbell,
+    Sparkles,
 } from "lucide-react";
 
 interface TrendPoint {
@@ -126,6 +128,7 @@ export default function AnalyticsPage() {
     const [data, setData] = useState<AnalyticsSummary | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -321,6 +324,16 @@ export default function AnalyticsPage() {
                                 <span className="font-semibold capitalize">{data.averageRisk} Risk</span>
                             </div>
                         </div>
+
+                        <div className="mt-6 pt-6 border-t border-white/10 flex justify-end">
+                            <button
+                                onClick={() => setIsAIModalOpen(true)}
+                                className="flex items-center gap-2 text-indigo-300 hover:text-white transition font-medium group bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg border border-white/5 hover:border-white/20"
+                            >
+                                <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform text-indigo-400" />
+                                Get AI Coach Insights
+                            </button>
+                        </div>
                     </div>
                 </section>
 
@@ -514,6 +527,7 @@ export default function AnalyticsPage() {
                 </section>
 
             </main>
+            {data && <AICoachModal isOpen={isAIModalOpen} onClose={() => setIsAIModalOpen(false)} analyticsData={data} />}
         </div>
     );
 }
