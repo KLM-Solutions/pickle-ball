@@ -163,12 +163,12 @@ export default function AnalyticsPage() {
     // Auth required
     if (isLoaded && !isSignedIn) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-white flex items-center justify-center px-4">
+            <div className="min-h-screen bg-white flex items-center justify-center px-4">
                 <div className="text-center">
                     <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-2xl flex items-center justify-center shadow-lg">
                         <BarChart3 className="w-10 h-10 text-neutral-400" />
                     </div>
-                    <h2 className="text-2xl font-bold mb-2">Sign In Required</h2>
+                    <h2 className="text-2xl font-bold mb-2 text-black">Sign In Required</h2>
                     <p className="text-neutral-500 text-sm mb-6">Sign in to view your analytics</p>
                     <button onClick={() => router.push("/")} className="px-8 py-3 bg-black text-white rounded-xl font-medium hover:bg-neutral-800 transition">
                         Go Home
@@ -181,7 +181,7 @@ export default function AnalyticsPage() {
     // Loading
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-white flex items-center justify-center">
+            <div className="min-h-screen bg-white flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <div className="relative">
                         <div className="w-16 h-16 rounded-full border-4 border-neutral-200"></div>
@@ -196,12 +196,12 @@ export default function AnalyticsPage() {
     // Error
     if (error) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-white flex items-center justify-center px-4">
+            <div className="min-h-screen bg-white flex items-center justify-center px-4">
                 <div className="text-center">
                     <div className="w-20 h-20 mx-auto mb-6 bg-red-100 rounded-2xl flex items-center justify-center">
                         <AlertTriangle className="w-10 h-10 text-red-500" />
                     </div>
-                    <h2 className="text-xl font-bold mb-2">Error Loading Analytics</h2>
+                    <h2 className="text-xl font-bold mb-2 text-black">Error Loading Analytics</h2>
                     <p className="text-neutral-500 text-sm mb-6">{error}</p>
                     <button onClick={fetchAnalytics} className="px-8 py-3 bg-black text-white rounded-xl font-medium">
                         Try Again
@@ -214,13 +214,13 @@ export default function AnalyticsPage() {
     // Empty
     if (!data || data.totalSessions === 0) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-white">
-                <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-lg border-b border-neutral-200">
+            <div className="min-h-screen bg-white">
+                <header className="sticky top-0 z-20 bg-white border-b border-neutral-200">
                     <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
                         <button onClick={() => router.push("/")} className="p-2 hover:bg-neutral-100 rounded-xl transition">
                             <ArrowLeft className="w-5 h-5" />
                         </button>
-                        <h1 className="text-lg font-bold">Analytics</h1>
+                        <h1 className="text-lg font-bold text-black">Analytics</h1>
                     </div>
                 </header>
                 <div className="flex items-center justify-center min-h-[60vh] px-4">
@@ -228,7 +228,7 @@ export default function AnalyticsPage() {
                         <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-3xl flex items-center justify-center shadow-lg">
                             <BarChart3 className="w-12 h-12 text-neutral-400" />
                         </div>
-                        <h2 className="text-2xl font-bold mb-2">No Data Yet</h2>
+                        <h2 className="text-2xl font-bold mb-2 text-black">No Data Yet</h2>
                         <p className="text-neutral-500 text-sm mb-8">Complete your first stroke analysis to see your dashboard</p>
                         <button onClick={() => router.push("/")} className="px-8 py-4 bg-black text-white rounded-2xl font-bold hover:bg-neutral-800 transition">
                             Analyze Your First Stroke
@@ -246,15 +246,15 @@ export default function AnalyticsPage() {
         : 0;
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-white pb-8">
+        <div className="min-h-screen bg-white pb-8">
             {/* Header */}
-            <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-lg border-b border-neutral-200">
+            <header className="sticky top-0 z-20 bg-white border-b border-neutral-200">
                 <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button onClick={() => router.push("/")} className="p-2 hover:bg-neutral-100 rounded-xl transition">
-                            <ArrowLeft className="w-5 h-5" />
+                            <ArrowLeft className="w-5 h-5 text-black" />
                         </button>
-                        <h1 className="text-lg font-bold">Analytics Dashboard</h1>
+                        <h1 className="text-lg font-bold text-black">Analytics Dashboard</h1>
                     </div>
                     <span className="text-xs text-neutral-400">{data.totalSessions} sessions</span>
                 </div>
@@ -409,8 +409,8 @@ export default function AnalyticsPage() {
                                 <div className="h-3 bg-neutral-100 rounded-full overflow-hidden">
                                     <div
                                         className={`h-full rounded-full transition-all ${risk.value > risk.threshold ? "bg-gradient-to-r from-red-400 to-red-500" :
-                                                risk.value > risk.threshold / 2 ? "bg-gradient-to-r from-amber-400 to-amber-500" :
-                                                    "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                                            risk.value > risk.threshold / 2 ? "bg-gradient-to-r from-amber-400 to-amber-500" :
+                                                "bg-gradient-to-r from-emerald-400 to-emerald-500"
                                             }`}
                                         style={{ width: `${Math.min(risk.value * 3, 100)}%` }}
                                     />
