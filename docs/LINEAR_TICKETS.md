@@ -179,3 +179,51 @@ Implement advanced calculation engines to track velocity, acceleration, and post
 8
 
 ---
+
+## Ticket 4: AI Coach Insights Feature
+
+---
+
+### Title
+**Implement AI Coach Insights for Personalized Training Feedback**
+
+### Description
+Integrate generative AI to provide personalized, qualitative feedback based on quantitative biomechanics data. This feature adds an "AI Coach" element to the dashboard, summarizing performance, highlighting key takeaways, and suggesting focus drills using natural language.
+
+### Acceptance Criteria
+- [x] **API Endpoint (`/api/analytics/ai-summary`)**:
+  - Accept `AnalyticsSummary` JSON payload
+  - Connect to OpenAI API using `gpt-4o-mini`
+  - Generate structured JSON response: `{ summary, takeaways[], focus_drill }`
+  - Handle errors gracefully (e.g., API timeouts)
+
+- [x] **Dashboard UI Integration**:
+  - Add "✨ Get AI Coach Insights" button to the Hero Score Card
+  - Ensure button is responsive (centered on mobile, right-aligned on desktop)
+  - Display loading state with appropriate animation ("Analyzing your biomechanics...")
+
+- [x] **Insights Modal Component**:
+  - Display AI-generated content in a premium, glassmorphic modal
+  - Show Summary text with encouragement
+  - List 3 Key Takeaways with bullet points
+  - Highlight "Next Focus Drill" in a distinct section
+  - Responsive design (scrollable content on mobile, fixed header)
+
+### Technical Details
+**API Prompt Structure:**
+- Role: Professional Pickleball Coach
+- Input: Skill Score, Risk Analysis, Trend Data, Stroke Breakdown
+- Output Format: Strictly JSON
+
+**New Components:**
+- `app/components/dashboard/AICoachModal.tsx`
+- `app/api/analytics/ai-summary/route.ts`
+
+### Labels
+`frontend`, `backend`, `ai`, `feature`
+
+### Priority
+**High**
+
+### Story Points
+5
