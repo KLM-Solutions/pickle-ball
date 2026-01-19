@@ -301,8 +301,8 @@ export default function AnalyticsPage() {
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
 
                     <div className="relative z-10">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                            <div className="flex-1">
+                        <div className="flex flex-col gap-6">
+                            <div>
                                 <p className="text-white font-medium text-sm mb-2 opacity-90">Your Skill Score</p>
                                 <div className="flex items-end gap-4 mb-4">
                                     <span className="text-6xl md:text-7xl font-bold text-white drop-shadow-sm">{data.skillScore}</span>
@@ -314,7 +314,7 @@ export default function AnalyticsPage() {
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex flex-wrap gap-4 text-sm">
+                                <div className="flex flex-wrap gap-4 text-sm mt-4">
                                     <div className="bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
                                         <span className="text-indigo-100">Sessions: </span>
                                         <span className="font-bold text-white">{data.totalSessions}</span>
@@ -328,15 +328,6 @@ export default function AnalyticsPage() {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Dynamic Skeleton Visualization */}
-                            <div className="flex justify-center md:mr-8 relative group">
-                                <div className="absolute inset-0 bg-white/5 rounded-full blur-2xl transform scale-110 group-hover:bg-white/10 transition duration-500"></div>
-                                <div className="relative p-2">
-                                    <p className="text-[10px] text-indigo-200 uppercase tracking-widest text-center mb-1 font-semibold opacity-70">Kinematic Chain</p>
-                                    <BioSkeleton risks={data.riskBreakdown} className="h-32 sm:h-40 w-auto drop-shadow-lg" />
-                                </div>
-                            </div>
                         </div>
 
                         <div className="mt-6 pt-6 border-t border-white/10 flex justify-center sm:justify-end">
@@ -347,6 +338,24 @@ export default function AnalyticsPage() {
                                 <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform text-indigo-600" />
                                 Get AI Coach Insights
                             </button>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Kinematic Chain Status Section */}
+                <section className="bg-white border border-neutral-200 rounded-3xl p-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -translate-y-1/2 translate-x-1/2 z-0"></div>
+                    <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                        <div>
+                            <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                <Dumbbell className="w-4 h-4" /> Kinematic Chain Status
+                            </h2>
+                            <p className="text-neutral-600 text-sm max-w-sm">
+                                Visual representation of your biomechanical stress points. <span className="text-emerald-600 font-medium">Green</span> indicates optimal form, while <span className="text-red-500 font-medium">Red</span> highlights areas needing attention.
+                            </p>
+                        </div>
+                        <div className="flex justify-center p-4 bg-neutral-50 rounded-2xl border border-neutral-100 shadow-sm w-full sm:w-auto min-w-[200px]">
+                            <BioSkeleton risks={data.riskBreakdown} className="h-40 w-auto" />
                         </div>
                     </div>
                 </section>
