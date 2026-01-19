@@ -9,12 +9,14 @@
 import { calculateMetrics } from './angles';
 import { detectRisks, calculateRiskPercentages, getOverallRisk } from './risk';
 import { generateFeedback } from './feedback';
+import { detectStrokes } from './segmentation';
 import {
   RawFrame,
   AnalyzedFrame,
   AnalysisResult,
   AnalysisSummary,
   StrokeType,
+  FrameMetrics,
 } from './types';
 
 // Re-export types for convenience
@@ -46,6 +48,14 @@ export {
   type CoachingRecommendation,
 } from './recommendations';
 
+// Export stroke detection module
+export {
+  detectStrokes,
+  detectSegments,
+  type StrokeSegment,
+} from './segmentation';
+export { classifyStroke, THRESHOLDS } from './classify';
+
 /**
  * Analyze all frames and generate complete analysis result
  * 
@@ -65,10 +75,13 @@ export function analyzeFrames(
 ): AnalysisResult {
   const stroke = strokeType as StrokeType;
 
+  // Calculate FPS from frames if not provided (need it early for velocity)
+  const calculatedFps = fps || estimateFps(rawFrames);
+
   // Analyze each frame
-  const analyzedFrames: AnalyzedFrame[] = rawFrames.map(frame => {
+  const analyzedFrames: AnalyzedFrame[] = rawFrames.map((frame, index) => {
     // Calculate metrics from landmarks
-    const metrics = frame.landmarks
+    const baseMetrics = frame.landmarks
       ? calculateMetrics(frame.landmarks)
       : {
         right_elbow_flexion: null,
@@ -96,6 +109,13 @@ export function analyzeFrames(
         left_shoulder_z: undefined,
       };
 
+    // Enrich metrics with frame timing for segmentation
+    const metrics: FrameMetrics = {
+      ...baseMetrics,
+      frame_idx: frame.frameIdx,
+      time_sec: frame.timestampSec,
+    };
+
     // Detect injury risks
     const { risks, level } = detectRisks(metrics, stroke);
 
@@ -116,9 +136,6 @@ export function analyzeFrames(
       feedback,
     };
   });
-
-  // Calculate FPS from frames if not provided
-  const calculatedFps = fps || estimateFps(rawFrames);
 
   // Calculate duration
   const duration = rawFrames.length > 0
@@ -142,12 +159,17 @@ export function analyzeFrames(
     risk_percentages: riskPercentages,
   };
 
+  // NEW: Detect strokes from analyzed frames
+  const metricsForSegmentation = analyzedFrames.map(f => f.metrics);
+  const strokes = detectStrokes(metricsForSegmentation, stroke, calculatedFps);
+
   return {
     job_id: jobId,
     stroke_type: strokeType,
     videoUrl,
     frames: analyzedFrames,
     summary,
+    strokes,  // NEW: Include detected stroke segments
   };
 }
 
