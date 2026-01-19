@@ -68,7 +68,7 @@ const BASE_JOINTS: Record<string, Point3D> = {
 
 export default function BioSkeleton({ risks, className = "" }: BioSkeletonProps) {
     const [angle, setAngle] = useState(0);
-    const requestRef = useRef<number>();
+    const requestRef = useRef<number | null>(null);
 
     // Animation Loop
     useEffect(() => {
