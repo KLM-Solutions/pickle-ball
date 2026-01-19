@@ -325,7 +325,7 @@ export default function AnalyticsPage() {
                             </div>
                         </div>
 
-                        <div className="mt-6 pt-6 border-t border-white/10 flex justify-end">
+                        <div className="mt-6 pt-6 border-t border-white/10 flex justify-center sm:justify-end">
                             <button
                                 onClick={() => setIsAIModalOpen(true)}
                                 className="flex items-center gap-2 text-indigo-300 hover:text-white transition font-medium group bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg border border-white/5 hover:border-white/20"
