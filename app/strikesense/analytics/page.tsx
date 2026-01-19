@@ -160,6 +160,35 @@ export default function AnalyticsPage() {
         return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     };
 
+    // Fetch full job data and navigate to player - mimics history page behavior
+    const handleViewSession = async (jobId: string, strokeType: string) => {
+        try {
+            // Fetch the full job data from the API
+            const response = await fetch(`/api/analyze/status?job_id=${jobId}`);
+            if (!response.ok) throw new Error("Failed to fetch job data");
+            const jobData = await response.json();
+
+            if (jobData.result) {
+                // Store the full analysis result in sessionStorage (same as history page)
+                const analysisResult = {
+                    ...jobData.result,
+                    videoUrl: jobData.result_video_url || jobData.result?.videoUrl,
+                    stroke_type: strokeType,
+                    llm_response: jobData.llm_response,
+                };
+                sessionStorage.setItem("analysisResult", JSON.stringify(analysisResult));
+                router.push(`/strikesense/player?stroke=${strokeType}&job_id=${jobId}`);
+            } else {
+                // Fallback - just navigate and let player page handle it
+                router.push(`/strikesense/player?stroke=${strokeType}&job_id=${jobId}`);
+            }
+        } catch (err) {
+            console.error("Error fetching job data:", err);
+            // Fallback navigation
+            router.push(`/strikesense/player?stroke=${strokeType}&job_id=${jobId}`);
+        }
+    };
+
     // Auth required
     if (isLoaded && !isSignedIn) {
         return (
@@ -461,7 +490,7 @@ export default function AnalyticsPage() {
                         {data.recentSessions.map((session) => (
                             <button
                                 key={session.id}
-                                onClick={() => router.push(`/strikesense/player?job_id=${session.id}`)}
+                                onClick={() => handleViewSession(session.id, session.stroke_type)}
                                 className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 transition"
                             >
                                 <div className="flex items-center gap-3">
