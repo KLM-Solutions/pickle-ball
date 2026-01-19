@@ -318,7 +318,7 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                                     <p className={`text-sm font-medium ${currentFrame?.metrics?.injury_risk && currentFrame.metrics.injury_risk !== 'low' ? 'text-red-300' : 'text-slate-400'}`}>
                                         {currentFrame?.metrics?.injury_risk && currentFrame.metrics.injury_risk !== 'low'
                                             ? `FAULT: ${currentFrame.metrics.feedback?.[0] || 'Form deviation detected'}`
-                                            : 'Monitoring player biomechanics...'}
+                                            : 'Monitoring technique...'}
                                     </p>
                                 </div>
 

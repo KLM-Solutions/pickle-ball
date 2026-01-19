@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://strikesense.ai'),
-  title: "StrikeSense AI - Pickleball Analysis",
-  description: "Advanced AI-powered biomechanics and stroke analysis for Pickleball.",
+  title: "StrikeSense - Pickleball Analysis",
+  description: "Professional stroke analysis and technique feedback for Pickleball players.",
 };
 
 export default function RootLayout({

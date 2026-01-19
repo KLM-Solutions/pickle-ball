@@ -94,6 +94,17 @@ export default function Home() {
 
         {/* Stroke Selection */}
         <div className="mb-8">
+          {/* Demo Link */}
+          <div className="text-center mb-4 md:mb-6">
+            <button
+              onClick={() => router.push('/demo')}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-full text-sm font-medium text-neutral-700 transition-all"
+            >
+              <span>🎬</span>
+              <span>Watch Demo</span>
+            </button>
+          </div>
+
           <h3 className="text-center text-[10px] md:text-sm font-medium text-neutral-400 uppercase tracking-wider mb-6 md:mb-8">
             Select Your Stroke Type
           </h3>
@@ -151,7 +162,7 @@ export default function Home() {
             {[
               { step: "1", title: "Upload Video", desc: "Record your stroke from any angle", icon: Target },
               { step: "2", title: "Select Player", desc: "Draw a box around yourself", icon: Zap },
-              { step: "3", title: "Get Analysis", desc: "View biomechanics & feedback", icon: Shield },
+              { step: "3", title: "Get Analysis", desc: "View detailed feedback", icon: Shield },
             ].map((item, i) => (
               <div key={i} className="flex flex-col items-center">
                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-black flex items-center justify-center text-base md:text-lg font-bold mb-2 md:mb-3 text-white">
@@ -178,7 +189,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="relative z-10 text-center py-6 md:py-8 border-t border-neutral-200 mt-8">
         <p className="text-xs md:text-sm text-neutral-400 px-4">
-          © 2024 StrikeSense • AI-Powered Pickleball Analysis
+          © 2024 StrikeSense • Pickleball Analysis
         </p>
       </footer>
 
@@ -204,8 +215,17 @@ export default function Home() {
                   </button>
                 </SignInButton>
                 <button
+                  onClick={() => {
+                    setShowSignInPrompt(false);
+                    router.push('/demo');
+                  }}
+                  className="w-full py-3 bg-neutral-100 text-neutral-700 rounded-xl font-semibold text-sm hover:bg-neutral-200 transition-colors"
+                >
+                  🎬 Try Demo Instead
+                </button>
+                <button
                   onClick={() => setShowSignInPrompt(false)}
-                  className="w-full py-3 text-neutral-500 text-sm font-medium hover:text-black transition-colors"
+                  className="w-full py-2 text-neutral-500 text-sm font-medium hover:text-black transition-colors"
                 >
                   Cancel
                 </button>

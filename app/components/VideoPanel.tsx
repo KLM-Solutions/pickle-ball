@@ -388,7 +388,7 @@ export default function VideoPanel({
                             <Loader2 className="h-12 w-12 text-primary animate-spin" />
                             <div className="text-center">
                                 <h3 className="text-lg font-semibold text-white">Analyzing Stroke...</h3>
-                                <p className="text-gray-300 text-sm">Tracking player and extracting biomechanics</p>
+                                <p className="text-gray-300 text-sm">Tracking player and analyzing technique</p>
                             </div>
                         </div>
                     )}
