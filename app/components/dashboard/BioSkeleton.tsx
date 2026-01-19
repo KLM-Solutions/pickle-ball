@@ -23,7 +23,7 @@ export default function BioSkeleton({ risks, className = "h-40 w-auto" }: BioSke
     const kneeColor = getColor(risks.knee_stress);
 
     // Default bone color
-    const boneColor = "rgba(255, 255, 255, 0.4)";
+    const boneColor = "#d4d4d4"; // Neutral gray for visibility on white
 
     return (
         <svg viewBox="0 0 100 120" className={className} fill="none" strokeLinecap="round" strokeLinejoin="round">
