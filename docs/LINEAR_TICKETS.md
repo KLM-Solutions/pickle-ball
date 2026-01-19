@@ -131,3 +131,51 @@ interface AnalyticsSummary {
 13
 
 ---
+---
+
+## Ticket 3: Advanced Biomechanics & Velocity Metrics
+
+---
+
+### Title
+**Advanced Biomechanics & Velocity Metrics**
+
+### Description
+Implement advanced calculation engines to track velocity, acceleration, and posture for deeper injury risk detection and skill analysis. This extends the core analysis engine with more sophisticated kinematic metrics.
+
+### Acceptance Criteria
+- [ ] **Velocity Tracking**: Calculate instantaneous wrist and racket hand speed
+  - Detect sudden deceleration (Tennis Elbow risk marker)
+  - Measure peak velocity at contact point for power estimation
+- [ ] **Spine Posture Analysis**: Calculate torso lean angle (hip-midpoint to shoulder-midpoint vector)
+  - Flag excessive forward lean (>45°) during dinks (lower back strain risk)
+- [ ] **Asymmetry Detection**: Compare left vs. right side metrics
+  - Calculate symmetry index for knee flexion and shoulder height
+  - Flag imbalances > 20%
+- [ ] **Wrist Flexion**: Calculate angle between forearm and hand
+  - Detect excessive wrist flexion/extension (tendonitis risk)
+- [ ] Update `AnalysisResult` and `FrameMetrics` interfaces to include new fields
+- [ ] Add new thresholds to `risk.ts` for these metrics
+
+### Technical Details
+**New calculations needed:**
+- **Velocity**: `v = (p2 - p1) / time_delta`
+- **Acceleration**: `a = (v2 - v1) / time_delta`
+- **Torso Angle**: Vector angle relative to vertical Y-axis
+- **Symmetry**: `|left - right| / ((left + right) / 2)`
+
+**Files modified:**
+- `lib/analysis/metrics.ts`
+- `lib/analysis/risk.ts`
+- `lib/analysis/types.ts`
+
+### Labels
+`backend`, `analysis`, `enhancement`
+
+### Priority
+**Medium**
+
+### Story Points
+8
+
+---
