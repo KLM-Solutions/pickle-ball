@@ -15,10 +15,9 @@ Calculations use a **Hybrid 2D/3D Approach** to maximize accuracy where depth da
     *   Formula: `cos(θ) = (BA · BC) / (|BA| × |BC|)` (Vector Dot Product)
     *   *Why 3D?* Calculating limb angles strictly in 2D is inaccurate when limbs are foreshortened (pointing at camera).
 
-2.  **Hip Rotation**: Calculated in **2D**.
-    *   Uses `x, y` coordinates only.
-    *   Formula: `arctan(|Y_diff| / |X_diff|)`
-    *   *Why 2D?* Single-camera depth estimation for torso rotation is noisy. 2D projection (measuring how "stacked" the hips look) is a more stable proxy for rotation relative to the camera plane.
+2.  **Hip Rotation**:
+    *   **TypeScript (Frontend)**: Calculated in **3D**. Uses `x, z` (depth) coordinates to measure rotation relative to camera plane (`atan(dz/dx)`).
+    *   **Python (Backend)**: Calculated in **2D**. Uses `x, y` projection (`arctan(|Y_diff| / |X_diff|)`).
 
 Where:
 - **Points A, B, C** form an angle at point B
