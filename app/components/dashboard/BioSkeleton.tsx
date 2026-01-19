@@ -172,12 +172,25 @@ export default function BioSkeleton({ risks, className = "", mode = "analysis", 
     // Animation Loop
     useEffect(() => {
         const animate = (time: number) => {
-            // Rotation: 1 full rotation every ~6 seconds
-            setAngle((time / 6000) * Math.PI * 2);
+            if (mode === 'analysis') {
+                // Analysis Mode: Continuous slow rotation (Full rotation in ~6 seconds)
+                setAngle((time / 6000) * Math.PI * 2);
+            } else {
+                // Demo Mode: 7s Static, 2s Rotation cycle (Total 9s)
+                const CYCLE_DURATION = 9000;
+                const STATIC_DURATION = 7000;
+                const cycleTime = time % CYCLE_DURATION;
 
-            // Animation Pulse: 0 to 1 every ~2 seconds
-            // Only update animation time if in demo mode to save resources
-            if (mode === 'demo') {
+                if (cycleTime < STATIC_DURATION) {
+                    setAngle(0); // Face front
+                } else {
+                    // Rotate 180 degrees (half rotation) during the last 2 seconds
+                    const rotationProgress = (cycleTime - STATIC_DURATION) / (CYCLE_DURATION - STATIC_DURATION);
+                    setAngle(rotationProgress * Math.PI);
+                }
+
+                // Animation Pulse: 0 to 1 every ~2 seconds for pose scrubbing
+                // We use this to scrub through frames regardless of rotation
                 setAnimationTime(time / 2000);
             }
 
