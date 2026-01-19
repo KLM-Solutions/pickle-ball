@@ -147,20 +147,35 @@ Example:
 
 ### Skill Score Calculation
 
-The skill score (0-100) is calculated in the analytics API:
+The **Skill Score (0-100)** is a composite metric that primarily evaluates **biomechanical efficiency and safety**. It is calculated inversely from your injury risks—meaning perfect form (0% risk) results in a perfect score (100).
 
-```typescript
-// Calculate average risk percentage
-avgRiskPct = (shoulder_overuse + poor_kinetic_chain + knee_stress) / 3
+#### Formula
+$$ \text{Score} = 100 - (2 \times \text{Average Risk \%}) $$
 
-// Convert to skill score (higher = better)
-skillScore = 100 - (avgRiskPct × 2)
-```
+Where **Average Risk %** is the mean of:
+1.  **Shoulder Overuse %** (Frames with arm > 140°)
+2.  **Poor Kinetic Chain %** (Power strokes with hip rotation < 30°)
+3.  **Knee Stress %** (Frames with knee flexion < 90°)
 
-**Example:**
-- Shoulder: 5%, Kinetic Chain: 10%, Knee: 3%
-- Average = (5 + 10 + 3) / 3 = 6%
-- Skill Score = 100 - (6 × 2) = **88%**
+#### Why this formula?
+The formula applies a **2x penalty** to risk. This is intentional:
+- **Safety First**: Biomechanical flaws are treated as serious detractors. A session with "moderate" risk (e.g., 25% avg risk) results in a score of 50, effectively failing the safety check.
+- **High Standards**: To achieve a "Pro" score (>90), you must demonstrate consistent form with very few deviations.
+
+#### Score Interpretation
+| Score | Rating | Interpretation |
+|-------|--------|----------------|
+| **90-100** | Pro | Excellent biomechanics. Minimal injury risk and highly efficient power transfer. |
+| **80-89** | Advanced | Solid technique with minor inconsistencies. |
+| **60-79** | Intermediate | Noticeable form issues. Focus on specific drills to correct the kinetic chain. |
+| **< 60** | Novice / High Risk | Significant biomechanical flaws detected. High risk of injury or inefficiency. |
+
+#### Example Calculation
+- **Shoulder Overuse**: 5% of frames
+- **Poor Kinetic Chain**: 10% of strokes
+- **Knee Stress**: 3% of frames
+- **Average Risk** = (5 + 10 + 3) / 3 = **6%**
+- **Calculation** = 100 - (6 × 2) = 100 - 12 = **88** (Advanced)
 
 ---
 
