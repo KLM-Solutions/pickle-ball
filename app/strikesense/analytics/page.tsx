@@ -300,10 +300,10 @@ export default function AnalyticsPage() {
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
 
                     <div className="relative z-10">
-                        <p className="text-white/60 text-sm mb-2">Your Skill Score</p>
+                        <p className="text-white font-medium text-sm mb-2 opacity-90">Your Skill Score</p>
                         <div className="flex items-end gap-4 mb-4">
-                            <span className="text-6xl md:text-7xl font-bold">{data.skillScore}</span>
-                            <span className="text-2xl text-white/60 mb-2">/ 100</span>
+                            <span className="text-6xl md:text-7xl font-bold text-white drop-shadow-sm">{data.skillScore}</span>
+                            <span className="text-2xl text-indigo-100 mb-2">/ 100</span>
                             {trendDirection !== 0 && (
                                 <div className={`flex items-center gap-1 mb-3 ${trendDirection > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                     {trendDirection > 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
@@ -312,13 +312,13 @@ export default function AnalyticsPage() {
                             )}
                         </div>
                         <div className="flex flex-wrap gap-4 text-sm">
-                            <div className="bg-white/10 px-4 py-2 rounded-full">
-                                <span className="text-white/60">Sessions: </span>
-                                <span className="font-semibold">{data.totalSessions}</span>
+                            <div className="bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
+                                <span className="text-indigo-100">Sessions: </span>
+                                <span className="font-bold text-white">{data.totalSessions}</span>
                             </div>
-                            <div className="bg-white/10 px-4 py-2 rounded-full">
-                                <span className="text-white/60">Top Stroke: </span>
-                                <span className="font-semibold">{STROKE_ICONS[data.favoriteStroke || "serve"]} {STROKE_LABELS[data.favoriteStroke || "serve"] || data.favoriteStroke}</span>
+                            <div className="bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
+                                <span className="text-indigo-100">Top Stroke: </span>
+                                <span className="font-bold text-white">{STROKE_ICONS[data.favoriteStroke || "serve"]} {STROKE_LABELS[data.favoriteStroke || "serve"] || data.favoriteStroke}</span>
                             </div>
                             <div className={`px-4 py-2 rounded-full ${data.averageRisk === 'low' ? 'bg-emerald-500/20 text-emerald-300' : data.averageRisk === 'medium' ? 'bg-amber-500/20 text-amber-300' : 'bg-red-500/20 text-red-300'}`}>
                                 <span className="font-semibold capitalize">{data.averageRisk} Risk</span>
@@ -328,9 +328,9 @@ export default function AnalyticsPage() {
                         <div className="mt-6 pt-6 border-t border-white/10 flex justify-center sm:justify-end">
                             <button
                                 onClick={() => setIsAIModalOpen(true)}
-                                className="flex items-center gap-2 text-indigo-300 hover:text-white transition font-medium group bg-white/5 hover:bg-white/10 px-4 py-2 rounded-lg border border-white/5 hover:border-white/20"
+                                className="flex items-center gap-2 text-indigo-900 hover:text-indigo-700 transition font-bold group bg-white hover:bg-indigo-50 px-5 py-2.5 rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                             >
-                                <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform text-indigo-400" />
+                                <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform text-indigo-600" />
                                 Get AI Coach Insights
                             </button>
                         </div>
