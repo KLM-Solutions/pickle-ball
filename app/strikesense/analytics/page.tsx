@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import AICoachModal from "@/app/components/dashboard/AICoachModal";
+import BioSkeleton from "@/app/components/dashboard/BioSkeleton";
 import {
     ArrowLeft,
     BarChart3,
@@ -300,28 +301,41 @@ export default function AnalyticsPage() {
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
 
                     <div className="relative z-10">
-                        <p className="text-white font-medium text-sm mb-2 opacity-90">Your Skill Score</p>
-                        <div className="flex items-end gap-4 mb-4">
-                            <span className="text-6xl md:text-7xl font-bold text-white drop-shadow-sm">{data.skillScore}</span>
-                            <span className="text-2xl text-indigo-100 mb-2">/ 100</span>
-                            {trendDirection !== 0 && (
-                                <div className={`flex items-center gap-1 mb-3 ${trendDirection > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                    {trendDirection > 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-                                    <span className="text-sm font-medium">{Math.abs(trendDirection)}%</span>
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div className="flex-1">
+                                <p className="text-white font-medium text-sm mb-2 opacity-90">Your Skill Score</p>
+                                <div className="flex items-end gap-4 mb-4">
+                                    <span className="text-6xl md:text-7xl font-bold text-white drop-shadow-sm">{data.skillScore}</span>
+                                    <span className="text-2xl text-indigo-100 mb-2">/ 100</span>
+                                    {trendDirection !== 0 && (
+                                        <div className={`flex items-center gap-1 mb-3 ${trendDirection > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                            {trendDirection > 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                                            <span className="text-sm font-medium">{Math.abs(trendDirection)}%</span>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
-                        <div className="flex flex-wrap gap-4 text-sm">
-                            <div className="bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
-                                <span className="text-indigo-100">Sessions: </span>
-                                <span className="font-bold text-white">{data.totalSessions}</span>
+                                <div className="flex flex-wrap gap-4 text-sm">
+                                    <div className="bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
+                                        <span className="text-indigo-100">Sessions: </span>
+                                        <span className="font-bold text-white">{data.totalSessions}</span>
+                                    </div>
+                                    <div className="bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
+                                        <span className="text-indigo-100">Top Stroke: </span>
+                                        <span className="font-bold text-white">{STROKE_ICONS[data.favoriteStroke || "serve"]} {STROKE_LABELS[data.favoriteStroke || "serve"] || data.favoriteStroke}</span>
+                                    </div>
+                                    <div className={`px-4 py-2 rounded-full ${data.averageRisk === 'low' ? 'bg-emerald-500/20 text-emerald-300' : data.averageRisk === 'medium' ? 'bg-amber-500/20 text-amber-300' : 'bg-red-500/20 text-red-300'}`}>
+                                        <span className="font-semibold capitalize">{data.averageRisk} Risk</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="bg-white/10 px-4 py-2 rounded-full border border-white/10 backdrop-blur-sm">
-                                <span className="text-indigo-100">Top Stroke: </span>
-                                <span className="font-bold text-white">{STROKE_ICONS[data.favoriteStroke || "serve"]} {STROKE_LABELS[data.favoriteStroke || "serve"] || data.favoriteStroke}</span>
-                            </div>
-                            <div className={`px-4 py-2 rounded-full ${data.averageRisk === 'low' ? 'bg-emerald-500/20 text-emerald-300' : data.averageRisk === 'medium' ? 'bg-amber-500/20 text-amber-300' : 'bg-red-500/20 text-red-300'}`}>
-                                <span className="font-semibold capitalize">{data.averageRisk} Risk</span>
+
+                            {/* Dynamic Skeleton Visualization */}
+                            <div className="flex justify-center md:mr-8 relative group">
+                                <div className="absolute inset-0 bg-white/5 rounded-full blur-2xl transform scale-110 group-hover:bg-white/10 transition duration-500"></div>
+                                <div className="relative p-2">
+                                    <p className="text-[10px] text-indigo-200 uppercase tracking-widest text-center mb-1 font-semibold opacity-70">Kinematic Chain</p>
+                                    <BioSkeleton risks={data.riskBreakdown} className="h-32 sm:h-40 w-auto drop-shadow-lg" />
+                                </div>
                             </div>
                         </div>
 
