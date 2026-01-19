@@ -81,8 +81,19 @@ export function analyzeFrames(
         wrist_above_waist: false,
         wrist_above_head: false,
         nose_y: null,
+        nose_z: undefined,
         right_wrist_y: null,
+        right_wrist_x: undefined,
+        right_wrist_z: undefined,
+        left_wrist_x: undefined,
+        left_wrist_z: undefined,
         right_hip_y: null,
+        right_hip_z: undefined,
+        left_hip_z: undefined,
+        right_shoulder_x: undefined,
+        right_shoulder_z: undefined,
+        left_shoulder_x: undefined,
+        left_shoulder_z: undefined,
       };
 
     // Detect injury risks
@@ -186,8 +197,19 @@ export function analyzeFrame(
       wrist_above_waist: false,
       wrist_above_head: false,
       nose_y: null,
+      nose_z: undefined,
       right_wrist_y: null,
+      right_wrist_x: undefined,
+      right_wrist_z: undefined,
+      left_wrist_x: undefined,
+      left_wrist_z: undefined,
       right_hip_y: null,
+      right_hip_z: undefined,
+      left_hip_z: undefined,
+      right_shoulder_x: undefined,
+      right_shoulder_z: undefined,
+      left_shoulder_x: undefined,
+      left_shoulder_z: undefined,
     };
 
   const { risks, level } = detectRisks(metrics, stroke);

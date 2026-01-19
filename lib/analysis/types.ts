@@ -40,6 +40,34 @@ export interface FrameMetrics {
   nose_y: number | null;
   right_wrist_y: number | null;
   right_hip_y: number | null;
+<<<<<<< HEAD
+=======
+
+  // Velocity fields (added for stroke classification)
+  wrist_velocity_x?: number;
+  wrist_velocity_y?: number;
+  wrist_velocity_z?: number; // Added for 3D velocity debug
+  wrist_velocity_mag?: number;
+
+  // Position fields (X, Y, Z support)
+  right_wrist_x?: number;
+  left_wrist_x?: number;
+  right_shoulder_x?: number;
+  left_shoulder_x?: number;
+
+  // Z-axis fields (Depth) - Critical for 3D velocity
+  right_wrist_z?: number;
+  left_wrist_z?: number;
+  right_shoulder_z?: number;
+  left_shoulder_z?: number;
+  right_hip_z?: number;
+  left_hip_z?: number;
+  nose_z?: number;
+
+  // Frame timing (for segmentation)
+  frame_idx?: number;
+  time_sec?: number;
+>>>>>>> 6f54442 (Complete 3D biomechanics upgrade)
 }
 
 // Risk level

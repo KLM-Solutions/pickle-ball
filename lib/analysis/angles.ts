@@ -52,13 +52,13 @@ function getLandmark(landmarks: Landmark[], name: string): Landmark | null {
   // Try to find by name first
   const byName = landmarks.find(lm => lm.name === name);
   if (byName) return byName;
-  
+
   // Fallback to index
   const index = LANDMARK_INDEX[name];
   if (index !== undefined && landmarks[index]) {
     return landmarks[index];
   }
-  
+
   return null;
 }
 
@@ -77,47 +77,63 @@ function calculateAngle(
     y: a.y - b.y,
     z: a.z - b.z,
   };
-  
+
   // Vector BC
   const bc = {
     x: c.x - b.x,
     y: c.y - b.y,
     z: c.z - b.z,
   };
-  
+
   // Dot product
   const dot = ba.x * bc.x + ba.y * bc.y + ba.z * bc.z;
-  
+
   // Magnitudes
   const magBA = Math.sqrt(ba.x ** 2 + ba.y ** 2 + ba.z ** 2);
   const magBC = Math.sqrt(bc.x ** 2 + bc.y ** 2 + bc.z ** 2);
-  
+
   // Avoid division by zero
   if (magBA === 0 || magBC === 0) return 0;
-  
+
   // Cosine of angle
   let cosAngle = dot / (magBA * magBC);
-  
+
   // Clamp to [-1, 1] to avoid NaN from floating point errors
   cosAngle = Math.max(-1, Math.min(1, cosAngle));
-  
+
   // Convert to degrees
   const angle = Math.acos(cosAngle) * (180 / Math.PI);
-  
+
   return Math.round(angle * 10) / 10; // Round to 1 decimal
 }
 
 /**
  * Calculate hip rotation from hip positions
- * More Y difference = more rotation
+ * Uses Z-axis depth difference for true 3D rotation
+ * Positive = Right hip closer to camera (rotated left)
+ * Negative = Left hip closer to camera (rotated right)
  */
 function calculateHipRotation(leftHip: Landmark, rightHip: Landmark): number {
-  const dx = Math.abs(rightHip.x - leftHip.x);
-  const dy = Math.abs(rightHip.y - leftHip.y);
-  
-  if (dx === 0) return 0;
-  
-  const rotation = Math.atan(dy / dx) * (180 / Math.PI);
+  // Use Z-depth difference for true rotation
+  // MediaPipe Z is normalized (roughly meters from camera plane)
+  const dz = rightHip.z - leftHip.z;
+
+  // Normalize by hip width to get rotation angle
+  // Width is Euclidean distance between hips
+  const dx = rightHip.x - leftHip.x;
+  const dy = rightHip.y - leftHip.y;
+  const rawWidth = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+  // Avoid division by zero
+  if (rawWidth === 0) return 0;
+
+  // sin(theta) = dz / hypotenuse
+  let sinTheta = dz / rawWidth;
+
+  // Clamp to [-1, 1]
+  sinTheta = Math.max(-1, Math.min(1, sinTheta));
+
+  const rotation = Math.asin(sinTheta) * (180 / Math.PI);
   return Math.round(rotation * 10) / 10;
 }
 
@@ -139,11 +155,11 @@ export function calculateMetrics(landmarks: Landmark[]): FrameMetrics {
     right_wrist_y: null,
     right_hip_y: null,
   };
-  
+
   if (!landmarks || landmarks.length === 0) {
     return metrics;
   }
-  
+
   // Get landmarks
   const nose = getLandmark(landmarks, 'nose');
   const leftShoulder = getLandmark(landmarks, 'left_shoulder');
@@ -158,57 +174,72 @@ export function calculateMetrics(landmarks: Landmark[]): FrameMetrics {
   const rightKnee = getLandmark(landmarks, 'right_knee');
   const leftAnkle = getLandmark(landmarks, 'left_ankle');
   const rightAnkle = getLandmark(landmarks, 'right_ankle');
-  
-  // Store raw positions
+
+  // Store raw positions (Y for heuristics)
   if (nose) metrics.nose_y = Math.round(nose.y * 10000) / 10000;
   if (rightWrist) metrics.right_wrist_y = Math.round(rightWrist.y * 10000) / 10000;
   if (rightHip) metrics.right_hip_y = Math.round(rightHip.y * 10000) / 10000;
-  
+
+  // Store X positions (for left/right checks)
+  if (rightWrist) metrics.right_wrist_x = rightWrist.x;
+  if (leftWrist) metrics.left_wrist_x = leftWrist.x;
+  if (rightShoulder) metrics.right_shoulder_x = rightShoulder.x;
+  if (leftShoulder) metrics.left_shoulder_x = leftShoulder.x;
+
+  // Store Z positions (Depth for 3D velocity)
+  if (rightWrist) metrics.right_wrist_z = rightWrist.z;
+  if (leftWrist) metrics.left_wrist_z = leftWrist.z;
+  if (nose) metrics.nose_z = nose.z;
+  if (rightHip) metrics.right_hip_z = rightHip.z;
+  if (leftHip) metrics.left_hip_z = leftHip.z;
+  if (rightShoulder) metrics.right_shoulder_z = rightShoulder.z;
+  if (leftShoulder) metrics.left_shoulder_z = leftShoulder.z;
+
   // Right elbow flexion (shoulder-elbow-wrist)
   if (rightShoulder && rightElbow && rightWrist) {
     metrics.right_elbow_flexion = calculateAngle(rightShoulder, rightElbow, rightWrist);
   }
-  
+
   // Left elbow flexion
   if (leftShoulder && leftElbow && leftWrist) {
     metrics.left_elbow_flexion = calculateAngle(leftShoulder, leftElbow, leftWrist);
   }
-  
+
   // Right knee flexion (hip-knee-ankle)
   if (rightHip && rightKnee && rightAnkle) {
     metrics.right_knee_flexion = calculateAngle(rightHip, rightKnee, rightAnkle);
   }
-  
+
   // Left knee flexion
   if (leftHip && leftKnee && leftAnkle) {
     metrics.left_knee_flexion = calculateAngle(leftHip, leftKnee, leftAnkle);
   }
-  
+
   // Right shoulder abduction (hip-shoulder-elbow)
   if (rightHip && rightShoulder && rightElbow) {
     metrics.right_shoulder_abduction = calculateAngle(rightHip, rightShoulder, rightElbow);
   }
-  
+
   // Left shoulder abduction
   if (leftHip && leftShoulder && leftElbow) {
     metrics.left_shoulder_abduction = calculateAngle(leftHip, leftShoulder, leftElbow);
   }
-  
+
   // Hip rotation
   if (leftHip && rightHip) {
     metrics.hip_rotation_deg = calculateHipRotation(leftHip, rightHip);
   }
-  
+
   // Position checks (Y increases downward, so < means ABOVE)
   if (rightWrist && rightHip && leftHip) {
     const midHipY = (rightHip.y + leftHip.y) / 2;
     metrics.wrist_above_waist = rightWrist.y < midHipY;
   }
-  
+
   if (rightWrist && nose) {
     metrics.wrist_above_head = rightWrist.y < nose.y;
   }
-  
+
   return metrics;
 }
 
