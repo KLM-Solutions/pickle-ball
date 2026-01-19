@@ -506,6 +506,30 @@ export default function AnalyticsPage() {
                                         </span>
                                     </div>
                                     <p className="text-sm text-neutral-600 ml-11">{drill.description}</p>
+
+                                    {/* Drill Animation Preview */}
+                                    <div className="mt-4 ml-11 p-3 bg-black/5 rounded-xl border border-black/5 flex items-center gap-4">
+                                        <div className="h-24 w-16 shrink-0 relative">
+                                            {/* Derive reasonable drill key from name or issue */}
+                                            <BioSkeleton
+                                                mode="demo"
+                                                drill={
+                                                    drill.issue === 'poor_kinetic_chain' ? 'hip_drive' :
+                                                        drill.issue === 'shoulder_overuse' ? 'low_contact' :
+                                                            drill.issue === 'elbow_strain' ? 'arm_extension' :
+                                                                'athletic_stance' // default/knee_stress
+                                                }
+                                                className="h-full w-full"
+                                            />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-black mb-1">Visual Guide</p>
+                                            <p className="text-[10px] text-neutral-500 leading-relaxed">
+                                                Watch the skeleton to understand the correct form.
+                                                Focus on keeping your spine straight and knees aligned.
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                         </div>
