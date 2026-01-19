@@ -94,22 +94,15 @@ export default function Home() {
 
         {/* Stroke Selection */}
         <div className="mb-8">
-          {/* Demo Link */}
+          {/* Action Links */}
           <div className="text-center mb-4 md:mb-6 flex items-center justify-center gap-2">
-            <button
-              onClick={() => router.push('/demo')}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-full text-sm font-medium text-neutral-700 transition-all"
-            >
-              <span>🎬</span>
-              <span>Watch Demo</span>
-            </button>
             {isSignedIn && (
               <button
                 onClick={() => router.push('/strikesense/analytics')}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-black hover:bg-neutral-800 rounded-full text-sm font-medium text-white transition-all"
               >
                 <span>📊</span>
-                <span>Analytics</span>
+                <span>Analytics Dashboard</span>
               </button>
             )}
           </div>

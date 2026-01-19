@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle, Circle, AlertCircle, RefreshCw, Home, Bell, Copy, Check, ExternalLink, Play, Clock } from "lucide-react";
-import { isDemoMode, getDemoAnalysisResult } from "@/lib/demo/demoData";
+
 
 export const dynamic = 'force-dynamic';
 
@@ -83,29 +83,7 @@ function ProcessingContent() {
 
     const runAnalysis = async () => {
       try {
-        // CHECK FOR DEMO MODE - Use simulated progress
-        if (isDemoMode()) {
-          console.log('Demo mode: Simulating analysis...');
 
-          // Simulate processing stages
-          for (let i = 0; i < stages.length; i++) {
-            setStageStatus(i, 'active');
-            setOverallProgress(20 + (i * 15));
-            await new Promise(r => setTimeout(r, 800)); // 800ms per stage
-            setStageStatus(i, 'complete');
-          }
-
-          setOverallProgress(100);
-          setJobCompleted(true);
-          setJobId('demo-session');
-
-          // Store demo results
-          sessionStorage.setItem('analysisResult', JSON.stringify(getDemoAnalysisResult()));
-          sendCompletionNotification();
-          return;
-        }
-
-        // REAL MODE - Call API
         const videoUrl = sessionStorage.getItem('videoUrl');
         const cropCoords = sessionStorage.getItem('cropCoords');
 
