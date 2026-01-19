@@ -295,7 +295,7 @@ export default function AnalyticsPage() {
             <main className="max-w-4xl mx-auto px-4 py-6 space-y-8">
 
                 {/* Hero Score Card */}
-                <section className="bg-black rounded-3xl p-6 md:p-8 text-white relative overflow-hidden">
+                <section className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl">
                     <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
 
