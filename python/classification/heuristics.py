@@ -26,7 +26,7 @@ THRESHOLDS = {
     },
     'serve': {
         # Position thresholds
-        'max_wrist_above_hip': 0.20,        # Wrist at/below waist (generous tolerance)
+        'max_wrist_above_hip': 0.05,        # Tightened: Wrist MUST be at or below hip (normalized)
         'min_shoulder_abduction': 20,       # Some arm extension
         'max_shoulder_abduction': 100,      # Not overhead
         'min_hip_rotation': 3,              # Minimal body rotation required
@@ -40,6 +40,7 @@ THRESHOLDS = {
         'min_shoulder_abduction': 45,       # Moderate arm extension
         'max_shoulder_abduction': 110,      # Below overhead
         'min_hip_rotation': 10,             # Good rotation for power
+        'max_hip_rotation_serve': 25,       # Penalty threshold for serve check
         'min_horizontal_velocity': 0.01,    # Side-to-side motion
     },
     'volley': {
@@ -195,7 +196,11 @@ def is_serve(metrics: Dict[str, Any], history: List[Dict]) -> Tuple[bool, float]
     if shoulder_in_range:
         score += 1
     if has_hip_rotation:
-        score += 1
+        # Penalize EXCESSIVE hip rotation (characteristic of groundstroke, not serve)
+        if hip_rotation > THRESHOLDS['groundstroke']['max_hip_rotation_serve']:
+            score -= 2 # Veto/Strong penalty
+        else:
+            score += 1
     if is_moving_up:
         score += 2  # Double weight for upward motion (the key serve signature)
     if has_velocity:
@@ -375,6 +380,14 @@ def classify_stroke_enhanced(
     
     # 2. SERVE - Check with velocity
     is_srv, srv_conf = is_serve(metrics, frame_history)
+    
+    # CROSS-CHECK: If it's a serve but also a very strong groundstroke, it's likely a misclassification
+    is_gs, gs_conf, gs_sub = is_groundstroke(metrics, frame_history)
+    
+    if is_srv and is_gs and gs_conf > srv_conf + 0.15:
+        # Groundstroke is much more likely
+        is_srv = False
+        srv_conf = 0
     
     if target_type == 'serve':
         # Serve videos must be STRICT to avoid flagging "walking/ready stance" as serves.

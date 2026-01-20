@@ -23,7 +23,7 @@ export const THRESHOLDS = {
     },
     serve: {
         // Position thresholds
-        max_wrist_above_hip: 0.20,        // Wrist at/below waist (generous tolerance)
+        max_wrist_above_hip: 0.05,        // Tightened: Wrist MUST be at or below hip (normalized)
         min_shoulder_abduction: 20,       // Some arm extension
         max_shoulder_abduction: 100,      // Not overhead
         min_hip_rotation: 3,              // Minimal body rotation required
@@ -37,6 +37,7 @@ export const THRESHOLDS = {
         min_shoulder_abduction: 45,       // Moderate arm extension
         max_shoulder_abduction: 110,      // Below overhead
         min_hip_rotation: 10,             // Good rotation for power
+        max_hip_rotation_serve: 25,       // Penalty threshold for serve check
         min_horizontal_velocity: 0.01,    // Side-to-side motion
     },
     volley: {
@@ -174,7 +175,14 @@ export function isServe(
     let score = 0;
     if (wristAtWaist) score += 1;
     if (shoulderInRange) score += 1;
-    if (hasHipRotation) score += 1;
+    if (hasHipRotation) {
+        // Penalize EXCESSIVE hip rotation (characteristic of groundstroke, not serve)
+        if (hipRotation > THRESHOLDS.groundstroke.max_hip_rotation_serve) {
+            score -= 2; // Veto/Strong penalty
+        } else {
+            score += 1;
+        }
+    }
     if (isMovingUp) score += 2; // Double weight for upward motion (the key serve signature)
     if (hasVelocity) score += 1;
     if (sustainedUpward) score += 1;
@@ -368,7 +376,14 @@ export function classifyStroke(
     }
 
     // 2. SERVE - Check with velocity
-    const serve = isServe(metrics, history);
+    let serve = isServe(metrics, history);
+
+    // CROSS-CHECK: If it's a serve but also a very strong groundstroke, it's likely a misclassification
+    const gs = isGroundstroke(metrics, history);
+    if (serve.match && gs.match && gs.confidence > serve.confidence + 0.15) {
+        // Groundstroke is much more likely
+        serve = { match: false, confidence: 0 };
+    }
 
     if (targetType === 'serve') {
         // Serve videos must be STRICT to avoid flagging "walking/ready stance" as serves.

@@ -343,15 +343,11 @@ def handler(job):
             if "error" in results_pass2:
                 return results_pass2
 
-            # Merge outputs:
-            # - Use refined strokes/frames from pass2
-            # - Use full-duration summary from pass1
+            # Merge outputs: Use refined frames from pass2, summary from pass1
             merged_out = dict(results_pass2)
             merged_out["summary"] = results_pass1.get("summary", merged_out.get("summary", {})) or {}
             merged_out["summary"]["tracked_duration_sec"] = round(duration_sec, 2)
             merged_out["summary"]["fps"] = int(fps)
-            if not merged_out.get("strokes"):
-                merged_out["strokes"] = strokes1
 
             # Write final merged results.json for upload
             with open(results_json_path, "w") as f:
@@ -471,9 +467,7 @@ def handler(job):
             "skeleton_video_url": skeleton_video_url,
             "results_json_url": results_json_url,
             "frames": frames_data,
-            "strokes": results.get("strokes", []),
             "summary": results.get("summary", {}),
-            "injury_risk_summary": results.get("injury_risk_summary", {}),
             "total_frames_processed": len(frames_data),
             "processing_time_sec": round(processing_time, 2)
         }

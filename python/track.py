@@ -56,25 +56,12 @@ try:
         mp = None
 except Exception:
     mp = None
-# NEW MODULAR IMPORTS - ENHANCED
-# Ensure optional symbols are ALWAYS defined (avoid NameError in success-path imports).
+# NEW MODULAR IMPORTS - VISION ONLY
+BiomechanicsAnalyzer = None
+InjuryRiskDetector = None
+StrokeClassifier = None
+calculate_biomechanics_for_stroke = None
 classify_stroke_enhanced = None
-try:
-    from biomechanics import BiomechanicsAnalyzer, InjuryRiskDetector
-    from biomechanics.angles import calculate_biomechanics_for_stroke
-    from classification import StrokeClassifier
-    # Optional: enhanced classifier lives in classification/heuristics.py
-    try:
-        from classification.heuristics import classify_stroke_enhanced  # type: ignore
-    except Exception:
-        classify_stroke_enhanced = None
-except Exception as e:
-    print(f"ERROR Importing Modules: {e}")
-    BiomechanicsAnalyzer = None
-    InjuryRiskDetector = None
-    StrokeClassifier = None
-    calculate_biomechanics_for_stroke = None
-    classify_stroke_enhanced = None
 def calculate_iou(box1, box2):
     """Calculate Intersection over Union (IoU) between two bounding boxes.
         Args:
@@ -912,25 +899,14 @@ def main():
                                 )
                             except Exception as e:
                                 print(f"DEBUG: Failed to draw pose on skeleton canvas: {e}")
-                        # --- ENHANCED BIOMECHANICS ANALYSIS ---
-                        # OPTIMIZATION: Python only extracts Landmarks. TypeScript handles the Math.
-                        
-                        # Just pass basic structure for classifier
+                        # --- VISION ONLY MODE ---
+                        # Python only extracts Landmarks. TypeScript handles the Math.
                         metrics = {} 
-                        
-                        # Still run classifier if needed for segmentation, but it might lack full metrics
-                        # For now, we rely on TypeScript to backfill metrics
                         metrics["frame_idx"] = i
                         metrics["time_sec"] = round(i / fps, 3)
                         
                         best_metrics = metrics
                         all_frames_metrics.append(metrics)
-                        
-                        # Disabled Python-side Heavy Math:
-                        # if bio_analyzer is not None:
-                        #    bio_analyzer.update_landmarks(pose_results.pose_landmarks, crop_w, crop_h)
-                        #    metrics = bio_analyzer.analyze_metrics(stroke_type=args.stroke_type)
-                        #    ...
                             
                 except Exception as e:
                     print(f"Pose/Biomech Error: {e}")
@@ -966,230 +942,15 @@ def main():
 
     log_debug(f"Final FPS used: {fps}")
     
-    # --- POST-PROCESSING: STROKE CLASSIFICATION ---
-    detected_strokes = []
-    
-    # Define classifier locally if global is missing/None
-    classifier = StrokeClassifier() if StrokeClassifier else None
-    
-    if classifier is not None and len(all_frames_metrics) > 0:
-        # Detect segments automatically with BIAS (guard signature/API mismatches)
-        try:
-            raw_segments = classifier.detect_segments(all_frames_metrics, target_type=args.stroke_type)
-        except Exception as e:
-            print(f"Classifier detect_segments failed (disabling classifier): {e}")
-            classifier = None
-            raw_segments = []
-        
-        # STRICT FILTERING: Only keep strokes matching the user's selection
-        if args.stroke_type and args.stroke_type.lower() not in ['overall', 'none', '']:
-            detected_strokes = []
-            dropped_types = []
-            for s in raw_segments:
-                # Accept ONLY exact matches to requested stroke type
-                if s['stroke_type'].lower() == args.stroke_type.lower():
-                    
-                    s['confidence'] = float(s['confidence']) # Ensure float
-                    
-                    # --- PEAK VELOCITY LOGIC (Ported from Manual Test) ---
-                    s_start = s['start_frame']
-                    s_end = s['end_frame']
-                    max_v = 0.0
-                    max_v_frame = s_start
-                    
-                    # Scan frames in this segment
-                    # Note: all_frames_metrics indices might not align perfectly if frames were skipped
-                    # But if we strictly appended, they should map via frame_idx
-                    for m in all_frames_metrics:
-                        f_idx = m.get('frame_idx', -1)
-                        if s_start <= f_idx <= s_end:
-                            v = m.get('wrist_velocity_mag', m.get('wrist_velocity_y', 0.0))
-                            if v > max_v:
-                                max_v = v
-                                max_v_frame = f_idx
-                    
-                    s['peak_velocity'] = float(round(max_v, 2))
-                    s['peak_frame_idx'] = int(max_v_frame)
-                    s['peak_timestamp'] = float(round(max_v_frame / fps, 3))
-                    
-                    detected_strokes.append(s)
-                    
-                    # PRINT DETAILED TIMING LOG FOR USER (Verified Format)
-                    start_sec = round(s['start_frame'] / fps, 2)
-                    end_sec = round(s['end_frame'] / fps, 2)
-                    print(f"[RESULT] Found '{s['stroke_type']}': Frame {s['start_frame']}-{s['end_frame']} (t={start_sec}s to {end_sec}s)")
-                    print(f"       -> PEAK: Frame {s['peak_frame_idx']} (t={s['peak_timestamp']}s, V={s['peak_velocity']})")
-                else:
-                    dropped_types.append(s['stroke_type'])
-            
-            print(f"Strict Filter: Kept {len(detected_strokes)} segments matching '{args.stroke_type}'")
-            if dropped_types:
-                print(f"  (Dropped {len(dropped_types)} others: {dropped_types})")
-        else:
-            detected_strokes = raw_segments
-
-        # Per-stroke filtering + cooldown (multi-stroke for long videos)
-        stroke_key = (args.stroke_type or "").lower()
-        cfg_by_type = {
-            # NOTE: peak_velocity is based on wrist_velocity_mag (normalized coords/sec).
-            "serve": {"min_conf": 0.78, "min_peak_v": 0.18, "min_len_frames": 4, "cooldown_sec": 1.0},
-            "groundstroke": {"min_conf": 0.78, "min_peak_v": 0.16, "min_len_frames": 4, "cooldown_sec": 0.8},
-            "drive": {"min_conf": 0.78, "min_peak_v": 0.16, "min_len_frames": 4, "cooldown_sec": 0.8},
-            "volley": {"min_conf": 0.75, "min_peak_v": 0.10, "min_len_frames": 3, "cooldown_sec": 0.6},
-            "dink": {"min_conf": 0.72, "min_peak_v": 0.06, "min_len_frames": 3, "cooldown_sec": 0.6},
-            "overhead": {"min_conf": 0.80, "min_peak_v": 0.14, "min_len_frames": 3, "cooldown_sec": 1.0},
-        }
-        cfg = cfg_by_type.get(stroke_key, {"min_conf": 0.75, "min_peak_v": 0.10, "min_len_frames": 3, "cooldown_sec": 0.8})
-
-        if args.coarse_mode:
-            # Coarse pass: more lenient to find candidate windows.
-            cfg = {
-                **cfg,
-                "min_conf": max(0.55, float(cfg["min_conf"]) - 0.18),
-                "min_peak_v": max(0.0, float(cfg["min_peak_v"]) * 0.5),
-                "cooldown_sec": 0.0,
-            }
-
-        cooldown_frames = int(float(cfg.get("cooldown_sec", 0.0)) * float(fps))
-        filtered = []
-        for s in sorted(detected_strokes, key=lambda x: int(x.get("start_frame", 0))):
-            try:
-                start_f = int(s.get("start_frame", 0))
-                end_f = int(s.get("end_frame", start_f))
-                seg_len = (end_f - start_f + 1)
-                peak_v = float(s.get("peak_velocity", 0.0) or 0.0)
-                conf = float(s.get("confidence", 0.0) or 0.0)
-            except Exception:
-                continue
-
-            if seg_len < int(cfg.get("min_len_frames", 3)):
-                continue
-            if conf < float(cfg.get("min_conf", 0.75)):
-                continue
-            if peak_v < float(cfg.get("min_peak_v", 0.0)):
-                continue
-
-            # Cooldown: prevent duplicates around the same physical hit
-            if cooldown_frames > 0 and filtered:
-                prev_end = int(filtered[-1].get("end_frame", filtered[-1].get("start_frame", 0)))
-                if start_f <= prev_end + cooldown_frames:
-                    continue
-
-            filtered.append(s)
-
-        detected_strokes = filtered
-        
-        # ============================================================
-        # SINGLE-ID INVARIANT: Validate and attach track_id to strokes
-        # ============================================================
-        # Each stroke MUST be associated with exactly one track_id.
-        # If frames in a stroke window have mixed IDs, we flag it.
-        validated_strokes = []
-        for s in detected_strokes:
-            start_f = int(s.get("start_frame", 0))
-            end_f = int(s.get("end_frame", start_f))
-            
-            # Collect track_ids from all frames in this stroke window
-            stroke_track_ids = set()
-            for res in results:
-                res_frame_idx = res.get("frame_idx", res.get("frameIdx", -1))
-                if start_f <= res_frame_idx <= end_f:
-                    tid = res.get("track_id", -1)
-                    if tid != -1:
-                        stroke_track_ids.add(tid)
-            
-            # SINGLE-ID INVARIANT CHECK
-            if len(stroke_track_ids) == 0:
-                # No valid track_id found; use target_track_id as fallback
-                s["track_id"] = int(target_track_id) if target_track_id else -1
-                validated_strokes.append(s)
-            elif len(stroke_track_ids) == 1:
-                # ✓ VALID: Single ID throughout stroke
-                s["track_id"] = int(stroke_track_ids.pop())
-                validated_strokes.append(s)
-            else:
-                # ⚠ VIOLATION: Multiple IDs in one stroke window
-                print(f"[WARNING] Single-ID violation in stroke {s.get('stroke_type')} "
-                      f"frames {start_f}-{end_f}: IDs={stroke_track_ids}")
-                # Use the DOMINANT track_id (most occurrences)
-                id_counts = {}
-                for res in results:
-                    res_frame_idx = res.get("frame_idx", res.get("frameIdx", -1))
-                    if start_f <= res_frame_idx <= end_f:
-                        tid = res.get("track_id", -1)
-                        if tid != -1:
-                            id_counts[tid] = id_counts.get(tid, 0) + 1
-                
-                if id_counts:
-                    dominant_id = max(id_counts.keys(), key=lambda k: id_counts[k])
-                    s["track_id"] = int(dominant_id)
-                    s["multi_id_warning"] = True  # Flag for debugging
-                    validated_strokes.append(s)
-                    print(f"         -> Using dominant ID: {dominant_id} (counts: {id_counts})")
-        
-        detected_strokes = validated_strokes
-        print(f"[SINGLE-ID] Validated {len(detected_strokes)} strokes")
-        print(f"Final Output strokes: {[s.get('stroke_type') for s in detected_strokes]}")
-    else:
-        # Fallback if classifier failed or no metrics
-        print("Classifier unavailable or no metrics collected. Using hint.")
-        detected_strokes = [{
-            "stroke_type": args.stroke_type, # User hint
-            "start_frame": 0,
-            "startSec": 0.0,
-            "confidence": 1.0
-        }]
-
-    # Calculate time seconds for frontend
-    # Use the original video FPS as reference for timestamps
-    for s in detected_strokes:
-        # Ensure startSec/endSec exist (camelCase for TS)
-        s_start = s.get("start_frame", 0)
-        s_end = s.get("end_frame", 0)
-        s["startSec"] = round(s_start / fps, 2)
-        s["endSec"] = round(s_end / fps, 2)
-        # Add snake_case too just in case
-        s["start_sec"] = s["startSec"]
-        s["end_sec"] = s["endSec"]
-        # Ensure type is present
-        if "type" not in s and "stroke_type" in s:
-            s["type"] = s["stroke_type"]
-
-    # Debug logging: stroke timing summary for RunPod logs
-    try:
-        for s in detected_strokes:
-            stype = s.get("stroke_type", s.get("type", "unknown"))
-            start_sec = s.get("startSec", 0.0)
-            end_sec = s.get("endSec", start_sec)
-            peak_ts = s.get("peak_timestamp", None)
-            peak_v = s.get("peak_velocity", None)
-            if peak_ts is not None and peak_v is not None:
-                print(f"[STROKE] {stype} | {start_sec:.2f}s → {end_sec:.2f}s | peak @ {float(peak_ts):.2f}s | v={float(peak_v):.2f}")
-            else:
-                print(f"[STROKE] {stype} | {start_sec:.2f}s → {end_sec:.2f}s")
-    except Exception as e:
-        print(f"[STROKE] logging failed: {e}")
-    # ENHANCED: Get injury risk summary
-    injury_risk_summary = {}
-    if injury_detector is not None:
-        try:
-            injury_risk_summary = injury_detector.get_session_summary()
-            print(f"Injury Risk Summary: {injury_risk_summary.get('overall_risk', 'unknown')} risk")
-            if injury_risk_summary.get('alerts'):
-                print(f"  Alerts: {len(injury_risk_summary['alerts'])} detected")
-        except Exception as e:
-            print(f"Failed to generate injury risk summary: {e}")
-        # Save JSON with ENHANCED schema
+    # --- VISION ONLY OUTPUT ---
     final_output = {
-        "frames": results, # Per-frame data matched to frontend 'frames' key
-        "strokes": detected_strokes, # Segments
+        "frames": results, # Per-frame data
         "summary": {
-            "total_distance_m": round(total_distance_m, 2),
-            "avg_speed_kmh": round((total_distance_m / (len(all_files) / fps) * 3.6), 2) if len(all_files) > 0 else 0,
+            "total_frames": len(all_files),
+            "fps": fps,
             "tracked_duration_sec": round(len(all_files) / fps, 1),
-            "dominant_stroke": detected_strokes[0]["stroke_type"] if detected_strokes else "unknown"
-        },
-        "injury_risk_summary": injury_risk_summary  # NEW: Injury risk analysis
+            "stroke_type_hint": args.stroke_type
+        }
     }
     
     with open(results_json, "w") as f:
