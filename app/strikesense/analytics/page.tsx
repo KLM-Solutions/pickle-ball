@@ -254,7 +254,7 @@ export default function AnalyticsPage() {
                 <header className="sticky top-0 z-20 bg-white border-b border-neutral-200">
                     <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
                         <button onClick={() => router.push("/")} className="p-2 hover:bg-neutral-100 rounded-xl transition">
-                            <ArrowLeft className="w-5 h-5" />
+                            <ArrowLeft className="w-5 h-5 text-black" />
                         </button>
                         <h1 className="text-lg font-bold text-black">Analytics</h1>
                     </div>

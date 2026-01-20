@@ -98,7 +98,7 @@ export default function ProfilePage() {
             <div className="min-h-screen bg-white flex items-center justify-center p-4">
                 <div className="text-center">
                     <User className="w-16 h-16 text-neutral-300 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold mb-2">Sign In Required</h2>
+                    <h2 className="text-xl font-bold mb-2 text-black">Sign In Required</h2>
                     <p className="text-neutral-500 mb-4">Please sign in to view your profile.</p>
                     <button
                         onClick={() => router.push("/")}
@@ -121,14 +121,14 @@ export default function ProfilePage() {
                             onClick={() => router.push("/")}
                             className="p-2 hover:bg-neutral-100 rounded-lg transition"
                         >
-                            <ArrowLeft className="w-5 h-5" />
+                            <ArrowLeft className="w-5 h-5 text-black" />
                         </button>
                         <div className="flex items-center gap-2">
                             <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center">
                                 <User className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-lg font-bold">My Profile</h1>
+                                <h1 className="text-lg font-bold text-black">My Profile</h1>
                                 <p className="text-xs text-neutral-500">Personalize your experience</p>
                             </div>
                         </div>
@@ -149,7 +149,7 @@ export default function ProfilePage() {
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Enter your name"
-                            className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                            className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent bg-white text-black placeholder:text-neutral-400"
                         />
                     </div>
 
@@ -164,8 +164,8 @@ export default function ProfilePage() {
                                     key={level}
                                     onClick={() => setSkillLevel(level)}
                                     className={`py-2 px-3 rounded-lg text-sm font-semibold border transition ${skillLevel === level
-                                            ? "bg-black text-white border-black"
-                                            : "bg-white text-neutral-700 border-neutral-300 hover:border-neutral-400"
+                                        ? "bg-black text-white border-black"
+                                        : "bg-white text-neutral-700 border-neutral-300 hover:border-neutral-400"
                                         }`}
                                 >
                                     {level}
@@ -183,8 +183,8 @@ export default function ProfilePage() {
                             <button
                                 onClick={() => setDominantHand("right")}
                                 className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold border transition ${dominantHand === "right"
-                                        ? "bg-black text-white border-black"
-                                        : "bg-white text-neutral-700 border-neutral-300 hover:border-neutral-400"
+                                    ? "bg-black text-white border-black"
+                                    : "bg-white text-neutral-700 border-neutral-300 hover:border-neutral-400"
                                     }`}
                             >
                                 🤚 Right-Handed
@@ -192,8 +192,8 @@ export default function ProfilePage() {
                             <button
                                 onClick={() => setDominantHand("left")}
                                 className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold border transition ${dominantHand === "left"
-                                        ? "bg-black text-white border-black"
-                                        : "bg-white text-neutral-700 border-neutral-300 hover:border-neutral-400"
+                                    ? "bg-black text-white border-black"
+                                    : "bg-white text-neutral-700 border-neutral-300 hover:border-neutral-400"
                                     }`}
                             >
                                 ✋ Left-Handed
@@ -211,7 +211,7 @@ export default function ProfilePage() {
                             onChange={(e) => setInjuryHistory(e.target.value)}
                             placeholder="E.g., Tennis elbow, shoulder issues, knee problems..."
                             rows={3}
-                            className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent resize-none"
+                            className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent resize-none bg-white text-black placeholder:text-neutral-400"
                         />
                         <p className="text-xs text-neutral-500 mt-1">
                             This helps us tailor recommendations to avoid aggravating existing conditions.
