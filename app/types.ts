@@ -30,7 +30,7 @@ export type ApiFrame = {
 };
 
 export type StrokeEvent = {
-    type: "serve" | "groundstroke" | "dink" | "overhead" | "volley";
+    strokeType: "serve" | "groundstroke" | "dink" | "overhead" | "volley";
     startFrame: number;
     start_frame?: number; // Backend snake_case
     endFrame: number;
@@ -49,6 +49,7 @@ export type AnalyzeResponse = {
     frames: ApiFrame[];
     strokes?: StrokeEvent[];
     videoUrl?: string | null;
+    result_video_url?: string | null; // Support for backend property name
     ballStats?: {
         avgSpeedKmh?: number;
         maxSpeedKmh?: number;
@@ -59,4 +60,5 @@ export type AnalyzeResponse = {
         avgSpeedKmh: number;
         trackedDurationSec: number;
     };
+    processingTime?: number; // Support for processing time
 };

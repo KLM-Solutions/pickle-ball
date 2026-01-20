@@ -336,11 +336,11 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                             <h3 className="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider sticky top-0 bg-slate-800/90 z-10 py-2 -mt-2 -mx-1 px-1 backdrop-blur-sm flex items-center justify-between">
                                 <span>Stroke Performance</span>
                                 <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-slate-300">
-                                    {result.strokes?.filter(s => s.type === result.stroke_type).length || 0} Detected
+                                    {result.strokes?.filter(s => s.strokeType === result.stroke_type || result.stroke_type === 'overall').length || 0} Detected
                                 </span>
                             </h3>
                             <div className="space-y-3 pb-2">
-                                {result.strokes?.filter(s => s.type === result.stroke_type).map((s, i) => (
+                                {result.strokes?.filter(s => s.strokeType === result.stroke_type || result.stroke_type === 'overall').map((s, i) => (
                                     <button
                                         key={`stroke-log-${i}`}
                                         onClick={() => setCurrentTime(s.startSec)}
@@ -348,11 +348,11 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                                     >
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br ${getStrokeColor(s.type)} shadow-lg`}>
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br ${getStrokeColor(s.strokeType)} shadow-lg`}>
                                                     <Zap className="w-4 h-4 text-white" />
                                                 </div>
                                                 <div>
-                                                    <span className="text-sm font-bold text-white capitalize block">{s.type}</span>
+                                                    <span className="text-sm font-bold text-white capitalize block">{s.strokeType}</span>
                                                     <span className="text-[10px] text-slate-400 font-mono">
                                                         {s.startSec.toFixed(2)}s - {((s.end_frame || 0) / 30).toFixed(2)}s
                                                     </span>
@@ -379,7 +379,7 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                                     </button>
                                 ))}
 
-                                {(!result.strokes || result.strokes.filter(s => s.type === result.stroke_type).length === 0) && (
+                                {(!result.strokes || result.strokes.filter(s => s.strokeType === result.stroke_type || result.stroke_type === 'overall').length === 0) && (
                                     <div className="text-center py-10 opacity-50 flex flex-col items-center">
                                         <Activity className="w-10 h-10 text-slate-700 mb-3" />
                                         <p className="text-sm font-medium text-slate-500">No {result.stroke_type}s detected.</p>

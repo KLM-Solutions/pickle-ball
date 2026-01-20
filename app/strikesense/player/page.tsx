@@ -30,9 +30,19 @@ function PlayerContent() {
 
     useEffect(() => {
         const storedResult = sessionStorage.getItem('analysisResult');
+        const storedUrl = sessionStorage.getItem('videoUrl');
+
         if (storedResult) {
-            const result = JSON.parse(storedResult);
-            setAnalysisData(result);
+            try {
+                const result = JSON.parse(storedResult);
+                // Ensure videoUrl is present in analysisData if it was stored separately
+                if (!result.videoUrl && storedUrl) {
+                    result.videoUrl = storedUrl;
+                }
+                setAnalysisData(result);
+            } catch (e) {
+                console.error("Failed to parse analysis result:", e);
+            }
         }
     }, []);
 
@@ -213,6 +223,48 @@ function PlayerContent() {
                                     currentFrameMetrics={currentFrame?.metrics}
                                     aggregates={aggregates}
                                 />
+
+                                {/* Detected Strokes List */}
+                                <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">
+                                    <h3 className="text-xs font-semibold text-neutral-500 mb-3 uppercase tracking-wide flex items-center gap-2">
+                                        <Award className="w-3.5 h-3.5" />
+                                        Detected {strokeType}s
+                                    </h3>
+                                    <div className="space-y-2">
+                                        {analysisData?.strokes?.filter((s: any) => s.strokeType === strokeType || strokeType === 'overall').length > 0 ? (
+                                            analysisData.strokes
+                                                .filter((s: any) => s.strokeType === strokeType || strokeType === 'overall')
+                                                .map((s: any, idx: number) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => setCurrentTime(s.peakTimestamp || s.startSec)}
+                                                        className={`w-full text-left p-3 rounded-lg border transition hover:scale-[1.01] active:scale-[0.99] bg-white border-neutral-200 hover:bg-neutral-100 flex items-center justify-between group`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-xs font-bold text-neutral-500 group-hover:bg-black group-hover:text-white transition-colors">
+                                                                {idx + 1}
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-xs font-bold text-black capitalize">
+                                                                    {s.strokeType} {idx + 1}
+                                                                </div>
+                                                                <div className="text-[10px] text-neutral-500">
+                                                                    {s.peakVelocity?.toFixed(1) || 0} mph • {Math.round(s.confidence * 100)}% conf
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-[10px] font-mono text-neutral-400 bg-neutral-50 px-1.5 py-0.5 rounded border border-neutral-100">
+                                                            {(s.peakTimestamp || s.startSec).toFixed(1)}s
+                                                        </div>
+                                                    </button>
+                                                ))
+                                        ) : (
+                                            <div className="text-center py-4 bg-white rounded-lg border border-dashed border-neutral-200">
+                                                <p className="text-[10px] text-neutral-400">No {strokeType}s detected in this session</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
 
                                 {/* Current Frame Info */}
                                 <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl">

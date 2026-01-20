@@ -157,6 +157,16 @@ def main():
     fps = get_video_fps(original_video)
     log_debug(f"Initial FPS detected (baseline): {fps}")
     yolo_device = (args.device or "cuda:0").strip()
+    # Check if CUDA is actually available
+    if yolo_device.startswith("cuda"):
+        if torch is None or not torch.cuda.is_available():
+            log_debug(f"WARNING: requested device {yolo_device} but CUDA is not available. Falling back to cpu.")
+            yolo_device = "cpu"
+        else:
+            # Normalize 'cuda:0' to just 0 or similar if needed, 
+            # but usually 'cuda:0' works for ultralytics.
+            # However, for BoxMOT, it might need specific handling.
+            pass
 
     # Parse analysis windows (in seconds)
     # Format: "start:end,start:end"
@@ -212,13 +222,15 @@ def main():
             
             # KEY FIX: Use integer 0 for device, not 'cuda' string
             # The library requires specific device index for CUDA
-            # per_class=False is important for general person tracking
             tracker_device = 0 if yolo_device.startswith("cuda") else "cpu"
+            if tracker_device == 0 and (torch is None or not torch.cuda.is_available()):
+                tracker_device = "cpu"
+                
             tracker = create_tracker(
                 tracker_type='deepocsort',
                 reid_weights=tracker_config_path, # Use the path from args
                 device=tracker_device,
-                half=bool(yolo_device.startswith("cuda")),
+                half=bool(str(tracker_device) != "cpu"),
                 per_class=False 
             )
             print("Tracker initialized successfully.")

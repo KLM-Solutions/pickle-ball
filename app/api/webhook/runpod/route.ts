@@ -22,10 +22,10 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI client only if API key is available
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // Issue type labels
 const ISSUE_LABELS: Record<string, string> = {
@@ -164,7 +164,7 @@ Format your response in clean markdown with headers (##), bullet points, and emp
  * Generate LLM response
  */
 async function generateLLMResponse(strokeType: string, frames: any[], summary: any): Promise<string | null> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.OPENAI_API_KEY || !openai) {
     console.log("OPENAI_API_KEY not configured, skipping LLM generation");
     return null;
   }
@@ -176,6 +176,7 @@ async function generateLLMResponse(strokeType: string, frames: any[], summary: a
     console.log(`Generating LLM response for ${filteredIssues.length} filtered issues...`);
 
     const completion = await openai.chat.completions.create({
+
       model: "gpt-4o-mini",
       messages: [
         {

@@ -87,7 +87,6 @@ export default function VideoPanel({
     sideBySide = false
 }: VideoPanelProps) {
     const inputRef = useRef<HTMLInputElement>(null);
-    const imageRef = useRef<HTMLImageElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const secondaryVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -98,6 +97,7 @@ export default function VideoPanel({
     const [isTagMode, setIsTagMode] = useState(false);
     const [taggedPlayer, setTaggedPlayer] = useState<{ x: number; y: number } | null>(null);
     const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
+    const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
 
     // Player State
     const [isPlaying, setIsPlaying] = useState(false);
@@ -106,12 +106,46 @@ export default function VideoPanel({
     const [isMuted, setIsMuted] = useState(true);
     const [showControls, setShowControls] = useState(true);
 
-    // Sync videoFile prop to local state
     useEffect(() => {
         if (videoFile) {
-            setLocalVideoUrl(URL.createObjectURL(videoFile));
+            const url = URL.createObjectURL(videoFile);
+            setLocalVideoUrl(url);
+            setResolvedVideoUrl(url);
         }
     }, [videoFile]);
+
+    // Resolve video URL with robust fallback
+    useEffect(() => {
+        const resolveUrl = () => {
+            if (typeof window !== 'undefined') {
+                const storedVideoUrl = sessionStorage.getItem('videoUrl');
+                console.log("VideoPanel: Resolving URL:", {
+                    propUrl: videoUrl,
+                    analysisUrl: analysisData?.videoUrl,
+                    resultsUrl: analysisData?.result_video_url,
+                    sessionUrl: storedVideoUrl
+                });
+
+                let urlToSet: string | null = null;
+                if (videoUrl) {
+                    urlToSet = videoUrl;
+                } else if (analysisData?.videoUrl && !analysisData.videoUrl.startsWith('blob:')) {
+                    urlToSet = analysisData.videoUrl;
+                } else if (analysisData?.result_video_url) {
+                    urlToSet = analysisData.result_video_url;
+                } else if (storedVideoUrl) {
+                    urlToSet = storedVideoUrl;
+                }
+
+                if (urlToSet !== resolvedVideoUrl) {
+                    console.log("VideoPanel: Resolved URL to:", urlToSet);
+                    setResolvedVideoUrl(urlToSet);
+                }
+            }
+        };
+
+        resolveUrl();
+    }, [videoUrl, analysisData, resolvedVideoUrl]);
 
     // Sync prop state to local state
     useEffect(() => {
@@ -335,7 +369,30 @@ export default function VideoPanel({
         }
     }, [currentTime]);
 
-    const activeSrc = (showOverlay && videoUrl) ? videoUrl : (localVideoUrl || '');
+    // Helper functions for video events
+    const handleTimeUpdate = () => {
+        if (videoRef.current && onTimeUpdate) {
+            onTimeUpdate(videoRef.current.currentTime);
+        }
+    };
+
+    const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+        setDuration(e.currentTarget.duration);
+    };
+
+    const handlePlay = () => {
+        setIsPlaying(true);
+        if (secondaryVideoRef.current) secondaryVideoRef.current.play();
+    };
+
+    const handlePause = () => {
+        setIsPlaying(false);
+        if (secondaryVideoRef.current) secondaryVideoRef.current.pause();
+    };
+
+    const handleEnded = () => {
+        setIsPlaying(false);
+    };
 
     // --- Renders ---
 
@@ -420,7 +477,7 @@ export default function VideoPanel({
                             <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
                             <p className="text-sm font-medium">Extracting frame for tagging...</p>
                         </div>
-                    ) : (isTagMode || (!activeSrc && firstFrameUrl)) && firstFrameUrl ? (
+                    ) : (isTagMode || (!resolvedVideoUrl && firstFrameUrl)) && firstFrameUrl ? (
                         <div className="relative w-full h-full" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
                             <img src={firstFrameUrl} className="w-full h-full object-contain pointer-events-none select-none" draggable={false} />
                             {selectionBox && (
@@ -440,29 +497,28 @@ export default function VideoPanel({
                                 </div>
                             )}
                         </div>
-                    ) : activeSrc ? (
+                    ) : resolvedVideoUrl ? (
                         <div className="relative w-full h-full flex items-center justify-center" onClick={togglePlay}>
                             <video
+                                key={resolvedVideoUrl}
                                 ref={videoRef}
-                                key={activeSrc}
-                                src={activeSrc}
-                                className={`${sideBySide ? 'w-1/2' : 'w-full'} h-full object-contain`}
+                                className={`${sideBySide ? 'w-1/2' : 'w-full'} h-full bg-black object-contain`}
+                                src={resolvedVideoUrl || undefined}
+                                onTimeUpdate={handleTimeUpdate}
+                                onLoadedMetadata={handleLoadedMetadata}
+                                onError={(e) => {
+                                    console.error("VideoPanel: Video Load Error", e);
+                                    const video = e.currentTarget;
+                                    console.error("VideoPanel: Video Source:", video.src);
+                                    console.error("VideoPanel: Video Error Code:", video.error?.code);
+                                    console.error("VideoPanel: Video Error Message:", video.error?.message);
+                                }}
                                 playsInline
-                                controls={false}
                                 muted={isMuted}
-                                onTimeUpdate={() => {
-                                    if (videoRef.current && onTimeUpdate) onTimeUpdate(videoRef.current.currentTime);
-                                }}
-                                onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-                                onPlay={() => {
-                                    setIsPlaying(true);
-                                    if (secondaryVideoRef.current) secondaryVideoRef.current.play();
-                                }}
-                                onPause={() => {
-                                    setIsPlaying(false);
-                                    if (secondaryVideoRef.current) secondaryVideoRef.current.pause();
-                                }}
-                                onEnded={() => setIsPlaying(false)}
+                                controls={false}
+                                onPlay={handlePlay}
+                                onPause={handlePause}
+                                onEnded={handleEnded}
                             />
                             {sideBySide && localVideoUrl && (
                                 <video
@@ -525,13 +581,13 @@ export default function VideoPanel({
                                         analysisData.strokes.map((s, idx) => {
                                             const startPct = duration ? (s.startSec / duration) * 100 : 0;
                                             const endPct = duration ? (s.endSec / duration) * 100 : startPct + 0.2;
-                                            const color = s.type === 'serve' ? 'bg-blue-400' : s.type === 'groundstroke' ? 'bg-green-400' : s.type === 'dink' ? 'bg-yellow-400' : s.type === 'overhead' ? 'bg-red-400' : 'bg-purple-400';
+                                            const color = s.strokeType === 'serve' ? 'bg-blue-400' : s.strokeType === 'groundstroke' ? 'bg-green-400' : s.strokeType === 'dink' ? 'bg-yellow-400' : s.strokeType === 'overhead' ? 'bg-red-400' : 'bg-purple-400';
                                             return (
                                                 <div
                                                     key={idx}
                                                     className={`absolute top-0 bottom-0 ${color} opacity-60 cursor-pointer`}
                                                     style={{ left: `${startPct}%`, width: `${Math.max(0.5, endPct - startPct)}%` }}
-                                                    title={`${s.type} (${Math.round(s.confidence * 100)}%)`}
+                                                    title={`${s.strokeType} (${Math.round(s.confidence * 100)}%)`}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (videoRef.current) {

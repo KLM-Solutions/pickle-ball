@@ -242,8 +242,20 @@ def handler(job):
     target_point = job_input.get("target_point")
     step = int(job_input.get("step", 1))
     
+    # Detect if we are running locally (via local_server.py usually)
+    is_local = os.environ.get("LOCAL_DEV", "false").lower() == "true"
+    
+    # Initialize uploader for production usage
     uploader = get_uploader()
-    work_dir = tempfile.mkdtemp(prefix="runpod_analysis_")
+    
+    if is_local:
+        # Use a persistent local directory for debugging/serving
+        base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tmp_runs")
+        work_dir = os.path.join(base_dir, job_id)
+        os.makedirs(work_dir, exist_ok=True)
+        print(f"DEBUG: Using persistent local directory: {work_dir}")
+    else:
+        work_dir = tempfile.mkdtemp(prefix="runpod_analysis_")
     
     try:
         # 1. Download video
@@ -372,37 +384,58 @@ def handler(job):
             output_fps = max(1, 30 // step)
             video_encoded = encode_video_from_frames(output_dir, annotated_video_path, fps=output_fps)
         
-        # 5. Upload to Supabase
+        # 5. Upload to Supabase OR use local paths
         print(f"[STEP 5/5] Uploading results...")
         result_video_url = None
-        frames_data = []
-        uploaded_frame_urls = {}
-        
-        if video_encoded and os.path.exists(annotated_video_path):
-            print(f"Uploading annotated video...")
-            result_video_url = uploader.upload_file(
-                bucket="analysis-results",
-                file_path=annotated_video_path,
-                destination_path=f"{job_id}/annotated.mp4",
-                content_type="video/mp4"
-            )
-
-        # Upload skeleton video (DISABLED to reduce RunPod completion time + storage)
         skeleton_video_url = None
-
-        # Upload full results JSON (python metrics/frames/summary) for debugging + UI fallback
         results_json_url = None
-        if os.path.exists(results_json_path):
-            print("Uploading results.json...")
-            results_json_url = uploader.upload_file(
-                bucket="analysis-results",
-                file_path=results_json_path,
-                destination_path=f"{job_id}/results.json",
-                content_type="application/json"
-            )
+        
+        if is_local:
+            # Return local server URLs for development
+            server_base = "http://localhost:8000/files"
+            
+            # Move annotated video to work_dir root for easier serving if it exists
+            final_video_path = os.path.join(work_dir, "annotated.mp4")
+            print(f"DEBUG: Looking for annotated video at: {annotated_video_path}")
+            print(f"DEBUG: video_encoded={video_encoded}, exists={os.path.exists(annotated_video_path)}")
+            if video_encoded and os.path.exists(annotated_video_path):
+                if annotated_video_path != final_video_path:
+                    print(f"DEBUG: Copying {annotated_video_path} -> {final_video_path}")
+                    shutil.copy2(annotated_video_path, final_video_path)
+                    print(f"DEBUG: Copy complete, exists={os.path.exists(final_video_path)}")
+                result_video_url = f"{server_base}/{job_id}/annotated.mp4"
+            else:
+                print(f"ERROR: Video not found or not encoded!")
+            
+            if os.path.exists(results_json_path):
+                results_json_url = f"{server_base}/{job_id}/results.json"
+                
+            print(f"DEBUG: Local URLs generated: video={result_video_url}")
+
+        else:
+            # Production upload logic
+            if video_encoded and os.path.exists(annotated_video_path):
+                print(f"Uploading annotated video...")
+                result_video_url = uploader.upload_file(
+                    bucket="analysis-results",
+                    file_path=annotated_video_path,
+                    destination_path=f"{job_id}/annotated.mp4",
+                    content_type="video/mp4"
+                )
+
+            if os.path.exists(results_json_path):
+                print("Uploading results.json...")
+                results_json_url = uploader.upload_file(
+                    bucket="analysis-results",
+                    file_path=results_json_path,
+                    destination_path=f"{job_id}/results.json",
+                    content_type="application/json"
+                )
 
         # Key-frame upload (DISABLED to reduce RunPod completion time + storage)
         # uploaded_frame_urls stays empty; frameFilename will be None.
+        uploaded_frame_urls = {}
+        frames_data = []
         
         # Build frames response
         # IMPORTANT:
@@ -451,11 +484,14 @@ def handler(job):
         return {"error": f"Handler exception: {str(e)}"}
     
     finally:
-        try:
-            shutil.rmtree(work_dir)
-            print(f"Cleaned up: {work_dir}")
-        except Exception as e:
-            print(f"Cleanup failed: {e}")
+        if not is_local:
+            try:
+                shutil.rmtree(work_dir)
+                print(f"Cleaned up: {work_dir}")
+            except Exception as e:
+                print(f"Cleanup failed: {e}")
+        else:
+            print(f"DEBUG: Skipping cleanup for persistent local run: {work_dir}")
 
 
 # Start the RunPod serverless worker

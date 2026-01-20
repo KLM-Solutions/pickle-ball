@@ -12,7 +12,7 @@ Usage:
 The server will run on http://localhost:8000
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import threading
 import time
 import uuid
@@ -20,6 +20,10 @@ import os
 import sys
 import json
 import requests
+from flask_cors import CORS
+
+# Set LOCAL_DEV environment variable for handler.py
+os.environ["LOCAL_DEV"] = "true"
 
 # Add current directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -28,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from handler import handler
 
 app = Flask(__name__)
+CORS(app) # Enable CORS for frontend access
 
 # Store job statuses (in-memory for development)
 jobs = {}
@@ -81,8 +86,8 @@ def run_async():
     Returns job ID immediately, processes in background.
     """
     data = request.json
-    job_id = str(uuid.uuid4())
     job_input = data.get("input", {})
+    job_id = job_input.get("job_id") or str(uuid.uuid4())
     webhook_url = data.get("webhook")
     
     # Initialize job status
@@ -111,8 +116,8 @@ def run_sync():
     Waits for completion and returns result.
     """
     data = request.json
-    job_id = str(uuid.uuid4())
     job_input = data.get("input", {})
+    job_id = job_input.get("job_id") or str(uuid.uuid4())
     
     # Create job structure
     job = {
@@ -168,6 +173,32 @@ def health():
         "status": "healthy",
         "jobs_in_memory": len(jobs)
     })
+
+@app.route("/files/<path:path>")
+def serve_files(path):
+    """Serve analysis results from tmp_runs directory."""
+    print(f"DEBUG: Serving local file: {path}")
+    base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tmp_runs")
+    full_path = os.path.join(base_dir, path)
+    if not os.path.exists(full_path):
+        print(f"ERROR: File not found: {full_path}")
+    return send_from_directory(base_dir, path)
+
+@app.route("/output/<path:path>")
+def serve_legacy_output(path):
+    """Legacy route for backward compatibility with old database entries.
+    
+    Old jobs stored URLs like /output/runpod_analysis_xxx/output/single/annotated.mp4
+    This route rewrites them to serve from tmp_runs.
+    """
+    print(f"DEBUG: Serving legacy /output/ file: {path}")
+    base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tmp_runs")
+    full_path = os.path.join(base_dir, path)
+    if not os.path.exists(full_path):
+        print(f"ERROR: Legacy file not found: {full_path}")
+        return f"File not found: {path}", 404
+    return send_from_directory(base_dir, path)
+
 
 if __name__ == "__main__":
     print("=" * 60)

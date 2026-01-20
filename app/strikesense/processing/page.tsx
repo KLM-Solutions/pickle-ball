@@ -189,7 +189,10 @@ function ProcessingContent() {
             setOverallProgress(100);
             setJobCompleted(true);
             sendCompletionNotification();
-            sessionStorage.setItem('analysisResult', JSON.stringify(statusData.result));
+            sessionStorage.setItem('analysisResult', JSON.stringify({
+              ...statusData.result,
+              videoUrl: statusData.videoUrl || statusData.result?.videoUrl,
+            }));
             return;
           }
 
