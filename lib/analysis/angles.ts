@@ -108,7 +108,7 @@ function calculateAngle(
 }
 
 /**
- * Calculate hip rotation from hip positions
+ * Calculate hip rotation from hip positions using 3D depth
  * Uses Z-axis depth difference for true 3D rotation
  * Positive = Right hip closer to camera (rotated left)
  * Negative = Left hip closer to camera (rotated right)
