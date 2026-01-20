@@ -9,7 +9,7 @@
  * - groundstroke: 65 (more forgiving)
  * - dink: 75 (precise angle matters)
  * - footwork: 60 (full body visibility main concern)
- * - overall: 65 (general purpose)
+ * - overall: 65 (general purpose).
  */
 
 export type StrokeType = 'serve' | 'groundstroke' | 'dink' | 'overhead' | 'footwork' | 'overall';
