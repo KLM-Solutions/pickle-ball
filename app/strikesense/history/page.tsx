@@ -148,7 +148,7 @@ export default function HistoryPage() {
         {loading && (
           <div className="flex flex-col items-center justify-center py-16 md:py-20">
             <Loader2 className="w-10 h-10 md:w-12 md:h-12 text-black animate-spin mb-4" />
-            <p className="text-neutral-500 text-sm md:text-base">Loading history...</p>
+            <p className="text-neutral-500 text-sm md:text-base">Loading your history...</p>
           </div>
         )}
 
@@ -158,7 +158,7 @@ export default function HistoryPage() {
             <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-4 bg-neutral-100 rounded-full flex items-center justify-center">
               <XCircle className="w-7 h-7 md:w-8 md:h-8 text-neutral-500" />
             </div>
-            <h2 className="text-lg md:text-xl font-bold mb-2">Failed to Load</h2>
+            <h2 className="text-lg md:text-xl font-bold mb-2">Couldn't Load History</h2>
             <p className="text-neutral-500 mb-6 text-sm md:text-base px-4">{error}</p>
             <button
               onClick={fetchHistory}
@@ -195,13 +195,13 @@ export default function HistoryPage() {
             </div>
             <h2 className="text-xl md:text-2xl font-bold mb-2">No Analyses Yet</h2>
             <p className="text-neutral-500 mb-6 text-sm md:text-base px-4">
-              Complete your first stroke analysis to see it here
+              You haven't analyzed any serves yet. Let's get started!
             </p>
             <button
               onClick={() => router.push("/")}
               className="px-5 md:px-6 py-2.5 md:py-3 bg-black text-white rounded-xl font-bold text-sm md:text-base"
             >
-              Start New Analysis
+              Analyze a New Serve
             </button>
           </div>
         )}

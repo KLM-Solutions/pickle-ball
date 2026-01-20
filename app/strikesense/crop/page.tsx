@@ -393,7 +393,7 @@ function CropContent() {
                   <div className="absolute inset-0 flex items-center justify-center bg-white/90 z-20">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-10 h-10 border-4 border-neutral-300 border-t-black rounded-full animate-spin" />
-                      <p className="text-xs text-neutral-500">Loading video...</p>
+                      <p className="text-xs text-neutral-500">Preparing your video studio...</p>
                     </div>
                   </div>
                 )}
@@ -402,7 +402,7 @@ function CropContent() {
                 {videoError && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/90 z-20">
                     <div className="text-center p-4">
-                      <p className="text-sm text-neutral-600 mb-2">Failed to load video</p>
+                      <p className="text-sm text-neutral-600 mb-2">We couldn't load that video properly.</p>
                       <button
                         onClick={() => {
                           setVideoLoading(true);
@@ -414,7 +414,7 @@ function CropContent() {
                         }}
                         className="text-xs text-black hover:underline"
                       >
-                        Try again
+                        Let's try that again
                       </button>
                     </div>
                   </div>
@@ -450,7 +450,7 @@ function CropContent() {
                   onClick={() => router.push(`/strikesense/upload?stroke=${strokeType}`)}
                   className="text-xs md:text-sm text-black hover:underline"
                 >
-                  Upload a video
+                  Upload a video to get started
                 </button>
               </div>
             )}
@@ -519,7 +519,7 @@ function CropContent() {
                   {/* Label */}
                   <div className="absolute -top-9 md:-top-10 left-0 bg-black text-white px-3 py-1.5 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest shadow-lg flex items-center gap-1.5">
                     <User className="w-3 h-3" />
-                    Target
+                    This is Me
                   </div>
                 </div>
               </div>
@@ -593,11 +593,11 @@ function CropContent() {
                 style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 <Play className="w-4 h-4 fill-white" />
-                Analyze
+                Looks Good, Analyze!
               </button>
               {!cropBox && videoReady && (
                 <p className="text-[10px] text-center text-neutral-400 font-medium">
-                  Draw a box around the player
+                  Draw a box around yourself to start
                 </p>
               )}
             </div>

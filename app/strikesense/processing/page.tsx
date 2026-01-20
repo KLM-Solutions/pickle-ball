@@ -20,11 +20,11 @@ function ProcessingContent() {
   const strokeType = searchParams.get('stroke') || 'serve';
 
   const [stages, setStages] = useState<ProcessingStage[]>([
-    { id: 'upload', label: 'Sending to cloud', icon: '☁️', status: 'pending' },
-    { id: 'pose', label: 'Detecting pose', icon: '🤖', status: 'pending' },
-    { id: 'strokes', label: 'Classifying strokes', icon: '🎾', status: 'pending' },
-    { id: 'biomechanics', label: 'Analyzing technique', icon: '📊', status: 'pending' },
-    { id: 'insights', label: 'Generating insights', icon: '✨', status: 'pending' }
+    { id: 'upload', label: 'Securing your video', icon: '☁️', status: 'pending' },
+    { id: 'pose', label: 'Mapping your body points', icon: '🤖', status: 'pending' },
+    { id: 'strokes', label: 'Identifying your stroke', icon: '🎾', status: 'pending' },
+    { id: 'biomechanics', label: 'Analyzing form mechanics', icon: '📊', status: 'pending' },
+    { id: 'insights', label: 'Preparing personalized feedback', icon: '✨', status: 'pending' }
   ]);
   const [overallProgress, setOverallProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +33,23 @@ function ProcessingContent() {
   const [jobCompleted, setJobCompleted] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [currentTip, setCurrentTip] = useState(0);
+
+  const TIPS = [
+    "Did you know? The kinetic chain starts from the ground up!",
+    "Tip: Keep your eye on the ball until contact.",
+    "Fun Fact: Most power comes from hip rotation, not just arm strength.",
+    "Tip: A consistent toss leads to a consistent serve.",
+    "Analyzing: Checking your knee bend depth...",
+    "Process: Measuring shoulder rotation velocity...",
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTip(prev => (prev + 1) % TIPS.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   const hasStarted = useRef(false);
 
@@ -46,7 +63,7 @@ function ProcessingContent() {
       if (permission === 'granted') {
         setNotificationsEnabled(true);
         new Notification('StrikeSense', {
-          body: 'Notifications enabled! We\'ll notify you when analysis is complete.',
+          body: 'Notifications enabled! We\'ll let you know when your analysis is ready.',
           icon: '/favicon.ico',
         });
       }
@@ -56,7 +73,7 @@ function ProcessingContent() {
   const sendCompletionNotification = () => {
     if (notificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
       new Notification('Analysis Complete! 🎾', {
-        body: 'Your stroke analysis is ready. Click to view results.',
+        body: 'Your stroke analysis is ready. Click to see how you did.',
         icon: '/favicon.ico',
         tag: 'analysis-complete',
       });
@@ -88,7 +105,7 @@ function ProcessingContent() {
         const cropCoords = sessionStorage.getItem('cropCoords');
 
         if (!videoUrl) {
-          throw new Error("No video URL found. Please re-upload your video.");
+          throw new Error("We couldn't find your video. Please try uploading it again.");
         }
 
         let cropRegion: string | undefined;
@@ -114,14 +131,14 @@ function ProcessingContent() {
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || `Analysis failed: ${response.statusText}`);
+          throw new Error(errorData.error || `We hit a snag starting the analysis (${response.statusText})`);
         }
 
         const startResult = await response.json();
         const newJobId = startResult.job_id;
 
         if (!newJobId) {
-          throw new Error("No job ID returned from server");
+          throw new Error("We didn't get a job ID back. Please try again.");
         }
 
         setJobId(newJobId);
@@ -172,14 +189,14 @@ function ProcessingContent() {
           }
 
           if (statusData.status === 'failed') {
-            throw new Error(statusData.error_message || 'Analysis failed');
+            throw new Error(statusData.error_message || 'Analysis couldn\'t be completed.');
           }
         }
 
-        throw new Error('Analysis timed out. Please try again with a shorter video.');
+        throw new Error('Analysis is taking longer than expected. Please try again with a shorter video.');
 
       } catch (err: any) {
-        setError(err.message || 'Analysis failed. Please try again.');
+        setError(err.message || 'We ran into an issue analyzing your video. Please try again.');
       }
     };
 
@@ -196,13 +213,13 @@ function ProcessingContent() {
             <CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-white" />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold mb-2 text-black">Analysis Complete! 🎾</h1>
-          <p className="text-neutral-500 mb-6 text-sm md:text-base">Your stroke analysis is ready to view</p>
+          <p className="text-neutral-500 mb-6 text-sm md:text-base">Your results are ready. Let's see how you did!</p>
 
           <button
             onClick={() => router.push(`/strikesense/player?stroke=${strokeType}&job_id=${jobId}`)}
             className="flex items-center justify-center gap-2 w-full py-3.5 bg-black hover:bg-neutral-800 text-white rounded-xl font-bold transition text-sm md:text-base mb-3"
           >
-            <Play className="w-5 h-5" /> View Results
+            <Play className="w-5 h-5" /> View My Results
           </button>
 
           <div className="flex gap-3">
@@ -231,13 +248,13 @@ function ProcessingContent() {
           <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-neutral-200 rounded-full flex items-center justify-center">
             <AlertCircle className="w-7 h-7 md:w-8 md:h-8 text-neutral-500" />
           </div>
-          <h1 className="text-xl md:text-2xl font-bold mb-1.5 md:mb-2 text-black">Analysis Failed</h1>
+          <h1 className="text-xl md:text-2xl font-bold mb-1.5 md:mb-2 text-black">We Hit a Snag</h1>
           <p className="text-neutral-500 mb-5 md:mb-6 text-xs md:text-sm">{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="flex items-center justify-center gap-2 w-full py-3 bg-black hover:bg-neutral-800 text-white rounded-xl font-bold transition text-sm md:text-base"
           >
-            <RefreshCw className="w-4 h-4" /> Try Again
+            <RefreshCw className="w-4 h-4" /> Give It Another Shot
           </button>
           <button
             onClick={() => router.push('/')}
@@ -254,8 +271,14 @@ function ProcessingContent() {
     <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
       <div className="relative z-10 max-w-xl w-full text-center">
         <h1 className="text-2xl md:text-3xl font-bold mb-2 md:mb-3 text-black">Analyzing Your Stroke</h1>
-        <p className="text-neutral-500 mb-1.5 md:mb-2 text-sm md:text-base">Analyzing your technique</p>
-        <p className="text-[10px] md:text-xs text-neutral-400 mb-6 md:mb-8">This may take a moment</p>
+        <p className="text-neutral-500 mb-1.5 md:mb-2 text-sm md:text-base">Reviewing your technique frame-by-frame...</p>
+
+        {/* Rotating Tip */}
+        <div className="h-12 flex items-center justify-center mb-6 md:mb-8 px-4">
+          <p className="text-xs md:text-sm text-neutral-400 italic animate-in fade-in slide-in-from-bottom-2 duration-500 key={currentTip}">
+            "{TIPS[currentTip]}"
+          </p>
+        </div>
 
         {/* Job Created Success Card */}
         {jobCreated && jobId && (

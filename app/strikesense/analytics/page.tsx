@@ -202,7 +202,7 @@ export default function AnalyticsPage() {
                         <BarChart3 className="w-10 h-10 text-neutral-400" />
                     </div>
                     <h2 className="text-2xl font-bold mb-2 text-black">Sign In Required</h2>
-                    <p className="text-neutral-500 text-sm mb-6">Sign in to view your analytics</p>
+                    <p className="text-neutral-500 text-sm mb-6">Join us to see your personalized stats!</p>
                     <button onClick={() => router.push("/")} className="px-8 py-3 bg-black text-white rounded-xl font-medium hover:bg-neutral-800 transition">
                         Go Home
                     </button>
@@ -220,7 +220,7 @@ export default function AnalyticsPage() {
                         <div className="w-16 h-16 rounded-full border-4 border-neutral-200"></div>
                         <Loader2 className="w-16 h-16 animate-spin text-black absolute top-0 left-0" style={{ strokeDasharray: "40", strokeDashoffset: "30" }} />
                     </div>
-                    <p className="text-neutral-500 font-medium">Loading analytics...</p>
+                    <p className="text-neutral-500 font-medium">Crunching the numbers...</p>
                 </div>
             </div>
         );
@@ -234,7 +234,7 @@ export default function AnalyticsPage() {
                     <div className="w-20 h-20 mx-auto mb-6 bg-red-100 rounded-2xl flex items-center justify-center">
                         <AlertTriangle className="w-10 h-10 text-red-500" />
                     </div>
-                    <h2 className="text-xl font-bold mb-2 text-black">Error Loading Analytics</h2>
+                    <h2 className="text-xl font-bold mb-2 text-black">Couldn't Load Analytics</h2>
                     <p className="text-neutral-500 text-sm mb-6">{error}</p>
                     <button onClick={fetchAnalytics} className="px-8 py-3 bg-black text-white rounded-xl font-medium">
                         Try Again
@@ -262,7 +262,7 @@ export default function AnalyticsPage() {
                             <BarChart3 className="w-12 h-12 text-neutral-400" />
                         </div>
                         <h2 className="text-2xl font-bold mb-2 text-black">No Data Yet</h2>
-                        <p className="text-neutral-500 text-sm mb-8">Complete your first stroke analysis to see your dashboard</p>
+                        <p className="text-neutral-500 text-sm mb-8">No sessions yet. Upload your first serve to get started!</p>
                         <button onClick={() => router.push("/")} className="px-8 py-4 bg-black text-white rounded-2xl font-bold hover:bg-neutral-800 transition">
                             Analyze Your First Stroke
                         </button>
