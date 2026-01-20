@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle, Circle, AlertCircle, RefreshCw, Home, Bell, Copy, Check, ExternalLink, Play, Clock } from "lucide-react";
+import { useCelebration } from "@/app/hooks/useCelebration";
 
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,7 @@ type ProcessingStage = {
 function ProcessingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const celebration = useCelebration();
   const strokeType = searchParams.get('stroke') || 'serve';
 
   const [stages, setStages] = useState<ProcessingStage[]>([
@@ -178,6 +180,11 @@ function ProcessingContent() {
           }
 
           if (statusData.status === 'completed') {
+            // Success!
+            celebration?.triggerConfetti();
+            setJobId(jobId);
+            setJobCompleted(true);
+            setCopied(false);
             for (let i = 0; i < stages.length; i++) {
               setStageStatus(i, 'complete');
             }

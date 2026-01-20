@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, SignInButton } from "@clerk/nextjs";
 import {
@@ -16,8 +16,17 @@ import {
   RefreshCw,
   Plus,
   LogIn,
+  ChevronDown,
+  Trash2,
+  MoreVertical,
+  Filter,
+  ArrowUpDown,
 } from "lucide-react";
-import { getAllAnalyses, formatDate, getStrokeInfo, AnalysisJob } from "@/lib/supabase-db";
+import { EmptyState } from "@/app/components/ui/EmptyState";
+import { getAllAnalyses, formatDate, getStrokeInfo, AnalysisJob, deleteAnalysisJob } from "@/lib/supabase-db";
+
+type SortOption = "newest" | "oldest" | "stroke";
+type FilterOption = "all" | "serve" | "dink" | "groundstroke" | "overhead";
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -26,8 +35,14 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Sort and Filter State
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [filterBy, setFilterBy] = useState<FilterOption>("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+
   const fetchHistory = async () => {
-    // Don't fetch if user is not signed in
     if (!userId) {
       setLoading(false);
       setAnalyses([]);
@@ -37,7 +52,6 @@ export default function HistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      // Only fetch analyses for the current authenticated user
       const data = await getAllAnalyses(50, userId);
       setAnalyses(data);
     } catch (err: any) {
@@ -48,11 +62,33 @@ export default function HistoryPage() {
   };
 
   useEffect(() => {
-    // Wait for auth to load before fetching
     if (isLoaded) {
       fetchHistory();
     }
   }, [isLoaded, userId]);
+
+  // Sorted and Filtered Analyses
+  const filteredAnalyses = useMemo(() => {
+    let result = [...analyses];
+
+    // Apply filter
+    if (filterBy !== "all") {
+      result = result.filter((job) => job.stroke_type === filterBy);
+    }
+
+    // Apply sort
+    result.sort((a, b) => {
+      if (sortBy === "oldest") {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      } else if (sortBy === "stroke") {
+        return a.stroke_type.localeCompare(b.stroke_type);
+      }
+      // Default: newest
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    return result;
+  }, [analyses, sortBy, filterBy]);
 
   const handleViewAnalysis = (job: AnalysisJob) => {
     if (job.result_json) {
@@ -60,10 +96,32 @@ export default function HistoryPage() {
         ...job.result_json,
         videoUrl: job.result_video_url,
         stroke_type: job.stroke_type,
-        llm_response: job.llm_response, // Include cached LLM response
+        llm_response: job.llm_response,
       };
       sessionStorage.setItem("analysisResult", JSON.stringify(analysisResult));
       router.push(`/strikesense/player?stroke=${job.stroke_type}&job_id=${job.id}`);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, jobId: string) => {
+    e.stopPropagation();
+    if (!userId) return;
+
+    if (!confirm("Are you sure you want to delete this analysis?")) return;
+
+    setDeletingId(jobId);
+    try {
+      const success = await deleteAnalysisJob(jobId, userId);
+      if (success) {
+        setAnalyses((prev) => prev.filter((job) => job.id !== jobId));
+      } else {
+        alert("Failed to delete. Please try again.");
+      }
+    } catch (err) {
+      alert("An error occurred. Please try again.");
+    } finally {
+      setDeletingId(null);
+      setMenuOpenId(null);
     }
   };
 
@@ -117,12 +175,20 @@ export default function HistoryPage() {
               </div>
               <div>
                 <h1 className="text-base md:text-xl font-bold">History</h1>
-                <p className="text-[10px] md:text-xs text-neutral-500">{analyses.length} analyses</p>
+                <p className="text-[10px] md:text-xs text-neutral-500">{filteredAnalyses.length} analyses</p>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-1.5 px-2.5 md:px-3 py-2 border rounded-lg text-xs md:text-sm transition ${showFilters ? "bg-black text-white border-black" : "bg-neutral-100 border-neutral-200 hover:bg-neutral-200"
+                }`}
+            >
+              <Filter className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Filter</span>
+            </button>
             <button
               onClick={fetchHistory}
               disabled={loading}
@@ -140,6 +206,43 @@ export default function HistoryPage() {
             </button>
           </div>
         </div>
+
+        {/* Filter/Sort Bar */}
+        {showFilters && (
+          <div className="border-t border-neutral-200 px-4 py-3 bg-neutral-50">
+            <div className="max-w-5xl mx-auto flex flex-wrap gap-3 items-center">
+              {/* Sort */}
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="w-4 h-4 text-neutral-500" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="stroke">By Stroke Type</option>
+                </select>
+              </div>
+
+              {/* Filter by stroke */}
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-neutral-500" />
+                <select
+                  value={filterBy}
+                  onChange={(e) => setFilterBy(e.target.value as FilterOption)}
+                  className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                >
+                  <option value="all">All Strokes</option>
+                  <option value="serve">Serve</option>
+                  <option value="dink">Dink</option>
+                  <option value="groundstroke">Groundstroke</option>
+                  <option value="overhead">Overhead</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Main Content */}
@@ -187,36 +290,30 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {/* Empty State - Only for signed in users */}
-        {!loading && !error && isSignedIn && analyses.length === 0 && (
-          <div className="text-center py-16 md:py-20">
-            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-5 md:mb-6 bg-neutral-100 rounded-full flex items-center justify-center border border-neutral-200">
-              <BarChart3 className="w-8 h-8 md:w-10 md:h-10 text-neutral-400" />
-            </div>
-            <h2 className="text-xl md:text-2xl font-bold mb-2">No Analyses Yet</h2>
-            <p className="text-neutral-500 mb-6 text-sm md:text-base px-4">
-              You haven't analyzed any serves yet. Let's get started!
-            </p>
-            <button
-              onClick={() => router.push("/")}
-              className="px-5 md:px-6 py-2.5 md:py-3 bg-black text-white rounded-xl font-bold text-sm md:text-base"
-            >
-              Analyze a New Serve
-            </button>
+        {/* Empty State */}
+        {!loading && !error && isSignedIn && filteredAnalyses.length === 0 && (
+          <div className="py-10 md:py-16">
+            <EmptyState
+              title="Start Your Journey"
+              description="Record your first session to build your training history and track your improvement."
+              actionLabel="Record First Session"
+              onAction={() => router.push('/strikesense/upload')}
+              variant="history"
+            />
           </div>
         )}
 
         {/* Analysis List */}
-        {!loading && !error && analyses.length > 0 && (
+        {!loading && !error && filteredAnalyses.length > 0 && (
           <div className="space-y-3 md:space-y-4">
-            {analyses.map((job) => {
+            {filteredAnalyses.map((job) => {
               const strokeInfo = getStrokeInfo(job.stroke_type);
 
               return (
                 <div
                   key={job.id}
                   onClick={() => job.status === "completed" && job.result_json && handleViewAnalysis(job)}
-                  className={`bg-neutral-50 border border-neutral-200 rounded-xl md:rounded-2xl p-4 md:p-5 transition-all
+                  className={`bg-neutral-50 border border-neutral-200 rounded-xl md:rounded-2xl p-4 md:p-5 transition-all relative
                     ${job.status === "completed" && job.result_json
                       ? "hover:bg-neutral-100 hover:border-neutral-300 cursor-pointer active:scale-[0.99]"
                       : ""
@@ -254,7 +351,39 @@ export default function HistoryPage() {
                             )}
                           </div>
                         </div>
-                        {getStatusBadge(job.status)}
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(job.status)}
+
+                          {/* More Menu */}
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuOpenId(menuOpenId === job.id ? null : job.id);
+                              }}
+                              className="p-1.5 hover:bg-neutral-200 rounded-lg transition"
+                            >
+                              <MoreVertical className="w-4 h-4 text-neutral-500" />
+                            </button>
+
+                            {menuOpenId === job.id && (
+                              <div className="absolute right-0 top-8 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[120px] z-30">
+                                <button
+                                  onClick={(e) => handleDelete(e, job.id)}
+                                  disabled={deletingId === job.id}
+                                  className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50"
+                                >
+                                  {deletingId === job.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
 

@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import Header from "@/app/components/Header";
 import AICoachModal from "@/app/components/dashboard/AICoachModal";
 import BioSkeleton from "@/app/components/dashboard/BioSkeleton";
+import { EmptyState } from "@/app/components/ui/EmptyState";
 import {
     ArrowLeft,
     BarChart3,
@@ -50,6 +52,7 @@ interface MetricCard {
     optimal_max: number;
     unit: string;
     status: "good" | "warning" | "critical";
+    trend: number;
 }
 
 interface DrillRecommendation {
@@ -248,25 +251,15 @@ export default function AnalyticsPage() {
     if (!data || data.totalSessions === 0) {
         return (
             <div className="min-h-screen bg-white">
-                <header className="sticky top-0 z-20 bg-white border-b border-neutral-200">
-                    <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-                        <button onClick={() => router.push("/")} className="p-2 hover:bg-neutral-100 rounded-xl transition">
-                            <ArrowLeft className="w-5 h-5" />
-                        </button>
-                        <h1 className="text-lg font-bold text-black">Analytics</h1>
-                    </div>
-                </header>
-                <div className="flex items-center justify-center min-h-[60vh] px-4">
-                    <div className="text-center">
-                        <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-3xl flex items-center justify-center shadow-lg">
-                            <BarChart3 className="w-12 h-12 text-neutral-400" />
-                        </div>
-                        <h2 className="text-2xl font-bold mb-2 text-black">No Data Yet</h2>
-                        <p className="text-neutral-500 text-sm mb-8">No sessions yet. Upload your first serve to get started!</p>
-                        <button onClick={() => router.push("/")} className="px-8 py-4 bg-black text-white rounded-2xl font-bold hover:bg-neutral-800 transition">
-                            Analyze Your First Stroke
-                        </button>
-                    </div>
+                <Header />
+                <div className="max-w-7xl mx-auto px-4 py-8">
+                    <EmptyState
+                        title="Unlock Your Progress"
+                        description="Complete 2 sessions to see your improvement trends over time. Discover what's holding back your game."
+                        actionLabel="Upload First Video"
+                        onAction={() => router.push('/strikesense/upload')}
+                        variant="analytics"
+                    />
                 </div>
             </div>
         );
@@ -402,6 +395,14 @@ export default function AnalyticsPage() {
                                     <div className="flex items-center justify-between mb-3">
                                         <span className="text-sm font-medium text-neutral-700">{metric.label}</span>
                                         {STATUS_ICONS[metric.status]}
+                                    </div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <h3 className="text-sm font-medium text-neutral-600">Trend</h3>
+                                        {metric.trend >= 5 && (
+                                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full animate-pulse border border-emerald-100 flex items-center gap-1">
+                                                <TrendingUp className="w-3 h-3" /> Improving
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex items-baseline gap-1 mb-2">
                                         <span className="text-3xl font-bold text-black">

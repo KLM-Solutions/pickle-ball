@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Upload, ArrowLeft, Cloud, Zap, Shield, Film } from "lucide-react";
+import { Upload, ArrowLeft, Cloud, Zap, Shield, Film, CheckCircle } from "lucide-react";
+import { useCelebration } from "@/app/hooks/useCelebration";
 
 import { uploadVideo } from "@/lib/supabase";
 import CameraAngleValidator from "@/app/components/CameraAngleValidator";
@@ -13,6 +14,7 @@ export const dynamic = 'force-dynamic';
 function UploadContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const celebration = useCelebration();
     const strokeType = searchParams.get('stroke') || 'serve';
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -108,13 +110,16 @@ function UploadContent() {
             clearInterval(progressInterval);
             setUploadProgress(100);
 
+            // Celebration!
+            if (celebration) celebration.triggerBurst();
+
             sessionStorage.setItem('videoUrl', videoUrl);
             sessionStorage.setItem('videoFileName', file.name);
             sessionStorage.setItem('strokeType', strokeType);
 
             setTimeout(() => {
                 router.push(`/strikesense/crop?stroke=${strokeType}`);
-            }, 500);
+            }, 1000); // Slightly longer delay to enjoy the burst
 
         } catch (err: any) {
             console.error('Upload failed:', err);
