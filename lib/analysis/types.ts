@@ -137,3 +137,33 @@ export interface StrokeSegment {
 // Stroke type
 export type StrokeType = 'serve' | 'dink' | 'groundstroke' | 'overhead' | 'volley';
 
+// Rally phase for temporal context
+export type RallyPhase = 'pre-rally' | 'active-rally' | 'post-rally';
+
+/**
+ * Rally state for multi-rally awareness and serve locking.
+ * Maintained during stroke detection to prevent mid-rally serve detections.
+ */
+export interface RallyState {
+  phase: RallyPhase;
+  serveUsed: boolean;              // TRUE after first serve is confirmed
+  lastStrokeFrame: number;         // Frame index of last confirmed stroke
+  lastStrokeType: StrokeType | null;
+  cooldownEndFrame: number;        // Frame index when cooldown expires
+  rallyStartFrame: number;         // Frame where rally was detected to start
+}
+
+/**
+ * Create initial rally state for a new video analysis.
+ */
+export function createInitialRallyState(): RallyState {
+  return {
+    phase: 'pre-rally',
+    serveUsed: false,
+    lastStrokeFrame: -1,
+    lastStrokeType: null,
+    cooldownEndFrame: -1,
+    rallyStartFrame: -1,
+  };
+}
+

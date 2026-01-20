@@ -101,3 +101,54 @@ export function countUpwardFrames(
 
     return count;
 }
+
+/**
+ * Check if a velocity curve shows a confirmed stroke (peak + deceleration).
+ * 
+ * A stroke is only valid if:
+ * 1. There's a clear velocity peak
+ * 2. Velocity drops by at least 40% within the next 2-3 frames
+ * 
+ * This filters out preparation movements (no deceleration) and
+ * partial motions (no clear peak).
+ * 
+ * @param velocities - Array of velocity magnitudes over the window
+ * @param peakIdx - Index of the suspected peak in the array
+ * @param minDropPercent - Minimum percentage drop required (default: 0.40)
+ * @returns true if the peak is confirmed with proper deceleration
+ */
+export function isVelocityPeakConfirmed(
+    velocities: number[],
+    peakIdx: number,
+    minDropPercent: number = 0.40
+): boolean {
+    if (velocities.length < 5 || peakIdx < 2) {
+        return false; // Not enough frames for confirmation
+    }
+
+    const peakValue = velocities[peakIdx];
+    if (peakValue < 0.02) {
+        return false; // Peak too low to be a stroke
+    }
+
+    // Check for acceleration before peak (at least 2 frames of buildup)
+    const avgBefore = (velocities[peakIdx - 2] + velocities[peakIdx - 1]) / 2;
+    if (avgBefore > 0.9 * peakValue) {
+        return false; // No clear ramp-up to peak
+    }
+
+    // Check for deceleration after peak
+    const framesAfter = Math.min(3, velocities.length - peakIdx - 1);
+    if (framesAfter < 2) {
+        return false; // Not enough frames to confirm deceleration
+    }
+
+    let minAfterPeak = peakValue;
+    for (let i = 1; i <= framesAfter; i++) {
+        minAfterPeak = Math.min(minAfterPeak, velocities[peakIdx + i]);
+    }
+
+    const dropPercentage = (peakValue - minAfterPeak) / peakValue;
+    return dropPercentage >= minDropPercent;
+}
+

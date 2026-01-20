@@ -8,9 +8,9 @@
  * IMPORTANT: Do NOT optimize or change thresholds. This is a mechanical port.
  */
 
-import { StrokeType, FrameMetrics } from './types';
+import { StrokeType, FrameMetrics, RallyState, createInitialRallyState } from './types';
 import { classifyStroke, ClassificationResult } from './classify';
-import { computeVelocity } from './velocity';
+import { computeVelocity, isVelocityPeakConfirmed } from './velocity';
 
 // ============================================================================
 // TYPES
@@ -69,6 +69,8 @@ const DEFAULT_CONFIG: SegmentConfig = { min_conf: 0.75, min_peak_v: 0.10, min_le
 const MIN_SEGMENT_FRAMES = 3;      // Minimum frames for valid segment
 const GAP_MERGE_THRESHOLD = 3;     // Merge segments if gap <= this
 const HISTORY_BUFFER_SIZE = 10;    // Number of frames to keep in history
+const RALLY_END_LOW_VEL_THRESHOLD = 0.015; // Velocity below this = idle
+const RALLY_END_IDLE_FRAMES = 60;  // ~2 sec at 30fps = rally end
 
 // ============================================================================
 // DETECTION FUNCTIONS
@@ -223,6 +225,7 @@ export function findPeakVelocity(
 
 /**
  * Filter segments based on stroke-specific thresholds.
+ * Enhanced with rally-aware serve locking and peak confirmation.
  * 
  * Ported from: track.py lines 1028-1077
  */
@@ -231,7 +234,8 @@ export function filterSegments(
     allMetrics: FrameMetricsLike[],
     strokeKey: string,
     fps: number,
-    coarseMode: boolean = false
+    coarseMode: boolean = false,
+    rallyState?: RallyState
 ): StrokeSegment[] {
     let cfg = SEGMENT_CONFIG[strokeKey.toLowerCase()] || DEFAULT_CONFIG;
 
@@ -248,10 +252,54 @@ export function filterSegments(
     const cooldownFrames = Math.floor(cfg.cooldown_sec * fps);
     const filtered: StrokeSegment[] = [];
 
+    // Initialize rally state if not provided
+    const state: RallyState = rallyState || createInitialRallyState();
+
     // Sort by start frame
     const sorted = [...segments].sort((a, b) => a.startFrame - b.startFrame);
 
     for (const s of sorted) {
+        // === NEW: Rally End Detection ===
+        // If there's a significant gap since the last stroke, check if the rally ended.
+        if (state.lastStrokeFrame > 0) {
+            const gapFrames = s.startFrame - state.lastStrokeFrame;
+
+            // If gap is large enough to potentially be a rally break
+            if (gapFrames > RALLY_END_IDLE_FRAMES) {
+                // Check velocity in the gap
+                let isIdle = true;
+                const checkStart = state.lastStrokeFrame + 5; // buffer
+                const checkEnd = s.startFrame - 5;            // buffer
+
+                // If gap is huge (> 5s), assume new rally without checking every frame
+                if (gapFrames > 150) {
+                    isIdle = true;
+                } else if (checkEnd > checkStart) {
+                    // Check if velocity remained low
+                    let highVelFrames = 0;
+                    for (let i = checkStart; i < checkEnd; i += 2) { // sample every 2nd frame
+                        const m = allMetrics[i];
+                        // Use pre-computed mag if available, else approximate
+                        const v = (m.wrist_velocity_mag as number) ?? 0;
+                        if (v > RALLY_END_LOW_VEL_THRESHOLD * 2) {
+                            highVelFrames++;
+                        }
+                    }
+                    // If too much activity in the gap, it wasn't a rally end (just a lull)
+                    if (highVelFrames > (checkEnd - checkStart) * 0.1) {
+                        isIdle = false;
+                    }
+                }
+
+                if (isIdle) {
+                    // Rally ended! Reset state.
+                    state.serveUsed = false;
+                    state.phase = 'pre-rally';
+                    state.lastStrokeFrame = -1; // Reset to avoid double-resetting
+                }
+            }
+        }
+
         const segLen = s.endFrame - s.startFrame + 1;
 
         // Min length check
@@ -272,6 +320,48 @@ export function filterSegments(
             continue;
         }
 
+        // === NEW: Velocity peak confirmation (peak + deceleration) ===
+        // Build velocity curve for this segment window
+        const velocities: number[] = [];
+        let peakIdxInWindow = 0;
+        for (let i = s.startFrame; i <= Math.min(s.endFrame + 3, allMetrics.length - 1); i++) {
+            const metric = allMetrics[i];
+            const prev = i > 0 ? allMetrics[i - 1] : null;
+            const vel = computeVelocity(
+                metric,
+                prev,
+                'right_wrist_y',
+                'right_wrist_x',
+                'right_wrist_z'
+            );
+            velocities.push(vel.magnitude);
+            if (i === peak.peakFrameIdx) {
+                peakIdxInWindow = velocities.length - 1;
+            }
+        }
+
+        // Confirm peak has proper deceleration
+        // Serves are smoother, so allow a lower drop percentage (25%).
+        // Drives/Volleys are sharper, so require standard 40%.
+        const minDrop = s.strokeType === 'serve' ? 0.25 : 0.40;
+
+        if (!isVelocityPeakConfirmed(velocities, peakIdxInWindow, minDrop)) {
+            // Skip: likely prep or follow-through, not a complete stroke
+            continue;
+        }
+
+        // === NEW: Rally-aware serve lock ===
+        if (s.strokeType === 'serve') {
+            if (state.serveUsed) {
+                // Serve already used in this rally - REJECT
+                continue;
+            }
+            // Mark serve as used (first serve confirmed)
+            state.serveUsed = true;
+            state.phase = 'active-rally';
+            state.rallyStartFrame = s.startFrame;
+        }
+
         // Cooldown: prevent duplicates around the same physical hit
         if (cooldownFrames > 0 && filtered.length > 0) {
             const prevEnd = filtered[filtered.length - 1].endFrame;
@@ -279,6 +369,11 @@ export function filterSegments(
                 continue;
             }
         }
+
+        // Update rally state
+        state.lastStrokeFrame = s.endFrame;
+        state.lastStrokeType = s.strokeType === 'unknown' ? null : s.strokeType;
+        state.cooldownEndFrame = s.endFrame + cooldownFrames;
 
         // Add to filtered results
         filtered.push({
@@ -327,8 +422,11 @@ export function detectStrokes(
         matchingSegments = rawSegments;
     }
 
-    // Step 3: Apply filtering with cooldown and peak detection
-    const finalStrokes = filterSegments(matchingSegments, frames, strokeKey, fps, coarseMode);
+    // Step 3: Apply filtering with cooldown, peak detection, and rally state
+    // RallyState is created fresh per detectStrokes call (single rally assumed per call)
+    // For multi-rally videos, caller should split frames by rally boundaries
+    const rallyState = createInitialRallyState();
+    const finalStrokes = filterSegments(matchingSegments, frames, strokeKey, fps, coarseMode, rallyState);
 
     return finalStrokes;
 }
