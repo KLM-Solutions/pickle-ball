@@ -84,6 +84,13 @@ function PlayerContent() {
         return { filteredFrames: filtered, filterSummary: summary, topIssues: top };
     }, [analysisData, strokeType]);
 
+    // Construct effect to set default selected issue
+    useEffect(() => {
+        if (topIssues.length > 0 && !selectedIssue) {
+            setSelectedIssue(topIssues[0].issue);
+        }
+    }, [topIssues, selectedIssue]);
+
     // Jump to frame
     const jumpToFrame = (frame: any) => {
         const time = frame.timestampSec ?? frame.timestamp_sec ?? 0;
