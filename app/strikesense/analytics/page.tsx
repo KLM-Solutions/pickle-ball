@@ -251,7 +251,14 @@ export default function AnalyticsPage() {
     if (!data || data.totalSessions === 0) {
         return (
             <div className="min-h-screen bg-white">
-                <Header />
+                <header className="sticky top-0 z-20 bg-white border-b border-neutral-200">
+                    <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
+                        <button onClick={() => router.push("/")} className="p-2 hover:bg-neutral-100 rounded-xl transition">
+                            <ArrowLeft className="w-5 h-5" />
+                        </button>
+                        <h1 className="text-lg font-bold text-black">Analytics</h1>
+                    </div>
+                </header>
                 <div className="max-w-7xl mx-auto px-4 py-8">
                     <EmptyState
                         title="Unlock Your Progress"
