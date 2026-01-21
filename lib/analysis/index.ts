@@ -7,7 +7,7 @@
  */
 
 import { calculateMetrics } from './angles';
-import { detectRisks, calculateRiskPercentages, getOverallRisk } from './risk';
+import { detectRisks, calculateRiskPercentages, getOverallRisk, filterSustainedRisks } from './risk';
 import { generateFeedback } from './feedback';
 import { detectStrokes } from './segmentation';
 import {
@@ -107,6 +107,7 @@ export function analyzeFrames(
         right_shoulder_z: undefined,
         left_shoulder_x: undefined,
         left_shoulder_z: undefined,
+        spinal_flexion: null,
       };
 
     // Enrich metrics with frame timing for segmentation
@@ -136,6 +137,9 @@ export function analyzeFrames(
       feedback,
     };
   });
+
+  // Filter for sustained risks (Confidence Interval)
+  filterSustainedRisks(analyzedFrames, 3);
 
   // Calculate duration
   const duration = rawFrames.length > 0

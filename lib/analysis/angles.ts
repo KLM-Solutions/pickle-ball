@@ -138,6 +138,45 @@ function calculateHipRotation(leftHip: Landmark, rightHip: Landmark): number {
 }
 
 /**
+ * Calculate spinal flexion (forward lean)
+ * Angle between the trunk (mid-shoulder to mid-hip) and the vertical axis.
+ */
+function calculateSpinalFlexion(
+  leftShoulder: Landmark,
+  rightShoulder: Landmark,
+  leftHip: Landmark,
+  rightHip: Landmark
+): number {
+  const midShoulder = {
+    x: (leftShoulder.x + rightShoulder.x) / 2,
+    y: (leftShoulder.y + rightShoulder.y) / 2,
+    z: (leftShoulder.z + rightShoulder.z) / 2,
+  };
+  const midHip = {
+    x: (leftHip.x + rightHip.x) / 2,
+    y: (leftHip.y + rightHip.y) / 2,
+    z: (leftHip.z + rightHip.z) / 2,
+  };
+
+  const trunk = {
+    x: midShoulder.x - midHip.x,
+    y: midShoulder.y - midHip.y,
+    z: midShoulder.z - midHip.z,
+  };
+
+  const magTrunk = Math.sqrt(trunk.x ** 2 + trunk.y ** 2 + trunk.z ** 2);
+  if (magTrunk === 0) return 0;
+
+  // Dot product with vertical unit vector (0, -1, 0)
+  // In MediaPipe Y increases downward, so 'up' is negative Y.
+  let cosTheta = (-trunk.y) / magTrunk;
+  cosTheta = Math.max(-1, Math.min(1, cosTheta));
+
+  const angle = Math.acos(cosTheta) * (180 / Math.PI);
+  return Math.round(angle * 10) / 10;
+}
+
+/**
  * Calculate all metrics from landmarks
  */
 export function calculateMetrics(landmarks: Landmark[]): FrameMetrics {
@@ -228,6 +267,11 @@ export function calculateMetrics(landmarks: Landmark[]): FrameMetrics {
   // Hip rotation
   if (leftHip && rightHip) {
     metrics.hip_rotation_deg = calculateHipRotation(leftHip, rightHip);
+  }
+
+  // Spinal flexion
+  if (leftShoulder && rightShoulder && leftHip && rightHip) {
+    metrics.spinal_flexion = calculateSpinalFlexion(leftShoulder, rightShoulder, leftHip, rightHip);
   }
 
   // Position checks (Y increases downward, so < means ABOVE)
