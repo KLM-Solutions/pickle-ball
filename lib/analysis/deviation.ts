@@ -39,7 +39,6 @@ interface ParameterConfig {
     performanceImpact: 'high' | 'medium' | 'low';
     impactWeight: number;
     maxDeviation: number; // Max degrees before score = 0
-    aggregator: 'max' | 'min' | 'avg'; // Aggregation method
     getOptimalRange: (strokeType: StrokeType) => { min: number; max: number };
     getRecommendation: (value: number, optimal: { min: number; max: number }) => string;
 }
@@ -92,7 +91,6 @@ const PARAMETER_CONFIGS: ParameterConfig[] = [
         performanceImpact: 'high',
         impactWeight: 1.5,
         maxDeviation: 40,
-        aggregator: 'max',
         getOptimalRange: (stroke) => OPTIMAL_RANGES[stroke].hip_rotation,
         getRecommendation: (value, optimal) => {
             if (value < optimal.min) {
@@ -108,7 +106,6 @@ const PARAMETER_CONFIGS: ParameterConfig[] = [
         performanceImpact: 'high',
         impactWeight: 1.4,
         maxDeviation: 50,
-        aggregator: 'max',
         getOptimalRange: (stroke) => OPTIMAL_RANGES[stroke].shoulder_abduction,
         getRecommendation: (value, optimal) => {
             if (value < optimal.min) {
@@ -124,7 +121,6 @@ const PARAMETER_CONFIGS: ParameterConfig[] = [
         performanceImpact: 'medium',
         impactWeight: 1.2,
         maxDeviation: 45,
-        aggregator: 'max',
         getOptimalRange: (stroke) => OPTIMAL_RANGES[stroke].elbow_flexion,
         getRecommendation: (value, optimal) => {
             if (value < optimal.min) {
@@ -140,7 +136,6 @@ const PARAMETER_CONFIGS: ParameterConfig[] = [
         performanceImpact: 'medium',
         impactWeight: 1.1,
         maxDeviation: 40,
-        aggregator: 'min',
         getOptimalRange: (stroke) => OPTIMAL_RANGES[stroke].knee_flexion,
         getRecommendation: (value, optimal) => {
             if (value < optimal.min) {
@@ -218,15 +213,6 @@ function getMaxMetric(frames: AnalyzedFrame[], metricKey: keyof FrameMetrics): n
 /**
  * Generate full deviation report for a session
  */
-function getMinMetric(frames: AnalyzedFrame[], metricKey: keyof FrameMetrics): number | null {
-    const values = frames
-        .map(f => f.metrics[metricKey])
-        .filter((v): v is number => typeof v === 'number' && !isNaN(v));
-
-    if (values.length === 0) return null;
-    return Math.min(...values);
-}
-
 export function getDeviationReport(
     frames: AnalyzedFrame[],
     strokeType: StrokeType | string
@@ -238,20 +224,10 @@ export function getDeviationReport(
     for (const config of PARAMETER_CONFIGS) {
         const optimalRange = config.getOptimalRange(stroke);
 
-        // Get user value based on aggregator
-        let userValue: number | null = null;
-        switch (config.aggregator) {
-            case 'max':
-                userValue = getMaxMetric(frames, config.metricKey);
-                break;
-            case 'min':
-                userValue = getMinMetric(frames, config.metricKey);
-                break;
-            case 'avg':
-            default:
-                userValue = getAverageMetric(frames, config.metricKey);
-                break;
-        }
+        // Use average value for most metrics, max for shoulder (peak extension)
+        const userValue = config.key === 'shoulder_abduction'
+            ? getMaxMetric(frames, config.metricKey)
+            : getAverageMetric(frames, config.metricKey);
 
         const { score, deviation, status } = calculateDeviationScore(
             userValue,
