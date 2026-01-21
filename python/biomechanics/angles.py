@@ -35,6 +35,11 @@ ANGLE_THRESHOLDS = {
         'volley': (10, 30),
         'overhead': (60, 120),
         'power_threshold': 30  # Below this = poor power generation
+    },
+    'spinal_flexion': {
+        'safe': (0, 30),
+        'caution': (30, 45),
+        'high_risk': (45, 90)  # >45 is excessive forward lean
     }
 }
 
@@ -167,25 +172,30 @@ def calculate_knee_flexion_validated(hip, knee, ankle) -> Dict[str, Any]:
     """
     angle = calculate_angle(hip, knee, ankle)
     
-    safe_max = ANGLE_THRESHOLDS['knee_flexion']['safe_max']
+    # PDF defines thresholds based on 'Bend Angle' (0=Straight, 90=Right Angle)
+    # MediaPipe angle is internal (180=Straight, 90=Right Angle)
+    bend_angle = 180 - angle
+    
+    safe_max = ANGLE_THRESHOLDS['knee_flexion']['safe_max'] # 90 degrees bend
     
     # Determine stress level
-    if angle > safe_max:
+    if bend_angle > safe_max:
         stress_level = 'high'
         feedback = f"Deep knee flexion (>{safe_max}°) - patellar stress risk"
-    elif angle < 20:
+    elif bend_angle < 20:
         stress_level = 'low'
         feedback = "Legs too straight - poor athletic stance"
     else:
         stress_level = 'normal'
         feedback = "Good athletic stance"
     
-    # Check if in optimal ready position
+    # Check if in optimal ready position (20-30 degrees bend)
     ready_range = ANGLE_THRESHOLDS['knee_flexion']['ready']
-    in_ready_position = ready_range[0] <= angle <= ready_range[1]
+    in_ready_position = ready_range[0] <= bend_angle <= ready_range[1]
     
     return {
         'angle': round(angle, 1),
+        'bend_angle': round(bend_angle, 1),
         'stress_level': stress_level,
         'in_ready_position': in_ready_position,
         'feedback': feedback
@@ -258,6 +268,86 @@ def calculate_hip_rotation_validated(left_hip, right_hip, stroke_type: str = 'gr
     }
 
 
+def calculate_spinal_flexion(left_shoulder, right_shoulder, left_hip, right_hip) -> float:
+    """
+    Calculate spinal flexion (forward lean) relative to vertical.
+    
+    Args:
+        left_shoulder, right_shoulder, left_hip, right_hip: MediaPipe landmarks
+        
+    Returns:
+        Angle in degrees (0-180), where 0 is vertical/upright
+    """
+    if not all([left_shoulder, right_shoulder, left_hip, right_hip]):
+        return 0.0
+        
+    # Calculate midpoints
+    mid_shoulder_x = (left_shoulder.x + right_shoulder.x) / 2
+    mid_shoulder_y = (left_shoulder.y + right_shoulder.y) / 2
+    mid_shoulder_z = (left_shoulder.z + right_shoulder.z) / 2 if hasattr(left_shoulder, 'z') else 0
+    
+    mid_hip_x = (left_hip.x + right_hip.x) / 2
+    mid_hip_y = (left_hip.y + right_hip.y) / 2
+    mid_hip_z = (left_hip.z + right_hip.z) / 2 if hasattr(left_hip, 'z') else 0
+    
+    # Vector from hip to shoulder (torso vector)
+    torso_vector = np.array([mid_shoulder_x - mid_hip_x, mid_shoulder_y - mid_hip_y, mid_shoulder_z - mid_hip_z])
+    
+    # Vertical vector (upwards is negative Y in images, but let's compare to vertical axis)
+    # Ideally, we want the angle with the vertical Y axis.
+    # In image coords, Y increases downwards. So "up" is (0, -1, 0).
+    vertical_vector = np.array([0, -1, 0])
+    
+    # Normalize
+    torso_norm = np.linalg.norm(torso_vector)
+    if torso_norm < 1e-6:
+        return 0.0
+        
+    torso_unit = torso_vector / torso_norm
+    
+    # Calculate angle
+    dot_product = np.dot(torso_unit, vertical_vector)
+    angle_rad = np.arccos(np.clip(dot_product, -1.0, 1.0))
+    angle_deg = np.degrees(angle_rad)
+    
+    return float(angle_deg)
+
+
+def calculate_spinal_flexion_validated(left_shoulder, right_shoulder, left_hip, right_hip) -> Dict[str, Any]:
+    """
+    Calculate spinal flexion with risk assessment.
+    
+    Args:
+        left_shoulder, right_shoulder, left_hip, right_hip: MediaPipe landmarks
+        
+    Returns:
+        Dictionary with angle and risk info
+    """
+    angle = calculate_spinal_flexion(left_shoulder, right_shoulder, left_hip, right_hip)
+    
+    thresholds = ANGLE_THRESHOLDS['spinal_flexion']
+    
+    if angle <= thresholds['safe'][1]:
+        risk = 'safe'
+        risk_color = 'green'
+        feedback = "Good posture"
+    elif angle <= thresholds['caution'][1]:
+        risk = 'caution'
+        risk_color = 'yellow'
+        feedback = "Moderate forward lean"
+    else:
+        risk = 'high'
+        risk_color = 'red'
+        feedback = "Excessive forward lean - back strain risk"
+        
+    return {
+        'angle': round(angle, 1),
+        'risk_level': risk,
+        'risk_color': risk_color,
+        'feedback': feedback
+    }
+
+
 def calculate_wrist_position(mid_hip_x: float, mid_hip_y: float, wrist) -> Tuple[float, float, float]:
     """
     Calculate wrist position relative to body center.
@@ -326,6 +416,15 @@ def calculate_biomechanics_for_stroke(keypoints: Dict, stroke_type: str) -> Dict
             keypoints['left_hip'],
             keypoints['right_hip'],
             stroke_type
+        )
+
+    # Spinal Flexion
+    if all(k in keypoints for k in ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip']):
+        results['spinal_flexion'] = calculate_spinal_flexion_validated(
+            keypoints['left_shoulder'],
+            keypoints['right_shoulder'],
+            keypoints['left_hip'],
+            keypoints['right_hip']
         )
     
     # Wrist position

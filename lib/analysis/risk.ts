@@ -10,26 +10,32 @@
 import { FrameMetrics, InjuryRisk, RiskLevel, StrokeType } from './types';
 
 // Thresholds based on biomechanics research - Red/Yellow/Green levels
+// Thresholds based on biomechanics research - Red/Yellow/Green levels
+// Verified against Linear Ticket: [Biomechanics Thresholds]
 const THRESHOLDS = {
   shoulder: {
-    caution: 90,    // Yellow starts
-    high_risk: 140, // Red starts
+    // Acceptance Criteria: Shoulder abduction thresholds
+    caution: 90,    // Medium Risk (Green -> Yellow)
+    high_risk: 140, // High Risk (Yellow -> Red) - Rotator cuff impingement zone
   },
   elbow: {
-    extension_caution: 170,
-    extension_risk: 180, // Hyperextension
+    // Acceptance Criteria: Elbow hyperextension thresholds
+    extension_caution: 170, // Medium Risk
+    extension_risk: 180,    // High Risk - Hyperextension limit
   },
   knee: {
-    flexion_caution: 120, // Start of caution
-    flexion_risk: 90,     // Too deep, high stress
-    locked_risk: 175,    // Fully locked under load
+    // Acceptance Criteria: Knee flexion extremes
+    flexion_caution: 120, // Medium Risk start
+    flexion_risk: 90,     // High Risk - Patellofemoral compression zone
+    locked_risk: 175,     // High Risk - Locked knee under load
   },
   spine: {
-    flexion_caution: 20,
-    flexion_risk: 45,
+    // Acceptance Criteria: Spinal flexion (Lower back)
+    flexion_caution: 30, // Updated to 30 to match Linear/Python
+    flexion_risk: 45,    // High Risk - Disc compression zone
   },
   hip_rotation: {
-    power_minimum: 30,
+    power_minimum: 30, // Kinetic Chain efficiency
   },
 };
 
