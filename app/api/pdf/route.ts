@@ -418,61 +418,7 @@ function generateReportHTML(data: any): string {
       </div>
     </div>
     
-    <div class="section">
-      <h2 class="section-header">📊 Biomechanics Breakdown</h2>
-      
-        <div class="progress-bar-container">
-        <div class="progress-label">
-          <span class="progress-name">Shoulder Mechanics</span>
-          <span>
-            <span class="progress-detail">${maxShoulder !== null ? `Peak: ${maxShoulder.toFixed(0)}° • Target: 60-120°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(shoulderScore)};">${shoulderScore}%</span>
-          </span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${shoulderScore}%; background: ${getScoreColor(shoulderScore)};"></div>
-        </div>
-      </div>
-      
-      <div class="progress-bar-container">
-        <div class="progress-label">
-          <span class="progress-name">Hip Power Transfer</span>
-          <span>
-            <span class="progress-detail">${avgHip ? `Avg: ${avgHip.toFixed(0)}° • Target: &gt;30°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(hipScore)};">${hipScore}%</span>
-          </span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${hipScore}%; background: ${getScoreColor(hipScore)};"></div>
-        </div>
-      </div>
-      
-      <div class="progress-bar-container">
-        <div class="progress-label">
-          <span class="progress-name">Knee Stability</span>
-          <span>
-            <span class="progress-detail">${avgKnee ? `Avg: ${avgKnee.toFixed(0)}° • Target: 120-170°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(kneeScore)};">${kneeScore}%</span>
-          </span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${kneeScore}%; background: ${getScoreColor(kneeScore)};"></div>
-        </div>
-      </div>
-      
-      <div class="progress-bar-container">
-        <div class="progress-label">
-          <span class="progress-name">Elbow Extension</span>
-          <span>
-            <span class="progress-detail">${avgElbow ? `Avg: ${avgElbow.toFixed(0)}° • Target: 90-150°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(elbowScore)};">${elbowScore}%</span>
-          </span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${elbowScore}%; background: ${getScoreColor(elbowScore)};"></div>
-        </div>
-      </div>
-    </div>
+
 
     ${deviationReport && deviationReport.topDeviations.length > 0 ? `
     <div class="section">

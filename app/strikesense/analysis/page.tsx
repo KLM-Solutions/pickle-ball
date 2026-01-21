@@ -313,40 +313,7 @@ function AnalysisContent() {
                     />
                 </div>
 
-                {/* Biomechanics Breakdown */}
-                <div className="bg-neutral-50 rounded-2xl p-5 md:p-6 border border-neutral-200 mb-6">
-                    <h2 className="text-lg font-semibold text-black mb-5 flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-neutral-600" />
-                        Technique Analysis
-                    </h2>
 
-                    <div className="space-y-5">
-                        <MetricBar
-                            label="Shoulder Mechanics"
-                            value={Math.round(shoulderScore)}
-                            detail={getMax(shoulderAngles) ? `Peak: ${getMax(shoulderAngles)?.toFixed(0)}°` : 'No data'}
-                            optimal="60-120°"
-                        />
-                        <MetricBar
-                            label="Hip Power Transfer"
-                            value={Math.round(hipScore)}
-                            detail={getAverage(hipRotations) ? `Avg: ${getAverage(hipRotations)?.toFixed(0)}°` : 'No data'}
-                            optimal=">30°"
-                        />
-                        <MetricBar
-                            label="Knee Stability"
-                            value={Math.round(kneeScore)}
-                            detail={getAverage(kneeFlexions) ? `Avg: ${getAverage(kneeFlexions)?.toFixed(0)}°` : 'No data'}
-                            optimal="120-170°"
-                        />
-                        <MetricBar
-                            label="Elbow Extension"
-                            value={elbowAngles.length > 0 ? Math.round(calculateScore(elbowAngles, 90, 150)) : 80}
-                            detail={getAverage(elbowAngles) ? `Avg: ${getAverage(elbowAngles)?.toFixed(0)}°` : 'No data'}
-                            optimal="90-150°"
-                        />
-                    </div>
-                </div>
 
                 {/* What to Improve Section */}
                 {deviationReport.topDeviations.length > 0 && (
