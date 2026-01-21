@@ -101,8 +101,8 @@ function AnalysisContent() {
     };
 
     const shoulderScore = calculateScore(getMax(shoulderAngles) || 0, 60, 120);
-    const hipScore = hipRotations.length > 0 ? Math.min(100, (getAverage(hipRotations) || 0) * 3) : 70;
-    const kneeScore = calculateScore(kneeFlexions, 120, 170);
+    const hipScore = hipRotations.length > 0 ? Math.min(100, (getMax(hipRotations) || 0) * 3) : 70;
+    const kneeScore = calculateScore(getMin(kneeFlexions) || 0, 120, 170);
     const overallScore = Math.round((shoulderScore + hipScore + kneeScore + riskScore) / 4);
 
     const getGrade = (score: number) => {
@@ -135,10 +135,13 @@ function AnalysisContent() {
                     shoulderScore: Math.round(shoulderScore),
                     hipScore: Math.round(hipScore),
                     kneeScore: Math.round(kneeScore),
-                    elbowScore: elbowAngles.length > 0 ? Math.round(calculateScore(elbowAngles, 90, 150)) : 80,
+                    elbowScore: elbowAngles.length > 0 ? Math.round(calculateScore(getMax(elbowAngles) || 0, 90, 150)) : 80,
                     avgShoulder: getMax(shoulderAngles), // Use Max for shoulder to match UI
                     minShoulder: getMin(shoulderAngles),
                     maxShoulder: getMax(shoulderAngles),
+                    maxHip: getMax(hipRotations), // Pass Peak Hip
+                    minKnee: getMin(kneeFlexions), // Pass Max Bend Knee
+                    maxElbow: getMax(elbowAngles), // Pass Peak Elbow
                     avgHip: getAverage(hipRotations),
                     avgKnee: getAverage(kneeFlexions),
                     avgElbow: getAverage(elbowAngles),
@@ -289,12 +292,12 @@ function AnalysisContent() {
                     />
                     <MetricCard
                         icon={<Activity className="w-4 h-4" />}
-                        label="Avg Hip Rotation"
-                        value={getAverage(hipRotations)?.toFixed(0) || '--'}
+                        label="Peak Hip Rotation"
+                        value={getMax(hipRotations)?.toFixed(0) || '--'}
                         subtext="degrees"
                         valueColor={
-                            getAverage(hipRotations) !== null
-                                ? (getAverage(hipRotations)! >= 30 ? 'green' : getAverage(hipRotations)! >= 15 ? 'amber' : 'red')
+                            getMax(hipRotations) !== null
+                                ? (getMax(hipRotations)! >= 30 ? 'green' : getMax(hipRotations)! >= 15 ? 'amber' : 'red')
                                 : 'default'
                         }
                         optimal=">30°"
@@ -330,19 +333,19 @@ function AnalysisContent() {
                         <MetricBar
                             label="Hip Power Transfer"
                             value={Math.round(hipScore)}
-                            detail={getAverage(hipRotations) ? `Avg: ${getAverage(hipRotations)?.toFixed(0)}°` : 'No data'}
+                            detail={getMax(hipRotations) ? `Peak: ${getMax(hipRotations)?.toFixed(0)}°` : 'No data'}
                             optimal=">30°"
                         />
                         <MetricBar
                             label="Knee Stability"
                             value={Math.round(kneeScore)}
-                            detail={getAverage(kneeFlexions) ? `Avg: ${getAverage(kneeFlexions)?.toFixed(0)}°` : 'No data'}
+                            detail={getMin(kneeFlexions) ? `Max Bend: ${getMin(kneeFlexions)?.toFixed(0)}°` : 'No data'}
                             optimal="120-170°"
                         />
                         <MetricBar
                             label="Elbow Extension"
-                            value={elbowAngles.length > 0 ? Math.round(calculateScore(elbowAngles, 90, 150)) : 80}
-                            detail={getAverage(elbowAngles) ? `Avg: ${getAverage(elbowAngles)?.toFixed(0)}°` : 'No data'}
+                            value={elbowAngles.length > 0 ? Math.round(calculateScore(getMax(elbowAngles) || 0, 90, 150)) : 80}
+                            detail={getMax(elbowAngles) ? `Peak: ${getMax(elbowAngles)?.toFixed(0)}°` : 'No data'}
                             optimal="90-150°"
                         />
                     </div>
