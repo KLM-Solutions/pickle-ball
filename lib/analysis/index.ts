@@ -56,6 +56,15 @@ export {
 } from './segmentation';
 export { classifyStroke, THRESHOLDS } from './classify';
 
+// Export deviation scoring module
+export {
+  calculateDeviationScore,
+  getDeviationReport,
+  getTopDeviations,
+  type DeviationParameter,
+  type DeviationReport,
+} from './deviation';
+
 /**
  * Analyze all frames and generate complete analysis result
  * 

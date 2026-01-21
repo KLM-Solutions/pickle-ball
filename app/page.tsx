@@ -198,7 +198,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="relative z-10 text-center py-6 md:py-8 border-t border-neutral-200 mt-8">
         <p className="text-xs md:text-sm text-neutral-400 px-4">
-          © 2024 StrikeSense • Pickleball Analysis
+          Powered by StrikeSense
         </p>
       </footer>
 

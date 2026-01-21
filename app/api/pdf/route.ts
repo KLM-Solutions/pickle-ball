@@ -23,25 +23,34 @@ function generateReportHTML(data: any): string {
     kneeScore = 75,
     elbowScore = 80,
     avgShoulder = null,
+    minShoulder = null,
+    maxShoulder = null,
     avgHip = null,
     avgKnee = null,
     avgElbow = null,
     llmResponse = "",
+    deviationReport = null,
     generatedAt = new Date().toLocaleDateString(),
   } = data;
 
   // Convert markdown-like LLM response to HTML
   const formatLLMResponse = (text: string) => {
     if (!text) return "<p>No AI coaching feedback available.</p>";
-    
+
     return text
       .replace(/## (.*?)$/gm, '<h2 class="section-title">$1</h2>')
       .replace(/### (.*?)$/gm, '<h3 class="subsection-title">$1</h3>')
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/^\- (.*?)$/gm, '<li class="list-item">$1</li>')
-      .replace(/^\d+\. (.*?)$/gm, '<li class="numbered-item">$1</li>')
-      .replace(/\n\n/g, "</p><p>")
-      .replace(/<\/li>\n<li/g, "</li><li");
+      .replace(/^\- (.*?)$/gm, '<div class="list-item"><span class="bullet">•</span><span>$1</span></div>')
+      .replace(/^(\d+)\. (.*?)$/gm, '<div class="numbered-item"><span class="number">$1.</span><span>$2</span></div>')
+      .replace(/\n\n/g, "</p><p>");
+  };
+
+  // Helper for score colors
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return '#10b981'; // green
+    if (score >= 50) return '#f59e0b'; // amber
+    return '#ef4444'; // red
   };
 
   return `
@@ -120,15 +129,20 @@ function generateReportHTML(data: any): string {
     .grade-value {
       font-size: 64px;
       font-weight: 800;
-      color: #000;
     }
     
     .grade-percent {
       font-size: 28px;
       font-weight: 700;
-      color: #a3a3a3;
       margin-left: 12px;
     }
+    
+    .color-green { color: #10b981; }
+    .color-amber { color: #f59e0b; }
+    .color-red { color: #ef4444; }
+    .bg-green { background: #10b981; }
+    .bg-amber { background: #f59e0b; }
+    .bg-red { background: #ef4444; }
     
     .metrics-grid {
       display: grid;
@@ -161,6 +175,19 @@ function generateReportHTML(data: any): string {
       color: #a3a3a3;
       font-size: 11px;
       margin-top: 4px;
+    }
+
+    .metric-target {
+      font-size: 10px;
+      color: #a3a3a3;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid #e5e5e5;
+    }
+    
+    .metric-target span {
+      color: #525252;
+      font-weight: 500;
     }
     
     .section {
@@ -215,8 +242,23 @@ function generateReportHTML(data: any): string {
     
     .progress-fill {
       height: 100%;
-      background: #000;
       border-radius: 4px;
+    }
+    
+    .list-item, .numbered-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 13px;
+      color: #525252;
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
+    
+    .list-item .bullet, .numbered-item .number {
+      flex-shrink: 0;
+      min-width: 16px;
+      font-weight: 600;
     }
     
     .ai-feedback {
@@ -257,10 +299,13 @@ function generateReportHTML(data: any): string {
     }
     
     .ai-feedback li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
       font-size: 13px;
       color: #525252;
-      margin-bottom: 6px;
-      line-height: 1.5;
+      margin-bottom: 8px;
+      line-height: 1.6;
     }
     
     .footer {
@@ -273,6 +318,54 @@ function generateReportHTML(data: any): string {
     
     .page-break {
       page-break-before: always;
+    }
+
+    .deviation-card {
+      background: #ffffff;
+      border-left: 4px solid #f59e0b;
+      padding: 16px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      border: 1px solid #e5e5e5;
+      border-left-width: 4px;
+    }
+    
+    .deviation-card.critical {
+      border-left-color: #ef4444;
+    }
+    
+    .deviation-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    
+    .deviation-title {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .deviation-score {
+      font-weight: 700;
+      font-size: 16px;
+    }
+    
+    .deviation-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: #525252;
+      margin-bottom: 8px;
+    }
+    
+    .deviation-rec {
+      background: #fafafa;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #171717;
     }
   </style>
 </head>
@@ -289,8 +382,8 @@ function generateReportHTML(data: any): string {
       <div>
         <p class="grade-label">Overall Score</p>
         <div style="display: flex; align-items: baseline;">
-          <span class="grade-value">${grade}</span>
-          <span class="grade-percent">${overallScore}%</span>
+          <span class="grade-value" style="color: ${getScoreColor(overallScore)};">${grade}</span>
+          <span class="grade-percent" style="color: ${getScoreColor(overallScore)};">${overallScore}%</span>
         </div>
       </div>
       <div style="text-align: right;">
@@ -307,76 +400,56 @@ function generateReportHTML(data: any): string {
       </div>
       <div class="metric-card">
         <p class="metric-label">FORM SAFETY</p>
-        <p class="metric-value">${riskScore}%</p>
+        <p class="metric-value" style="color: ${getScoreColor(riskScore)}">${riskScore}%</p>
         <p class="metric-subtext">${riskCounts.high > 0 ? `${riskCounts.high} caution` : "Looking good"}</p>
+        <p class="metric-target">Target: <span>100%</span></p>
       </div>
       <div class="metric-card">
         <p class="metric-label">AVG HIP ROTATION</p>
-        <p class="metric-value">${avgHip ? avgHip.toFixed(0) : "--"}</p>
+        <p class="metric-value" style="color: ${avgHip !== null ? (avgHip >= 30 ? '#10b981' : avgHip >= 15 ? '#f59e0b' : '#ef4444') : '#000'}">${avgHip ? avgHip.toFixed(0) : "--"}</p>
         <p class="metric-subtext">degrees</p>
+        <p class="metric-target">Target: <span>&gt;30°</span></p>
       </div>
       <div class="metric-card">
         <p class="metric-label">SHOULDER RANGE</p>
-        <p class="metric-value">${avgShoulder ? avgShoulder.toFixed(0) : "--"}°</p>
-        <p class="metric-subtext">average</p>
+        <p class="metric-value" style="color: ${maxShoulder !== null ? (maxShoulder >= 90 ? '#10b981' : maxShoulder >= 60 ? '#f59e0b' : '#ef4444') : '#000'}">${minShoulder !== null ? minShoulder.toFixed(0) : "--"}-${maxShoulder !== null ? maxShoulder.toFixed(0) : "--"}°</p>
+        <p class="metric-subtext">degrees</p>
+        <p class="metric-target">Target: <span>&lt;120°</span></p>
       </div>
     </div>
     
+
+
+    ${deviationReport && deviationReport.topDeviations.length > 0 ? `
     <div class="section">
-      <h2 class="section-header">📊 Biomechanics Breakdown</h2>
+      <h2 class="section-header">🎯 What to Improve</h2>
+      <p style="font-size: 13px; color: #525252; margin-bottom: 20px;">${deviationReport.summary}</p>
       
-      <div class="progress-bar-container">
-        <div class="progress-label">
-          <span class="progress-name">Shoulder Mechanics</span>
-          <span>
-            <span class="progress-detail">${avgShoulder ? `Avg: ${avgShoulder.toFixed(0)}°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px;">${shoulderScore}%</span>
-          </span>
+      ${deviationReport.topDeviations.map((param: any, idx: number) => `
+        <div class="deviation-card ${param.status === 'critical' ? 'critical' : ''}" style="border-left-color: ${param.status === 'critical' ? '#ef4444' : '#f59e0b'}">
+          <div class="deviation-header">
+            <div class="deviation-title">
+              <span style="background: ${param.performanceImpact === 'high' ? '#ef4444' : '#f59e0b'}; color: white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">${idx + 1}</span>
+              <span>${param.label}</span>
+              ${param.performanceImpact === 'high' ? '<span style="background: #fef2f2; color: #ef4444; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;">HIGH IMPACT</span>' : ''}
+            </div>
+            <div class="deviation-score" style="color: ${getScoreColor(param.score)}">
+              ${param.score}/100
+            </div>
+          </div>
+          
+          <div class="deviation-meta">
+            <div><span style="color: #a3a3a3;">Your value:</span> <strong>${param.userValue}°</strong></div>
+            <div><span style="color: #a3a3a3;">Optimal:</span> <strong style="color: #10b981;">${param.optimalRange.min}-${param.optimalRange.max}°</strong></div>
+          </div>
+          
+          <div class="deviation-rec">
+            💡 ${param.recommendation}
+          </div>
         </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${shoulderScore}%;"></div>
-        </div>
-      </div>
-      
-      <div class="progress-bar-container">
-        <div class="progress-label">
-          <span class="progress-name">Hip Power Transfer</span>
-          <span>
-            <span class="progress-detail">${avgHip ? `Avg: ${avgHip.toFixed(0)}°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px;">${hipScore}%</span>
-          </span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${hipScore}%;"></div>
-        </div>
-      </div>
-      
-      <div class="progress-bar-container">
-        <div class="progress-label">
-          <span class="progress-name">Knee Stability</span>
-          <span>
-            <span class="progress-detail">${avgKnee ? `Avg: ${avgKnee.toFixed(0)}°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px;">${kneeScore}%</span>
-          </span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${kneeScore}%;"></div>
-        </div>
-      </div>
-      
-      <div class="progress-bar-container">
-        <div class="progress-label">
-          <span class="progress-name">Elbow Extension</span>
-          <span>
-            <span class="progress-detail">${avgElbow ? `Avg: ${avgElbow.toFixed(0)}°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px;">${elbowScore}%</span>
-          </span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${elbowScore}%;"></div>
-        </div>
-      </div>
+      `).join('')}
     </div>
+    ` : ''}
     
     <div class="section">
       <h2 class="section-header">🤖 AI Coach Analysis</h2>
