@@ -9,6 +9,7 @@ import {
     Download, Loader2
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { getDeviationReport, DeviationReport, DeviationParameter } from "@/lib/analysis";
 
 export const dynamic = 'force-dynamic';
 
@@ -107,6 +108,9 @@ function AnalysisContent() {
     };
 
     const grade = getGrade(overallScore);
+
+    // Calculate deviation report
+    const deviationReport: DeviationReport = getDeviationReport(frames, strokeType);
 
     const handleDownloadPDF = async () => {
         setPdfLoading(true);
@@ -305,6 +309,89 @@ function AnalysisContent() {
                         />
                     </div>
                 </div>
+
+                {/* What to Improve Section */}
+                {deviationReport.topDeviations.length > 0 && (
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-200 p-5 md:p-6 mb-6">
+                        <h2 className="text-lg font-semibold text-black mb-2 flex items-center gap-2">
+                            <Target className="w-5 h-5 text-indigo-600" />
+                            What to Improve
+                        </h2>
+                        <p className="text-sm text-neutral-600 mb-5">{deviationReport.summary}</p>
+
+                        <div className="space-y-4">
+                            {deviationReport.topDeviations.map((param, idx) => (
+                                <div
+                                    key={param.key}
+                                    className={`bg-white rounded-xl p-4 border-l-4 ${param.status === 'critical' ? 'border-red-500' : 'border-amber-500'
+                                        }`}
+                                >
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${param.performanceImpact === 'high' ? 'bg-red-500' : 'bg-amber-500'
+                                                }`}>
+                                                {idx + 1}
+                                            </span>
+                                            <span className="font-semibold text-black">{param.label}</span>
+                                            {param.performanceImpact === 'high' && (
+                                                <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                                                    HIGH IMPACT
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-right">
+                                            <span className={`text-lg font-bold ${param.score >= 80 ? 'text-emerald-600' :
+                                                    param.score >= 50 ? 'text-amber-600' : 'text-red-600'
+                                                }`}>
+                                                {param.score}/100
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-4 mb-3 text-sm">
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-neutral-500">Your value:</span>
+                                            <span className="font-semibold text-black">{param.userValue}°</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-neutral-500">Optimal:</span>
+                                            <span className="font-medium text-emerald-600">
+                                                {param.optimalRange.min}-{param.optimalRange.max}°
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <p className="text-sm text-neutral-700 bg-neutral-50 p-3 rounded-lg">
+                                        💡 {param.recommendation}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* All Parameters Summary */}
+                        <div className="mt-5 pt-5 border-t border-indigo-100">
+                            <p className="text-xs text-neutral-500 uppercase font-semibold mb-3">All Parameters</p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                {deviationReport.parameters.map(param => (
+                                    <div
+                                        key={param.key}
+                                        className={`p-2 rounded-lg text-center ${param.status === 'optimal' ? 'bg-emerald-50 border border-emerald-200' :
+                                                param.status === 'warning' ? 'bg-amber-50 border border-amber-200' :
+                                                    'bg-red-50 border border-red-200'
+                                            }`}
+                                    >
+                                        <p className="text-[10px] text-neutral-500 uppercase">{param.label}</p>
+                                        <p className={`text-lg font-bold ${param.status === 'optimal' ? 'text-emerald-600' :
+                                                param.status === 'warning' ? 'text-amber-600' : 'text-red-600'
+                                            }`}>
+                                            {param.score}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* AI Coach Feedback */}
                 <div className="bg-neutral-50 rounded-2xl border border-neutral-200 mb-6 overflow-hidden">
