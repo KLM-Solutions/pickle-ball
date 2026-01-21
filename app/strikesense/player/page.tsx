@@ -214,19 +214,27 @@ function PlayerContent() {
                     {/* Video Player */}
                     <div className="lg:col-span-8">
                         <div className="bg-neutral-100 border border-neutral-200 rounded-xl overflow-hidden">
-                            <VideoPanel
-                                videoFile={null}
-                                videoUrl={analysisData?.videoUrl || null}
-                                onVideoUpload={() => { }}
-                                analysisData={analysisData}
-                                isProcessing={false}
-                                currentTime={currentTime}
-                                onTimeUpdate={setCurrentTime}
-                                sideBySide={false}
-                                showOverlay={true}
-                                playbackSpeed={playbackSpeed}
-                                onSpeedChange={setPlaybackSpeed}
-                            />
+                            {isDemo && demoLoading ? (
+                                <div className="aspect-video flex flex-col items-center justify-center bg-neutral-50">
+                                    <div className="w-12 h-12 border-4 border-neutral-200 border-t-black rounded-full animate-spin mb-4"></div>
+                                    <p className="text-neutral-600 font-medium">Loading demo analysis...</p>
+                                    <p className="text-neutral-400 text-sm mt-1">Please wait</p>
+                                </div>
+                            ) : (
+                                <VideoPanel
+                                    videoFile={null}
+                                    videoUrl={analysisData?.videoUrl || null}
+                                    onVideoUpload={() => { }}
+                                    analysisData={analysisData}
+                                    isProcessing={false}
+                                    currentTime={currentTime}
+                                    onTimeUpdate={setCurrentTime}
+                                    sideBySide={false}
+                                    showOverlay={true}
+                                    playbackSpeed={playbackSpeed}
+                                    onSpeedChange={setPlaybackSpeed}
+                                />
+                            )}
                         </div>
                     </div>
 
