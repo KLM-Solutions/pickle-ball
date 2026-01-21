@@ -612,8 +612,8 @@ def main():
                             x1, y1, x2, y2, tid, conf, cls = t[:7]
                             area = (x2 - x1) * (y2 - y1)
                             
-                            # Filter: Large AND Low (Near Camera)
-                            if area > 30000 and y2 > min_y_threshold:
+                            # Filter: Large enough (not ball) AND Low enough (Near/Mid Camera)
+                            if area > 5000 and y2 > height * 0.45:
                                 if area > max_area:
                                     max_area = area
                                     selected_id = int(tid)
@@ -633,8 +633,8 @@ def main():
                             x1, y1, x2, y2, tid, conf, cls = t[:7]
                             area = (x2 - x1) * (y2 - y1)
                             
-                            # Filter: Large AND Low (Near Camera)
-                            if area > 30000 and y2 > min_y_threshold:
+                            # Filter: Large enough (not ball) AND Low enough (Near/Mid Camera)
+                            if area > 5000 and y2 > height * 0.45:
                                 if area > max_area:
                                     max_area = area
                                     selected_id = int(tid)

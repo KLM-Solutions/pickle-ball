@@ -406,9 +406,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
   } catch (error: any) {
-    console.error("Webhook error:", error);
+    console.error("CRITICAL WEBHOOK ERROR:", error);
+    // Log the stack trace too
+    if (error.stack) console.error(error.stack);
+
     return NextResponse.json(
-      { error: "Webhook processing failed", details: error.message },
+      {
+        error: "Webhook processing failed",
+        details: error.message,
+        type: error.name
+      },
       { status: 500 }
     );
   }
