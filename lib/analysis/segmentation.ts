@@ -52,9 +52,9 @@ type FrameMetricsLike = Record<string, number | boolean | null | undefined> & {
 // ============================================================================
 
 export const SEGMENT_CONFIG: Record<string, SegmentConfig> = {
-    serve: { min_conf: 0.78, min_peak_v: 0.18, min_len_frames: 4, cooldown_sec: 1.0 },
-    groundstroke: { min_conf: 0.78, min_peak_v: 0.16, min_len_frames: 4, cooldown_sec: 0.8 },
-    drive: { min_conf: 0.78, min_peak_v: 0.16, min_len_frames: 4, cooldown_sec: 0.8 },
+    serve: { min_conf: 0.65, min_peak_v: 0.12, min_len_frames: 4, cooldown_sec: 1.0 }, // Lower floor for slower serves
+    groundstroke: { min_conf: 0.72, min_peak_v: 0.16, min_len_frames: 4, cooldown_sec: 0.8 },
+    drive: { min_conf: 0.72, min_peak_v: 0.16, min_len_frames: 4, cooldown_sec: 0.8 },
     volley: { min_conf: 0.75, min_peak_v: 0.10, min_len_frames: 3, cooldown_sec: 0.6 },
     dink: { min_conf: 0.72, min_peak_v: 0.06, min_len_frames: 3, cooldown_sec: 0.6 },
     overhead: { min_conf: 0.80, min_peak_v: 0.14, min_len_frames: 3, cooldown_sec: 1.0 },

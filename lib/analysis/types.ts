@@ -34,6 +34,7 @@ export interface FrameMetrics {
   right_shoulder_abduction: number | null;
   left_shoulder_abduction: number | null;
   hip_rotation_deg: number | null;
+  spinal_flexion?: number | null;
 
   // Position checks
   wrist_above_waist: boolean;
@@ -136,6 +137,9 @@ export interface StrokeSegment {
 
 // Stroke type
 export type StrokeType = 'serve' | 'dink' | 'groundstroke' | 'overhead' | 'volley';
+
+// Issue type for injury risk and analysis summary
+export type IssueType = 'shoulder_overuse' | 'poor_kinetic_chain' | 'knee_stress' | 'elbow_strain' | 'spine_stress';
 
 // Rally phase for temporal context
 export type RallyPhase = 'pre-rally' | 'active-rally' | 'post-rally';

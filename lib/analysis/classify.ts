@@ -176,14 +176,14 @@ export function isServe(
     if (wristAtWaist) score += 1;
     if (shoulderInRange) score += 1;
     if (hasHipRotation) {
-        // Penalize EXCESSIVE hip rotation (characteristic of groundstroke, not serve)
-        if (hipRotation > THRESHOLDS.groundstroke.max_hip_rotation_serve) {
-            score -= 2; // Veto/Strong penalty
-        } else {
-            score += 1;
+        // HARD REJECT: Extremely high rotation is characteristic of groundstroke, NOT a legal serve.
+        // Loosened from 25 to 75 to allow for angled camera setups and sideways-standing serves.
+        if (hipRotation > 75) {
+            return { match: false, confidence: 0 };
         }
+        score += 1;
     }
-    if (isMovingUp) score += 2; // Double weight for upward motion (the key serve signature)
+    if (isMovingUp) score += 2; // Double weight for upward motion
     if (hasVelocity) score += 1;
     if (sustainedUpward) score += 1;
     if (hasStrongVelocity) score += 2; // Double weight for strong velocity
@@ -193,9 +193,9 @@ export function isServe(
         score += 2; // Boost for follow-through phase
     }
 
-    // Need at least 3 points to classify as serve
-    if (score >= 3) {
-        const confidence = Math.min(0.55 + (score - 3) * 0.06, 0.95);
+    // Need at least 5 points to classify as serve (strictly high confidence only)
+    if (score >= 5) {
+        const confidence = Math.min(0.65 + (score - 5) * 0.06, 0.95);
         return { match: true, confidence, subType: 'underhand' };
     }
 
@@ -387,12 +387,13 @@ export function classifyStroke(
 
     if (targetType === 'serve') {
         // Serve videos must be STRICT to avoid flagging "walking/ready stance" as serves.
-        if (serve.match && serve.confidence >= 0.75) {
+        // Modified: threshold lowered to 0.60 to match new strict scoring model (score 4+ is valid)
+        if (serve.match && serve.confidence >= 0.60) {
             return { strokeType: 'serve', confidence: Math.max(serve.confidence, 0.85), subType: 'underhand' };
         }
     } else {
         // Strict mode
-        if (serve.match && serve.confidence >= 0.75) {
+        if (serve.match && serve.confidence >= 0.60) {
             return { strokeType: 'serve', confidence: serve.confidence, subType: 'underhand' };
         }
     }
