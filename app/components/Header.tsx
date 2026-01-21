@@ -25,7 +25,7 @@ export default function Header() {
                     </div>
                     <div>
                         <h1 className="text-lg md:text-xl font-bold tracking-tight text-neutral-900">StrikeSense</h1>
-                        <p className="text-[10px] md:text-xs text-neutral-500 hidden sm:block">Your AI Tennis Coach</p>
+
                     </div>
                 </div>
                 <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-xs text-neutral-600">

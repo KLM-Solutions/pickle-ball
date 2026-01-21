@@ -54,6 +54,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       ...(job.status === "completed" && {
         result: job.result_json,
         videoUrl: job.result_video_url,
+        llm_response: job.llm_response,
       }),
     });
 

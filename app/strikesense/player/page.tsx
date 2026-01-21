@@ -2,10 +2,13 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Award, ChevronRight, BarChart3, AlertTriangle, TrendingUp, Play, Lightbulb } from "lucide-react";
+import { ArrowLeft, Award, ChevronRight, BarChart3, AlertTriangle, TrendingUp, Play, Lightbulb, Sparkles } from "lucide-react";
 import VideoPanel from "../../components/VideoPanel";
 import { BiomechanicalMetrics } from "../../components/dashboard/BiomechanicalMetrics";
 import { filterFramesForIssues, getTopIssues, getFilterSummary, getFullRecommendation, FilteredFrame, FilterSummary, CoachingRecommendation } from "@/lib/analysis";
+
+// Demo job UUID for fetching pre-analyzed session from database
+const DEMO_JOB_ID = "762644e0-0192-49d9-bf85-a127c3b56449";
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +16,7 @@ function PlayerContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const strokeType = searchParams.get('stroke') || 'serve';
+    const isDemo = searchParams.get('demo') === 'true';
 
     const [currentTime, setCurrentTime] = useState(0);
     const [showSidebar, setShowSidebar] = useState(false);
@@ -21,6 +25,7 @@ function PlayerContent() {
     const [showMetrics, setShowMetrics] = useState(true);
     const [activeTab, setActiveTab] = useState<'metrics' | 'issues'>('metrics');
     const [selectedIssue, setSelectedIssue] = useState<string | null>(null);
+    const [demoLoading, setDemoLoading] = useState(false);
 
     useEffect(() => {
         if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
@@ -29,6 +34,44 @@ function PlayerContent() {
     }, []);
 
     useEffect(() => {
+        // If demo mode, fetch data from database using the demo job UUID
+        if (isDemo) {
+            const fetchDemoData = async () => {
+                setDemoLoading(true);
+                try {
+                    const response = await fetch(`/api/analyze/status?job_id=${DEMO_JOB_ID}`);
+                    if (!response.ok) throw new Error("Failed to fetch demo data");
+
+                    const jobData = await response.json();
+
+                    if (jobData.status === "completed" && jobData.result) {
+                        const result = typeof jobData.result === 'string'
+                            ? JSON.parse(jobData.result)
+                            : jobData.result;
+
+                        const analysisResult = {
+                            ...result,
+                            videoUrl: jobData.videoUrl || result.videoUrl,
+                            stroke_type: jobData.stroke_type || "serve",
+                            llm_response: jobData.llm_response,
+                            isDemo: true,
+                        };
+
+                        setAnalysisData(analysisResult);
+                        // Also store in sessionStorage so analysis page can access it
+                        sessionStorage.setItem('analysisResult', JSON.stringify(analysisResult));
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch demo data:", error);
+                } finally {
+                    setDemoLoading(false);
+                }
+            };
+
+            fetchDemoData();
+            return;
+        }
+
         const storedResult = sessionStorage.getItem('analysisResult');
         const storedUrl = sessionStorage.getItem('videoUrl');
 
@@ -44,7 +87,8 @@ function PlayerContent() {
                 console.error("Failed to parse analysis result:", e);
             }
         }
-    }, []);
+    }, [isDemo]);
+
 
     const currentFrame = useMemo(() => {
         if (!analysisData?.frames || analysisData.frames.length === 0) return null;
@@ -141,6 +185,12 @@ function PlayerContent() {
                         <div className="flex items-center gap-2">
                             <span className="text-lg">🎾</span>
                             <h1 className="text-sm font-semibold text-black capitalize">{strokeType} Analysis</h1>
+                            {isDemo && (
+                                <span className="px-2 py-0.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white text-[10px] font-bold rounded-full flex items-center gap-1">
+                                    <Sparkles className="w-3 h-3" />
+                                    DEMO
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -168,25 +218,33 @@ function PlayerContent() {
             </header>
 
             {/* Main Content */}
-            <main className="relative z-10 max-w-7xl mx-auto px-3 md:px-4 py-4 md:py-6">
+            <main className={`relative z-10 max-w-7xl mx-auto px-3 md:px-4 py-4 md:py-6 ${isDemo ? 'pb-28' : ''}`}>
                 <div className="grid lg:grid-cols-12 gap-4 md:gap-6">
 
                     {/* Video Player */}
                     <div className="lg:col-span-8">
                         <div className="bg-neutral-100 border border-neutral-200 rounded-xl overflow-hidden">
-                            <VideoPanel
-                                videoFile={null}
-                                videoUrl={analysisData?.videoUrl || null}
-                                onVideoUpload={() => { }}
-                                analysisData={analysisData}
-                                isProcessing={false}
-                                currentTime={currentTime}
-                                onTimeUpdate={setCurrentTime}
-                                sideBySide={false}
-                                showOverlay={true}
-                                playbackSpeed={playbackSpeed}
-                                onSpeedChange={setPlaybackSpeed}
-                            />
+                            {isDemo && demoLoading ? (
+                                <div className="aspect-video flex flex-col items-center justify-center bg-neutral-50">
+                                    <div className="w-12 h-12 border-4 border-neutral-200 border-t-black rounded-full animate-spin mb-4"></div>
+                                    <p className="text-neutral-600 font-medium">Loading demo analysis...</p>
+                                    <p className="text-neutral-400 text-sm mt-1">Please wait</p>
+                                </div>
+                            ) : (
+                                <VideoPanel
+                                    videoFile={null}
+                                    videoUrl={analysisData?.videoUrl || null}
+                                    onVideoUpload={() => { }}
+                                    analysisData={analysisData}
+                                    isProcessing={false}
+                                    currentTime={currentTime}
+                                    onTimeUpdate={setCurrentTime}
+                                    sideBySide={false}
+                                    showOverlay={true}
+                                    playbackSpeed={playbackSpeed}
+                                    onSpeedChange={setPlaybackSpeed}
+                                />
+                            )}
                         </div>
                     </div>
 
@@ -579,6 +637,24 @@ function PlayerContent() {
                     </button>
                 </div>
             </main>
+
+            {/* Demo CTA Banner */}
+            {isDemo && (
+                <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-violet-600 to-purple-700 text-white py-4 px-4 z-40 shadow-lg">
+                    <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="text-center sm:text-left">
+                            <p className="font-bold text-sm sm:text-base">Ready to analyze your own game?</p>
+                            <p className="text-xs sm:text-sm text-white/80">Get personalized insights for your pickleball strokes</p>
+                        </div>
+                        <button
+                            onClick={() => router.push('/')}
+                            className="px-6 py-2.5 bg-white text-purple-700 font-bold text-sm rounded-xl hover:bg-neutral-100 transition whitespace-nowrap"
+                        >
+                            Try Your Own Video →
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
