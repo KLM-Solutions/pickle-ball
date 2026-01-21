@@ -18,6 +18,7 @@ function AnalysisContent() {
     const strokeType = searchParams.get('stroke') || 'serve';
     const [analysisData, setAnalysisData] = useState<any>(null);
     const [expandedCoach, setExpandedCoach] = useState(true);
+    const [isDemo, setIsDemo] = useState(false);
 
     const [llmResponse, setLlmResponse] = useState<string | null>(null);
     const [pdfLoading, setPdfLoading] = useState(false);
@@ -28,6 +29,11 @@ function AnalysisContent() {
             try {
                 const parsed = JSON.parse(storedResult);
                 setAnalysisData(parsed);
+
+                // Check if this is demo mode
+                if (parsed.isDemo) {
+                    setIsDemo(true);
+                }
 
                 // Use cached LLM response from database
                 if (parsed.llm_response) {
@@ -163,38 +169,40 @@ function AnalysisContent() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <button
-                        onClick={() => router.push(`/strikesense/player?stroke=${strokeType}`)}
+                        onClick={() => router.push(isDemo ? `/strikesense/player?stroke=${strokeType}&demo=true` : `/strikesense/player?stroke=${strokeType}`)}
                         className="text-neutral-500 hover:text-black flex items-center gap-2 transition font-medium group"
                     >
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                         <span className="text-sm">Back to Video</span>
                     </button>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={handleDownloadPDF}
-                            disabled={pdfLoading}
-                            className="p-2.5 bg-black hover:bg-neutral-800 disabled:bg-neutral-300 rounded-lg text-white transition flex items-center gap-1.5"
-                            title="Download PDF Report"
-                        >
-                            {pdfLoading ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Download className="w-4 h-4" />
-                            )}
-                        </button>
-                        <button
-                            onClick={() => router.push('/strikesense/history')}
-                            className="p-2.5 bg-neutral-100 border border-neutral-200 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-black transition"
-                        >
-                            <Clock className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => router.push('/')}
-                            className="p-2.5 bg-neutral-100 border border-neutral-200 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-black transition"
-                        >
-                            <Home className="w-4 h-4" />
-                        </button>
-                    </div>
+                    {!isDemo && (
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleDownloadPDF}
+                                disabled={pdfLoading}
+                                className="p-2.5 bg-black hover:bg-neutral-800 disabled:bg-neutral-300 rounded-lg text-white transition flex items-center gap-1.5"
+                                title="Download PDF Report"
+                            >
+                                {pdfLoading ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Download className="w-4 h-4" />
+                                )}
+                            </button>
+                            <button
+                                onClick={() => router.push('/strikesense/history')}
+                                className="p-2.5 bg-neutral-100 border border-neutral-200 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-black transition"
+                            >
+                                <Clock className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => router.push('/')}
+                                className="p-2.5 bg-neutral-100 border border-neutral-200 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-black transition"
+                            >
+                                <Home className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Hero Section */}
@@ -361,20 +369,40 @@ function AnalysisContent() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className={`flex flex-col sm:flex-row gap-3 ${isDemo ? 'pb-24' : ''}`}>
                     <button
-                        onClick={() => router.push(`/strikesense/player?stroke=${strokeType}`)}
+                        onClick={() => router.push(isDemo ? `/strikesense/player?stroke=${strokeType}&demo=true` : `/strikesense/player?stroke=${strokeType}`)}
                         className="flex-1 bg-neutral-100 border border-neutral-200 hover:bg-neutral-200 text-black py-3.5 rounded-xl font-semibold transition text-sm"
                     >
                         ← Review Video
                     </button>
-                    <button
-                        onClick={() => router.push('/')}
-                        className="flex-1 bg-black hover:bg-neutral-800 text-white py-3.5 rounded-xl font-semibold transition text-sm"
-                    >
-                        New Analysis →
-                    </button>
+                    {!isDemo && (
+                        <button
+                            onClick={() => router.push('/')}
+                            className="flex-1 bg-black hover:bg-neutral-800 text-white py-3.5 rounded-xl font-semibold transition text-sm"
+                        >
+                            New Analysis →
+                        </button>
+                    )}
                 </div>
+
+                {/* Demo CTA Banner */}
+                {isDemo && (
+                    <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-violet-600 to-purple-700 text-white py-4 px-4 z-40 shadow-lg">
+                        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="text-center sm:text-left">
+                                <p className="font-bold text-sm sm:text-base">Ready to analyze your own game?</p>
+                                <p className="text-xs sm:text-sm text-white/80">Get personalized insights for your pickleball strokes</p>
+                            </div>
+                            <button
+                                onClick={() => router.push('/')}
+                                className="px-6 py-2.5 bg-white text-purple-700 font-bold text-sm rounded-xl hover:bg-neutral-100 transition whitespace-nowrap"
+                            >
+                                Try Your Own Video →
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
