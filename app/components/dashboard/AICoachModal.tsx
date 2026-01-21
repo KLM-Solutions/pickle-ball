@@ -44,7 +44,7 @@ export default function AICoachModal({ isOpen, onClose, analyticsData }: AICoach
             setResult(data);
             hasFetched.current = true;
         } catch (err) {
-            setError("The coach is currently offline. Please try again later.");
+            setError("Coach isn't available right now. Please check back in a moment.");
         } finally {
             setLoading(false);
         }
@@ -64,8 +64,8 @@ export default function AICoachModal({ isOpen, onClose, analyticsData }: AICoach
                             <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
                         <div>
-                            <h3 className="text-lg sm:text-xl font-bold text-white">AI Coach Insights</h3>
-                            <p className="text-[10px] sm:text-xs text-indigo-300">Powered by StrikeSense AI</p>
+                            <h3 className="text-lg sm:text-xl font-bold text-white">My Coach's Feedback</h3>
+                            <p className="text-[10px] sm:text-xs text-indigo-300">Your personalized analysis</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition text-white/60 hover:text-white">
@@ -83,13 +83,13 @@ export default function AICoachModal({ isOpen, onClose, analyticsData }: AICoach
                                     <BrainCircuit className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400 opacity-50" />
                                 </div>
                             </div>
-                            <p className="text-sm sm:text-base text-indigo-300 animate-pulse font-medium">Analyzing your biomechanics...</p>
+                            <p className="text-sm sm:text-base text-indigo-300 animate-pulse font-medium">Analyzing your form...</p>
                         </div>
                     ) : error ? (
                         <div className="text-center py-8">
                             <p className="text-red-400 mb-4 text-sm">{error}</p>
                             <button onClick={fetchInsights} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition">
-                                <span className="flex items-center gap-2">Try Again</span>
+                                <span className="flex items-center gap-2">Let's Try Again</span>
                             </button>
                         </div>
                     ) : result ? (

@@ -140,7 +140,7 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                                     <Zap className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h1 className="text-xl font-bold text-white">Analysis Results</h1>
+                                    <h1 className="text-xl font-bold text-white">My Results</h1>
                                     <p className="text-xs text-slate-400 capitalize">
                                         {result.stroke_type} • {result.frames.length} frames • {result.strokes?.length || 0} strokes
                                     </p>
@@ -284,7 +284,7 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                         {/* REAL-TIME ENHANCED ANALYSIS */}
                         <div className="flex-none bg-slate-800/50 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
                             <h3 className="text-xs font-bold text-slate-400 mb-3 flex items-center gap-2 uppercase tracking-wider">
-                                <TrendingUp className="h-3 w-3 text-emerald-400" /> Live Analysis
+                                <TrendingUp className="h-3 w-3 text-emerald-400" /> Live Form Check
                             </h3>
 
                             <div className="space-y-3">
@@ -317,7 +317,7 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                                     </div>
                                     <p className={`text-sm font-medium ${currentFrame?.metrics?.injury_risk && currentFrame.metrics.injury_risk !== 'low' ? 'text-red-300' : 'text-slate-400'}`}>
                                         {currentFrame?.metrics?.injury_risk && currentFrame.metrics.injury_risk !== 'low'
-                                            ? `FAULT: ${currentFrame.metrics.feedback?.[0] || 'Form deviation detected'}`
+                                            ? `Focus Area: ${currentFrame.metrics.feedback?.[0] || 'Form deviation detected'}`
                                             : 'Monitoring technique...'}
                                     </p>
                                 </div>
@@ -334,7 +334,7 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                         {/* STROKE PERFORMANCE (Enhanced) */}
                         <div className="flex-1 min-h-0 overflow-y-auto bg-slate-800/50 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
                             <h3 className="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider sticky top-0 bg-slate-800/90 z-10 py-2 -mt-2 -mx-1 px-1 backdrop-blur-sm flex items-center justify-between">
-                                <span>Stroke Performance</span>
+                                <span>My Strokes</span>
                                 <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-slate-300">
                                     {result.strokes?.filter(s => s.strokeType === result.stroke_type || result.stroke_type === 'overall').length || 0} Detected
                                 </span>

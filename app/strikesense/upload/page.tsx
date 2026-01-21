@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Upload, ArrowLeft, Cloud, Zap, Shield, Film } from "lucide-react";
+import { Upload, ArrowLeft, Cloud, Zap, Shield, Film, CheckCircle } from "lucide-react";
+import { useCelebration } from "@/app/hooks/useCelebration";
 
 import { uploadVideo } from "@/lib/supabase";
 import CameraAngleValidator from "@/app/components/CameraAngleValidator";
@@ -13,6 +14,7 @@ export const dynamic = 'force-dynamic';
 function UploadContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const celebration = useCelebration();
     const strokeType = searchParams.get('stroke') || 'serve';
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,13 +32,13 @@ function UploadContent() {
     // Triggered when user selects a file - shows validation first
     const handleFileSelect = async (file: File) => {
         if (!file || !file.type.startsWith('video/')) {
-            setError('Please select a valid video file');
+            setError('Please pick a video file so we can analyze your form!');
             return;
         }
 
         const maxSize = 500 * 1024 * 1024;
         if (file.size > maxSize) {
-            setError('Video file is too large. Maximum size is 500MB.');
+            setError('That video is a bit too heavy (over 500MB). Let\'s try a shorter or smaller one.');
             return;
         }
 
@@ -81,14 +83,35 @@ function UploadContent() {
             setIsUploading(true);
             setUploadProgress(10);
 
+            // Simulate variable upload speed
+            const totalSize = file.size;
+            let loaded = totalSize * 0.1;
+            const startTime = Date.now();
+
             const progressInterval = setInterval(() => {
-                setUploadProgress(prev => Math.min(prev + 10, 80));
-            }, 500);
+                const now = Date.now();
+                const elapsed = (now - startTime) / 1000; // seconds
+
+                // Add some randomness to speed (simulating network fluctuation)
+                const chunk = (totalSize / 15) * (0.5 + Math.random());
+                loaded = Math.min(loaded + chunk, totalSize * 0.95);
+
+                const progress = (loaded / totalSize) * 100;
+                setUploadProgress(Math.round(progress));
+
+                // Keep progress below 99% until actually done
+                if (progress >= 95) {
+                    clearInterval(progressInterval);
+                }
+            }, 800);
 
             const videoUrl = await uploadVideo(file);
 
             clearInterval(progressInterval);
             setUploadProgress(100);
+
+            // Celebration!
+            if (celebration) celebration.triggerBurst();
 
             sessionStorage.setItem('videoUrl', videoUrl);
             sessionStorage.setItem('videoFileName', file.name);
@@ -96,11 +119,11 @@ function UploadContent() {
 
             setTimeout(() => {
                 router.push(`/strikesense/crop?stroke=${strokeType}`);
-            }, 500);
+            }, 1000); // Slightly longer delay to enjoy the burst
 
         } catch (err: any) {
             console.error('Upload failed:', err);
-            setError(err.message || 'Failed to upload video. Please try again.');
+            setError(err.message || 'We hit a snag uploading your video. Want to give it another shot?');
             setIsUploading(false);
             setUploadProgress(0);
             setPendingFile(null);
@@ -155,8 +178,8 @@ function UploadContent() {
                         <div className="inline-flex w-16 h-16 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-black items-center justify-center text-3xl md:text-4xl mb-4 md:mb-5">
                             🎾
                         </div>
-                        <h1 className="text-xl md:text-2xl font-bold mb-1.5 md:mb-2">Upload Your Video</h1>
-                        <p className="text-neutral-500 text-sm md:text-base">Select a video of your stroke to analyze</p>
+                        <h1 className="text-xl md:text-2xl font-bold mb-1.5 md:mb-2">Let's See Your {strokeType.charAt(0).toUpperCase() + strokeType.slice(1)}</h1>
+                        <p className="text-neutral-500 text-sm md:text-base">Upload a video to start your analysis</p>
                     </div>
 
                     {/* Error */}
@@ -217,17 +240,19 @@ function UploadContent() {
                                     </svg>
                                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                                         <span className="text-2xl sm:text-3xl md:text-4xl font-black text-black">
-                                            {uploadProgress}
+                                            {uploadProgress}%
                                         </span>
-                                        <span className="text-[10px] sm:text-xs text-neutral-500 font-medium -mt-1">
-                                            percent
+                                        <span className="text-[10px] sm:text-xs text-neutral-500 font-medium -mt-1 animate-pulse">
+                                            sending...
                                         </span>
                                     </div>
                                 </div>
 
-                                <h3 className="text-lg sm:text-xl md:text-2xl font-bold mb-2">Uploading...</h3>
+                                <h3 className="text-lg sm:text-xl md:text-2xl font-bold mb-2">Uploading your serve...</h3>
                                 <p className="text-neutral-500 text-xs sm:text-sm mb-2 truncate max-w-[220px] sm:max-w-[280px] mx-auto px-2">{fileName}</p>
-                                <p className="text-neutral-400 text-[10px] sm:text-xs">Securely uploading to cloud</p>
+                                <p className="text-neutral-400 text-[10px] sm:text-xs">
+                                    {uploadProgress < 50 ? 'Initializing secure transfer...' : 'Almost there...'}
+                                </p>
                             </div>
                         ) : (
                             <>
@@ -240,7 +265,7 @@ function UploadContent() {
                                 </div>
 
                                 <h3 className={`text-lg md:text-xl font-bold mb-1.5 md:mb-2 ${isDragging ? 'text-white' : 'text-black'}`}>
-                                    {isDragging ? 'Drop it here!' : 'Tap to Upload'}
+                                    {isDragging ? 'Drop it here!' : 'Tap to Upload Video'}
                                 </h3>
                                 <p className={`mb-4 md:mb-6 text-sm ${isDragging ? 'text-white/70' : 'text-neutral-500'}`}>
                                     {isDragging ? 'Release to upload' : 'or drag & drop a file'}

@@ -45,7 +45,7 @@ function AnalysisContent() {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center p-4">
                 <div className="text-center">
-                    <div className="text-black mb-2 animate-pulse">Loading analysis...</div>
+                    <div className="text-black mb-2 animate-pulse">Pulling up your results...</div>
                     <button
                         onClick={() => router.push('/strikesense/upload')}
                         className="text-sm text-neutral-500 hover:text-black underline"
@@ -151,7 +151,7 @@ function AnalysisContent() {
             document.body.removeChild(a);
         } catch (error) {
             console.error('PDF download error:', error);
-            alert('Failed to generate PDF. Please try again.');
+            alert('Couldn\'t create the PDF right now. Please try again.');
         } finally {
             setPdfLoading(false);
         }

@@ -69,15 +69,15 @@ export default function Home() {
           </h2>
 
           <p className="text-sm md:text-lg text-neutral-500 max-w-2xl mx-auto mb-6 md:mb-8 px-4">
-            Upload a video and get instant feedback on your technique.
-            Track joint angles, detect form issues, and improve your game.
+            Upload a video and get instant, pro-level feedback on your technique.
+            We'll track your joint angles, spot what's holding you back, and help you level up your game.
           </p>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3 sm:flex sm:items-center sm:justify-center sm:gap-6 md:gap-8 text-xs md:text-sm max-w-md sm:max-w-none mx-auto">
             <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2">
               <span className="text-lg sm:text-xl md:text-2xl font-bold text-black">33</span>
-              <span className="text-neutral-500 text-[10px] sm:text-xs md:text-sm">Body Points</span>
+              <span className="text-neutral-500 text-[10px] sm:text-xs md:text-sm">Body Points Tracked</span>
             </div>
             <div className="hidden sm:block w-px h-6 md:h-8 bg-neutral-200 flex-shrink-0" />
             <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2">
@@ -87,7 +87,7 @@ export default function Home() {
             <div className="hidden sm:block w-px h-6 md:h-8 bg-neutral-200 flex-shrink-0" />
             <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2">
               <span className="text-lg sm:text-xl md:text-2xl font-bold text-black">Real-time</span>
-              <span className="text-neutral-500 text-[10px] sm:text-xs md:text-sm">Feedback</span>
+              <span className="text-neutral-500 text-[10px] sm:text-xs md:text-sm">Coaching Feedback</span>
             </div>
           </div>
         </div>
@@ -102,13 +102,13 @@ export default function Home() {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-black hover:bg-neutral-800 rounded-full text-sm font-medium text-white transition-all"
               >
                 <span>📊</span>
-                <span>Analytics Dashboard</span>
+                <span>See My Stats</span>
               </button>
             )}
           </div>
 
           <h3 className="text-center text-[10px] md:text-sm font-medium text-neutral-400 uppercase tracking-wider mb-6 md:mb-8">
-            Select Your Stroke Type
+            What are we working on today?
           </h3>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -157,14 +157,14 @@ export default function Home() {
         {/* How it works */}
         <div className="mt-12 md:mt-20 text-center">
           <h3 className="text-[10px] md:text-sm font-medium text-neutral-400 uppercase tracking-wider mb-6 md:mb-8">
-            How It Works
+            Your Path to Better Pickleball
           </h3>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 md:gap-16">
             {[
-              { step: "1", title: "Upload Video", desc: "Record your stroke from any angle", icon: Target },
-              { step: "2", title: "Select Player", desc: "Draw a box around yourself", icon: Zap },
-              { step: "3", title: "Get Analysis", desc: "View detailed feedback", icon: Shield },
+              { step: "1", title: "Upload Video", desc: "Film your shot from any angle", icon: Target },
+              { step: "2", title: "Select Player", desc: "Highlight yourself on screen", icon: Zap },
+              { step: "3", title: "Get Coaching", desc: "See exactly how to fix your form", icon: Shield },
             ].map((item, i) => (
               <div key={i} className="flex flex-col items-center">
                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-black flex items-center justify-center text-base md:text-lg font-bold mb-2 md:mb-3 text-white">
@@ -183,7 +183,7 @@ export default function Home() {
             onClick={() => handleStrokeSelect('serve')}
             className="w-full py-4 bg-black text-white rounded-2xl font-bold text-base active:scale-[0.98] transition-transform"
           >
-            Start Analysis →
+            Analyzye My Serve →
           </button>
         </div>
       </main>

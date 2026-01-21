@@ -85,8 +85,32 @@ export async function getUserById(userId: string): Promise<User | null> {
 /**
  * Delete user by Clerk ID
  * Called when user deletes their account
+ * Also deletes related data (cascade delete)
  */
 export async function deleteUser(userId: string): Promise<void> {
+    // Delete user profile first
+    const { error: profileError } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('user_id', userId);
+
+    if (profileError) {
+        console.error('Failed to delete user profile:', profileError);
+        // Continue anyway - profile might not exist
+    }
+
+    // Delete all analysis jobs for this user
+    const { error: jobsError } = await supabase
+        .from('analysis_jobs')
+        .delete()
+        .eq('user_id', userId);
+
+    if (jobsError) {
+        console.error('Failed to delete user analysis jobs:', jobsError);
+        // Continue anyway
+    }
+
+    // Finally delete the user
     const { error } = await supabase
         .from('users')
         .delete()
@@ -96,6 +120,8 @@ export async function deleteUser(userId: string): Promise<void> {
         console.error('Failed to delete user:', error);
         throw new Error(`Failed to delete user: ${error.message}`);
     }
+
+    console.log(`Cascade deleted user ${userId}: profile, jobs, and user record`);
 }
 
 /**

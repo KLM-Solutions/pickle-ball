@@ -247,3 +247,126 @@ export function getStrokeInfo(strokeType: string): { icon: string; color: string
   return strokeInfo[strokeType] || { icon: "🏓", color: "slate", label: strokeType };
 }
 
+// ============================================
+// USER PROFILE FUNCTIONS
+// ============================================
+
+export interface UserProfile {
+  user_id: string;
+  name: string | null;
+  skill_level: string | null;
+  dominant_hand: "left" | "right" | null;
+  injury_history: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Get user profile by Clerk user ID
+ */
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  try {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("Error fetching profile:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Failed to fetch user profile:", error);
+    return null;
+  }
+}
+
+/**
+ * Upsert user profile
+ */
+export async function upsertUserProfile(
+  userId: string,
+  profile: Partial<Omit<UserProfile, "user_id" | "created_at" | "updated_at">>
+): Promise<UserProfile | null> {
+  try {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .upsert(
+        { user_id: userId, ...profile, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error upserting profile:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Failed to upsert user profile:", error);
+    return null;
+  }
+}
+
+// ============================================
+// SESSION MANAGEMENT FUNCTIONS
+// ============================================
+
+/**
+ * Delete an analysis job
+ */
+export async function deleteAnalysisJob(jobId: string, userId: string): Promise<boolean> {
+  try {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from("analysis_jobs")
+      .delete()
+      .eq("id", jobId)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error deleting job:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Failed to delete analysis job:", error);
+    return false;
+  }
+}
+
+/**
+ * Rename an analysis job (update custom_name field)
+ */
+export async function renameAnalysisJob(
+  jobId: string,
+  userId: string,
+  customName: string
+): Promise<boolean> {
+  try {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from("analysis_jobs")
+      .update({ custom_name: customName })
+      .eq("id", jobId)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("Error renaming job:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Failed to rename analysis job:", error);
+    return false;
+  }
+}
