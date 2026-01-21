@@ -27,6 +27,7 @@ function generateReportHTML(data: any): string {
     avgKnee = null,
     avgElbow = null,
     llmResponse = "",
+    deviationReport = null,
     generatedAt = new Date().toLocaleDateString(),
   } = data;
 
@@ -303,6 +304,54 @@ function generateReportHTML(data: any): string {
     .page-break {
       page-break-before: always;
     }
+
+    .deviation-card {
+      background: #ffffff;
+      border-left: 4px solid #f59e0b;
+      padding: 16px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      border: 1px solid #e5e5e5;
+      border-left-width: 4px;
+    }
+    
+    .deviation-card.critical {
+      border-left-color: #ef4444;
+    }
+    
+    .deviation-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    
+    .deviation-title {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .deviation-score {
+      font-weight: 700;
+      font-size: 16px;
+    }
+    
+    .deviation-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: #525252;
+      margin-bottom: 8px;
+    }
+    
+    .deviation-rec {
+      background: #fafafa;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #171717;
+    }
   </style>
 </head>
 <body>
@@ -336,17 +385,17 @@ function generateReportHTML(data: any): string {
       </div>
       <div class="metric-card">
         <p class="metric-label">FORM SAFETY</p>
-        <p class="metric-value">${riskScore}%</p>
+        <p class="metric-value" style="color: ${getScoreColor(riskScore)}">${riskScore}%</p>
         <p class="metric-subtext">${riskCounts.high > 0 ? `${riskCounts.high} caution` : "Looking good"}</p>
       </div>
       <div class="metric-card">
         <p class="metric-label">AVG HIP ROTATION</p>
-        <p class="metric-value">${avgHip ? avgHip.toFixed(0) : "--"}</p>
+        <p class="metric-value" style="color: ${avgHip !== null ? (avgHip >= 30 ? '#10b981' : avgHip >= 15 ? '#f59e0b' : '#ef4444') : '#000'}">${avgHip ? avgHip.toFixed(0) : "--"}</p>
         <p class="metric-subtext">degrees</p>
       </div>
       <div class="metric-card">
         <p class="metric-label">SHOULDER RANGE</p>
-        <p class="metric-value">${avgShoulder ? avgShoulder.toFixed(0) : "--"}°</p>
+        <p class="metric-value" style="color: ${avgShoulder !== null ? (avgShoulder >= 90 ? '#10b981' : avgShoulder >= 60 ? '#f59e0b' : '#ef4444') : '#000'}">${avgShoulder ? avgShoulder.toFixed(0) : "--"}°</p>
         <p class="metric-subtext">average</p>
       </div>
     </div>
@@ -406,6 +455,37 @@ function generateReportHTML(data: any): string {
         </div>
       </div>
     </div>
+
+    ${deviationReport && deviationReport.topDeviations.length > 0 ? `
+    <div class="section">
+      <h2 class="section-header">🎯 What to Improve</h2>
+      <p style="font-size: 13px; color: #525252; margin-bottom: 20px;">${deviationReport.summary}</p>
+      
+      ${deviationReport.topDeviations.map((param: any, idx: number) => `
+        <div class="deviation-card ${param.status === 'critical' ? 'critical' : ''}" style="border-left-color: ${param.status === 'critical' ? '#ef4444' : '#f59e0b'}">
+          <div class="deviation-header">
+            <div class="deviation-title">
+              <span style="background: ${param.performanceImpact === 'high' ? '#ef4444' : '#f59e0b'}; color: white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">${idx + 1}</span>
+              <span>${param.label}</span>
+              ${param.performanceImpact === 'high' ? '<span style="background: #fef2f2; color: #ef4444; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;">HIGH IMPACT</span>' : ''}
+            </div>
+            <div class="deviation-score" style="color: ${getScoreColor(param.score)}">
+              ${param.score}/100
+            </div>
+          </div>
+          
+          <div class="deviation-meta">
+            <div><span style="color: #a3a3a3;">Your value:</span> <strong>${param.userValue}°</strong></div>
+            <div><span style="color: #a3a3a3;">Optimal:</span> <strong style="color: #10b981;">${param.optimalRange.min}-${param.optimalRange.max}°</strong></div>
+          </div>
+          
+          <div class="deviation-rec">
+            💡 ${param.recommendation}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
     
     <div class="section">
       <h2 class="section-header">🤖 AI Coach Analysis</h2>

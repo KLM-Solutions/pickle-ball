@@ -135,6 +135,7 @@ function AnalysisContent() {
                     avgKnee: getAverage(kneeFlexions),
                     avgElbow: getAverage(elbowAngles),
                     llmResponse,
+                    deviationReport, // Pass deviation report to PDF
                     generatedAt: new Date().toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',
@@ -451,10 +452,13 @@ function AnalysisContent() {
                                                 <p className="text-neutral-600 mb-3 leading-relaxed text-sm">{children}</p>
                                             ),
                                             ul: ({ children }) => (
-                                                <ul className="list-disc list-inside text-neutral-600 mb-4 space-y-1.5 text-sm">{children}</ul>
+                                                <ul className="list-disc pl-5 text-neutral-600 mb-4 space-y-1.5 text-sm marker:text-neutral-400">{children}</ul>
                                             ),
                                             ol: ({ children }) => (
-                                                <ol className="list-decimal list-inside text-neutral-600 mb-4 space-y-1.5 text-sm">{children}</ol>
+                                                <ol className="list-decimal pl-5 text-neutral-600 mb-4 space-y-1.5 text-sm marker:text-neutral-500">{children}</ol>
+                                            ),
+                                            li: ({ children }) => (
+                                                <li className="pl-1">{children}</li>
                                             ),
                                             strong: ({ children }) => (
                                                 <strong className="text-black font-semibold">{children}</strong>
