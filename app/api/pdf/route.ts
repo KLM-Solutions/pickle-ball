@@ -33,15 +33,21 @@ function generateReportHTML(data: any): string {
   // Convert markdown-like LLM response to HTML
   const formatLLMResponse = (text: string) => {
     if (!text) return "<p>No AI coaching feedback available.</p>";
-    
+
     return text
       .replace(/## (.*?)$/gm, '<h2 class="section-title">$1</h2>')
       .replace(/### (.*?)$/gm, '<h3 class="subsection-title">$1</h3>')
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/^\- (.*?)$/gm, '<li class="list-item">$1</li>')
-      .replace(/^\d+\. (.*?)$/gm, '<li class="numbered-item">$1</li>')
-      .replace(/\n\n/g, "</p><p>")
-      .replace(/<\/li>\n<li/g, "</li><li");
+      .replace(/^\- (.*?)$/gm, '<div class="list-item"><span class="bullet">•</span><span>$1</span></div>')
+      .replace(/^(\d+)\. (.*?)$/gm, '<div class="numbered-item"><span class="number">$1.</span><span>$2</span></div>')
+      .replace(/\n\n/g, "</p><p>");
+  };
+
+  // Helper for score colors
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return '#10b981'; // green
+    if (score >= 50) return '#f59e0b'; // amber
+    return '#ef4444'; // red
   };
 
   return `
@@ -120,15 +126,20 @@ function generateReportHTML(data: any): string {
     .grade-value {
       font-size: 64px;
       font-weight: 800;
-      color: #000;
     }
     
     .grade-percent {
       font-size: 28px;
       font-weight: 700;
-      color: #a3a3a3;
       margin-left: 12px;
     }
+    
+    .color-green { color: #10b981; }
+    .color-amber { color: #f59e0b; }
+    .color-red { color: #ef4444; }
+    .bg-green { background: #10b981; }
+    .bg-amber { background: #f59e0b; }
+    .bg-red { background: #ef4444; }
     
     .metrics-grid {
       display: grid;
@@ -215,8 +226,23 @@ function generateReportHTML(data: any): string {
     
     .progress-fill {
       height: 100%;
-      background: #000;
       border-radius: 4px;
+    }
+    
+    .list-item, .numbered-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 13px;
+      color: #525252;
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
+    
+    .list-item .bullet, .numbered-item .number {
+      flex-shrink: 0;
+      min-width: 16px;
+      font-weight: 600;
     }
     
     .ai-feedback {
@@ -257,10 +283,13 @@ function generateReportHTML(data: any): string {
     }
     
     .ai-feedback li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
       font-size: 13px;
       color: #525252;
-      margin-bottom: 6px;
-      line-height: 1.5;
+      margin-bottom: 8px;
+      line-height: 1.6;
     }
     
     .footer {
@@ -289,8 +318,8 @@ function generateReportHTML(data: any): string {
       <div>
         <p class="grade-label">Overall Score</p>
         <div style="display: flex; align-items: baseline;">
-          <span class="grade-value">${grade}</span>
-          <span class="grade-percent">${overallScore}%</span>
+          <span class="grade-value" style="color: ${getScoreColor(overallScore)};">${grade}</span>
+          <span class="grade-percent" style="color: ${getScoreColor(overallScore)};">${overallScore}%</span>
         </div>
       </div>
       <div style="text-align: right;">
@@ -325,16 +354,16 @@ function generateReportHTML(data: any): string {
     <div class="section">
       <h2 class="section-header">📊 Biomechanics Breakdown</h2>
       
-      <div class="progress-bar-container">
+        <div class="progress-bar-container">
         <div class="progress-label">
           <span class="progress-name">Shoulder Mechanics</span>
           <span>
             <span class="progress-detail">${avgShoulder ? `Avg: ${avgShoulder.toFixed(0)}°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px;">${shoulderScore}%</span>
+            <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(shoulderScore)};">${shoulderScore}%</span>
           </span>
         </div>
         <div class="progress-bar">
-          <div class="progress-fill" style="width: ${shoulderScore}%;"></div>
+          <div class="progress-fill" style="width: ${shoulderScore}%; background: ${getScoreColor(shoulderScore)};"></div>
         </div>
       </div>
       
@@ -343,11 +372,11 @@ function generateReportHTML(data: any): string {
           <span class="progress-name">Hip Power Transfer</span>
           <span>
             <span class="progress-detail">${avgHip ? `Avg: ${avgHip.toFixed(0)}°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px;">${hipScore}%</span>
+            <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(hipScore)};">${hipScore}%</span>
           </span>
         </div>
         <div class="progress-bar">
-          <div class="progress-fill" style="width: ${hipScore}%;"></div>
+          <div class="progress-fill" style="width: ${hipScore}%; background: ${getScoreColor(hipScore)};"></div>
         </div>
       </div>
       
@@ -356,11 +385,11 @@ function generateReportHTML(data: any): string {
           <span class="progress-name">Knee Stability</span>
           <span>
             <span class="progress-detail">${avgKnee ? `Avg: ${avgKnee.toFixed(0)}°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px;">${kneeScore}%</span>
+            <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(kneeScore)};">${kneeScore}%</span>
           </span>
         </div>
         <div class="progress-bar">
-          <div class="progress-fill" style="width: ${kneeScore}%;"></div>
+          <div class="progress-fill" style="width: ${kneeScore}%; background: ${getScoreColor(kneeScore)};"></div>
         </div>
       </div>
       
@@ -369,11 +398,11 @@ function generateReportHTML(data: any): string {
           <span class="progress-name">Elbow Extension</span>
           <span>
             <span class="progress-detail">${avgElbow ? `Avg: ${avgElbow.toFixed(0)}°` : "No data"}</span>
-            <span class="progress-value" style="margin-left: 12px;">${elbowScore}%</span>
+            <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(elbowScore)};">${elbowScore}%</span>
           </span>
         </div>
         <div class="progress-bar">
-          <div class="progress-fill" style="width: ${elbowScore}%;"></div>
+          <div class="progress-fill" style="width: ${elbowScore}%; background: ${getScoreColor(elbowScore)};"></div>
         </div>
       </div>
     </div>

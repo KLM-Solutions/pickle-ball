@@ -230,12 +230,12 @@ function AnalysisContent() {
                             <p className="text-neutral-500 text-sm font-medium mb-1">Overall Score</p>
                             <div className="flex items-baseline gap-3">
                                 <span className={`text-5xl md:text-6xl font-black ${overallScore >= 80 ? 'text-emerald-600' :
-                                        overallScore >= 50 ? 'text-amber-600' : 'text-red-600'
+                                    overallScore >= 50 ? 'text-amber-600' : 'text-red-600'
                                     }`}>
                                     {grade}
                                 </span>
                                 <span className={`text-2xl md:text-3xl font-bold ${overallScore >= 80 ? 'text-emerald-500' :
-                                        overallScore >= 50 ? 'text-amber-500' : 'text-red-500'
+                                    overallScore >= 50 ? 'text-amber-500' : 'text-red-500'
                                     }`}>{overallScore}%</span>
                             </div>
                         </div>
@@ -254,7 +254,7 @@ function AnalysisContent() {
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <Award className={`w-8 h-8 md:w-10 md:h-10 ${overallScore >= 80 ? 'text-emerald-600' :
-                                        overallScore >= 50 ? 'text-amber-600' : 'text-red-600'
+                                    overallScore >= 50 ? 'text-amber-600' : 'text-red-600'
                                     }`} />
                             </div>
                         </div>
@@ -268,24 +268,36 @@ function AnalysisContent() {
                         label="Frames Analyzed"
                         value={frames.length.toString()}
                         subtext={`${summary.duration_sec?.toFixed(1) || '0'}s duration`}
+                        valueColor="default"
                     />
                     <MetricCard
                         icon={<Shield className="w-4 h-4" />}
                         label="Form Safety"
                         value={`${riskScore}%`}
                         subtext={riskCounts.high > 0 ? `${riskCounts.high} caution` : 'Looking good'}
+                        valueColor={riskScore >= 80 ? 'green' : riskScore >= 50 ? 'amber' : 'red'}
                     />
                     <MetricCard
                         icon={<Activity className="w-4 h-4" />}
                         label="Avg Hip Rotation"
                         value={getAverage(hipRotations)?.toFixed(0) || '--'}
                         subtext="degrees"
+                        valueColor={
+                            getAverage(hipRotations) !== null
+                                ? (getAverage(hipRotations)! >= 30 ? 'green' : getAverage(hipRotations)! >= 15 ? 'amber' : 'red')
+                                : 'default'
+                        }
                     />
                     <MetricCard
                         icon={<Zap className="w-4 h-4" />}
                         label="Shoulder Range"
                         value={`${getMin(shoulderAngles)?.toFixed(0) || '--'}-${getMax(shoulderAngles)?.toFixed(0) || '--'}`}
                         subtext="degrees"
+                        valueColor={
+                            getMax(shoulderAngles) !== null
+                                ? (getMax(shoulderAngles)! >= 90 ? 'green' : getMax(shoulderAngles)! >= 60 ? 'amber' : 'red')
+                                : 'default'
+                        }
                     />
                 </div>
 
@@ -505,19 +517,29 @@ function AnalysisContent() {
     );
 }
 
-function MetricCard({ icon, label, value, subtext }: {
+function MetricCard({ icon, label, value, subtext, valueColor }: {
     icon: React.ReactNode;
     label: string;
     value: string;
     subtext: string;
+    valueColor?: 'green' | 'amber' | 'red' | 'default';
 }) {
+    const getColorClass = () => {
+        switch (valueColor) {
+            case 'green': return 'text-emerald-600';
+            case 'amber': return 'text-amber-600';
+            case 'red': return 'text-red-600';
+            default: return 'text-black';
+        }
+    };
+
     return (
         <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
             <div className="flex items-center gap-1.5 text-neutral-500 mb-2">
                 {icon}
                 <span className="text-xs font-medium">{label}</span>
             </div>
-            <div className="text-2xl font-bold text-black">{value}</div>
+            <div className={`text-2xl font-bold ${getColorClass()}`}>{value}</div>
             <div className="text-xs text-neutral-400 mt-0.5">{subtext}</div>
         </div>
     );
