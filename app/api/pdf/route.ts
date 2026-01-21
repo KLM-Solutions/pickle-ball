@@ -23,6 +23,8 @@ function generateReportHTML(data: any): string {
     kneeScore = 75,
     elbowScore = 80,
     avgShoulder = null,
+    minShoulder = null,
+    maxShoulder = null,
     avgHip = null,
     avgKnee = null,
     avgElbow = null,
@@ -410,8 +412,8 @@ function generateReportHTML(data: any): string {
       </div>
       <div class="metric-card">
         <p class="metric-label">SHOULDER RANGE</p>
-        <p class="metric-value" style="color: ${avgShoulder !== null ? (avgShoulder >= 90 ? '#10b981' : avgShoulder >= 60 ? '#f59e0b' : '#ef4444') : '#000'}">${avgShoulder ? avgShoulder.toFixed(0) : "--"}°</p>
-        <p class="metric-subtext">average</p>
+        <p class="metric-value" style="color: ${maxShoulder !== null ? (maxShoulder >= 90 ? '#10b981' : maxShoulder >= 60 ? '#f59e0b' : '#ef4444') : '#000'}">${minShoulder !== null ? minShoulder.toFixed(0) : "--"}-${maxShoulder !== null ? maxShoulder.toFixed(0) : "--"}°</p>
+        <p class="metric-subtext">degrees</p>
         <p class="metric-target">Target: <span>&lt;120°</span></p>
       </div>
     </div>
@@ -423,7 +425,7 @@ function generateReportHTML(data: any): string {
         <div class="progress-label">
           <span class="progress-name">Shoulder Mechanics</span>
           <span>
-            <span class="progress-detail">${avgShoulder ? `Avg: ${avgShoulder.toFixed(0)}° • Target: 60-120°` : "No data"}</span>
+            <span class="progress-detail">${maxShoulder !== null ? `Peak: ${maxShoulder.toFixed(0)}° • Target: 60-120°` : "No data"}</span>
             <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(shoulderScore)};">${shoulderScore}%</span>
           </span>
         </div>

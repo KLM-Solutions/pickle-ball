@@ -86,15 +86,21 @@ function AnalysisContent() {
         ? Math.round(((riskCounts.low * 100 + riskCounts.medium * 50 + riskCounts.high * 0) / totalRiskFrames))
         : 100;
 
-    const calculateScore = (values: number[], idealMin: number, idealMax: number) => {
-        if (values.length === 0) return 80;
-        const avg = getAverage(values) || 0;
-        if (avg >= idealMin && avg <= idealMax) return 100;
-        const distance = avg < idealMin ? idealMin - avg : avg - idealMax;
+    const calculateScore = (input: number[] | number, idealMin: number, idealMax: number) => {
+        let value = 0;
+        if (Array.isArray(input)) {
+            if (input.length === 0) return 80;
+            value = getAverage(input) || 0;
+        } else {
+            value = input;
+        }
+
+        if (value >= idealMin && value <= idealMax) return 100;
+        const distance = value < idealMin ? idealMin - value : value - idealMax;
         return Math.max(0, 100 - distance * 2);
     };
 
-    const shoulderScore = calculateScore(shoulderAngles, 60, 120);
+    const shoulderScore = calculateScore(getMax(shoulderAngles) || 0, 60, 120);
     const hipScore = hipRotations.length > 0 ? Math.min(100, (getAverage(hipRotations) || 0) * 3) : 70;
     const kneeScore = calculateScore(kneeFlexions, 120, 170);
     const overallScore = Math.round((shoulderScore + hipScore + kneeScore + riskScore) / 4);
@@ -130,7 +136,9 @@ function AnalysisContent() {
                     hipScore: Math.round(hipScore),
                     kneeScore: Math.round(kneeScore),
                     elbowScore: elbowAngles.length > 0 ? Math.round(calculateScore(elbowAngles, 90, 150)) : 80,
-                    avgShoulder: getAverage(shoulderAngles),
+                    avgShoulder: getMax(shoulderAngles), // Use Max for shoulder to match UI
+                    minShoulder: getMin(shoulderAngles),
+                    maxShoulder: getMax(shoulderAngles),
                     avgHip: getAverage(hipRotations),
                     avgKnee: getAverage(kneeFlexions),
                     avgElbow: getAverage(elbowAngles),
@@ -316,7 +324,7 @@ function AnalysisContent() {
                         <MetricBar
                             label="Shoulder Mechanics"
                             value={Math.round(shoulderScore)}
-                            detail={getAverage(shoulderAngles) ? `Avg: ${getAverage(shoulderAngles)?.toFixed(0)}°` : 'No data'}
+                            detail={getMax(shoulderAngles) ? `Peak: ${getMax(shoulderAngles)?.toFixed(0)}°` : 'No data'}
                             optimal="60-120°"
                         />
                         <MetricBar
