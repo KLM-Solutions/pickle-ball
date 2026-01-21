@@ -277,6 +277,7 @@ function AnalysisContent() {
                         value={`${riskScore}%`}
                         subtext={riskCounts.high > 0 ? `${riskCounts.high} caution` : 'Looking good'}
                         valueColor={riskScore >= 80 ? 'green' : riskScore >= 50 ? 'amber' : 'red'}
+                        optimal="100%"
                     />
                     <MetricCard
                         icon={<Activity className="w-4 h-4" />}
@@ -288,6 +289,7 @@ function AnalysisContent() {
                                 ? (getAverage(hipRotations)! >= 30 ? 'green' : getAverage(hipRotations)! >= 15 ? 'amber' : 'red')
                                 : 'default'
                         }
+                        optimal=">30°"
                     />
                     <MetricCard
                         icon={<Zap className="w-4 h-4" />}
@@ -299,6 +301,7 @@ function AnalysisContent() {
                                 ? (getMax(shoulderAngles)! >= 90 ? 'green' : getMax(shoulderAngles)! >= 60 ? 'amber' : 'red')
                                 : 'default'
                         }
+                        optimal="<120°"
                     />
                 </div>
 
@@ -314,21 +317,25 @@ function AnalysisContent() {
                             label="Shoulder Mechanics"
                             value={Math.round(shoulderScore)}
                             detail={getAverage(shoulderAngles) ? `Avg: ${getAverage(shoulderAngles)?.toFixed(0)}°` : 'No data'}
+                            optimal="60-120°"
                         />
                         <MetricBar
                             label="Hip Power Transfer"
                             value={Math.round(hipScore)}
                             detail={getAverage(hipRotations) ? `Avg: ${getAverage(hipRotations)?.toFixed(0)}°` : 'No data'}
+                            optimal=">30°"
                         />
                         <MetricBar
                             label="Knee Stability"
                             value={Math.round(kneeScore)}
                             detail={getAverage(kneeFlexions) ? `Avg: ${getAverage(kneeFlexions)?.toFixed(0)}°` : 'No data'}
+                            optimal="120-170°"
                         />
                         <MetricBar
                             label="Elbow Extension"
                             value={elbowAngles.length > 0 ? Math.round(calculateScore(elbowAngles, 90, 150)) : 80}
                             detail={getAverage(elbowAngles) ? `Avg: ${getAverage(elbowAngles)?.toFixed(0)}°` : 'No data'}
+                            optimal="90-150°"
                         />
                     </div>
                 </div>
@@ -521,12 +528,13 @@ function AnalysisContent() {
     );
 }
 
-function MetricCard({ icon, label, value, subtext, valueColor }: {
+function MetricCard({ icon, label, value, subtext, valueColor, optimal }: {
     icon: React.ReactNode;
     label: string;
     value: string;
     subtext: string;
     valueColor?: 'green' | 'amber' | 'red' | 'default';
+    optimal?: string;
 }) {
     const getColorClass = () => {
         switch (valueColor) {
@@ -545,11 +553,16 @@ function MetricCard({ icon, label, value, subtext, valueColor }: {
             </div>
             <div className={`text-2xl font-bold ${getColorClass()}`}>{value}</div>
             <div className="text-xs text-neutral-400 mt-0.5">{subtext}</div>
+            {optimal && (
+                <div className="text-[10px] text-neutral-400 mt-1.5 pt-1.5 border-t border-neutral-200">
+                    Target: <span className="font-medium text-neutral-600">{optimal}</span>
+                </div>
+            )}
         </div>
     );
 }
 
-function MetricBar({ label, value, detail }: { label: string; value: number; detail: string }) {
+function MetricBar({ label, value, detail, optimal }: { label: string; value: number; detail: string; optimal?: string }) {
     const getColor = (val: number) => {
         if (val >= 80) return 'text-emerald-600';
         if (val >= 50) return 'text-amber-600';
@@ -567,6 +580,7 @@ function MetricBar({ label, value, detail }: { label: string; value: number; det
                 <span className="text-sm font-medium text-neutral-600">{label}</span>
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-neutral-400">{detail}</span>
+                    {optimal && <span className="text-[10px] text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded border border-neutral-200">Target: {optimal}</span>}
                     <span className={`text-sm font-bold ${getColor(value)}`}>{value}%</span>
                 </div>
             </div>

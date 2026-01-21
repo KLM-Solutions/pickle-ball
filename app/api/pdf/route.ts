@@ -174,6 +174,19 @@ function generateReportHTML(data: any): string {
       font-size: 11px;
       margin-top: 4px;
     }
+
+    .metric-target {
+      font-size: 10px;
+      color: #a3a3a3;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid #e5e5e5;
+    }
+    
+    .metric-target span {
+      color: #525252;
+      font-weight: 500;
+    }
     
     .section {
       background: #fafafa;
@@ -387,16 +400,19 @@ function generateReportHTML(data: any): string {
         <p class="metric-label">FORM SAFETY</p>
         <p class="metric-value" style="color: ${getScoreColor(riskScore)}">${riskScore}%</p>
         <p class="metric-subtext">${riskCounts.high > 0 ? `${riskCounts.high} caution` : "Looking good"}</p>
+        <p class="metric-target">Target: <span>100%</span></p>
       </div>
       <div class="metric-card">
         <p class="metric-label">AVG HIP ROTATION</p>
         <p class="metric-value" style="color: ${avgHip !== null ? (avgHip >= 30 ? '#10b981' : avgHip >= 15 ? '#f59e0b' : '#ef4444') : '#000'}">${avgHip ? avgHip.toFixed(0) : "--"}</p>
         <p class="metric-subtext">degrees</p>
+        <p class="metric-target">Target: <span>&gt;30°</span></p>
       </div>
       <div class="metric-card">
         <p class="metric-label">SHOULDER RANGE</p>
         <p class="metric-value" style="color: ${avgShoulder !== null ? (avgShoulder >= 90 ? '#10b981' : avgShoulder >= 60 ? '#f59e0b' : '#ef4444') : '#000'}">${avgShoulder ? avgShoulder.toFixed(0) : "--"}°</p>
         <p class="metric-subtext">average</p>
+        <p class="metric-target">Target: <span>&lt;120°</span></p>
       </div>
     </div>
     
@@ -407,7 +423,7 @@ function generateReportHTML(data: any): string {
         <div class="progress-label">
           <span class="progress-name">Shoulder Mechanics</span>
           <span>
-            <span class="progress-detail">${avgShoulder ? `Avg: ${avgShoulder.toFixed(0)}°` : "No data"}</span>
+            <span class="progress-detail">${avgShoulder ? `Avg: ${avgShoulder.toFixed(0)}° • Target: 60-120°` : "No data"}</span>
             <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(shoulderScore)};">${shoulderScore}%</span>
           </span>
         </div>
@@ -420,7 +436,7 @@ function generateReportHTML(data: any): string {
         <div class="progress-label">
           <span class="progress-name">Hip Power Transfer</span>
           <span>
-            <span class="progress-detail">${avgHip ? `Avg: ${avgHip.toFixed(0)}°` : "No data"}</span>
+            <span class="progress-detail">${avgHip ? `Avg: ${avgHip.toFixed(0)}° • Target: &gt;30°` : "No data"}</span>
             <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(hipScore)};">${hipScore}%</span>
           </span>
         </div>
@@ -433,7 +449,7 @@ function generateReportHTML(data: any): string {
         <div class="progress-label">
           <span class="progress-name">Knee Stability</span>
           <span>
-            <span class="progress-detail">${avgKnee ? `Avg: ${avgKnee.toFixed(0)}°` : "No data"}</span>
+            <span class="progress-detail">${avgKnee ? `Avg: ${avgKnee.toFixed(0)}° • Target: 120-170°` : "No data"}</span>
             <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(kneeScore)};">${kneeScore}%</span>
           </span>
         </div>
@@ -446,7 +462,7 @@ function generateReportHTML(data: any): string {
         <div class="progress-label">
           <span class="progress-name">Elbow Extension</span>
           <span>
-            <span class="progress-detail">${avgElbow ? `Avg: ${avgElbow.toFixed(0)}°` : "No data"}</span>
+            <span class="progress-detail">${avgElbow ? `Avg: ${avgElbow.toFixed(0)}° • Target: 90-150°` : "No data"}</span>
             <span class="progress-value" style="margin-left: 12px; color: ${getScoreColor(elbowScore)};">${elbowScore}%</span>
           </span>
         </div>
