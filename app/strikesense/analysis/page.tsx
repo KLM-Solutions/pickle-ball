@@ -229,23 +229,33 @@ function AnalysisContent() {
                         <div>
                             <p className="text-neutral-500 text-sm font-medium mb-1">Overall Score</p>
                             <div className="flex items-baseline gap-3">
-                                <span className="text-5xl md:text-6xl font-black text-black">
+                                <span className={`text-5xl md:text-6xl font-black ${overallScore >= 80 ? 'text-emerald-600' :
+                                        overallScore >= 50 ? 'text-amber-600' : 'text-red-600'
+                                    }`}>
                                     {grade}
                                 </span>
-                                <span className="text-2xl md:text-3xl font-bold text-neutral-400">{overallScore}%</span>
+                                <span className={`text-2xl md:text-3xl font-bold ${overallScore >= 80 ? 'text-emerald-500' :
+                                        overallScore >= 50 ? 'text-amber-500' : 'text-red-500'
+                                    }`}>{overallScore}%</span>
                             </div>
                         </div>
                         <div className="w-20 h-20 md:w-24 md:h-24 relative">
                             <svg className="w-full h-full transform -rotate-90">
                                 <circle cx="50%" cy="50%" r="45%" fill="none" stroke="currentColor" strokeWidth="8" className="text-neutral-200" />
                                 <circle
-                                    cx="50%" cy="50%" r="45%" fill="none" stroke="black" strokeWidth="8"
+                                    cx="50%" cy="50%" r="45%" fill="none" strokeWidth="8"
                                     strokeLinecap="round"
                                     strokeDasharray={`${overallScore * 2.83} 283`}
+                                    className={
+                                        overallScore >= 80 ? 'stroke-emerald-500' :
+                                            overallScore >= 50 ? 'stroke-amber-500' : 'stroke-red-500'
+                                    }
                                 />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <Award className="w-8 h-8 md:w-10 md:h-10 text-black" />
+                                <Award className={`w-8 h-8 md:w-10 md:h-10 ${overallScore >= 80 ? 'text-emerald-600' :
+                                        overallScore >= 50 ? 'text-amber-600' : 'text-red-600'
+                                    }`} />
                             </div>
                         </div>
                     </div>
@@ -312,9 +322,9 @@ function AnalysisContent() {
 
                 {/* What to Improve Section */}
                 {deviationReport.topDeviations.length > 0 && (
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-200 p-5 md:p-6 mb-6">
+                    <div className="bg-neutral-50 rounded-2xl border border-neutral-200 p-5 md:p-6 mb-6">
                         <h2 className="text-lg font-semibold text-black mb-2 flex items-center gap-2">
-                            <Target className="w-5 h-5 text-indigo-600" />
+                            <Target className="w-5 h-5 text-neutral-600" />
                             What to Improve
                         </h2>
                         <p className="text-sm text-neutral-600 mb-5">{deviationReport.summary}</p>
@@ -341,7 +351,7 @@ function AnalysisContent() {
                                         </div>
                                         <div className="text-right">
                                             <span className={`text-lg font-bold ${param.score >= 80 ? 'text-emerald-600' :
-                                                    param.score >= 50 ? 'text-amber-600' : 'text-red-600'
+                                                param.score >= 50 ? 'text-amber-600' : 'text-red-600'
                                                 }`}>
                                                 {param.score}/100
                                             </span>
@@ -369,20 +379,20 @@ function AnalysisContent() {
                         </div>
 
                         {/* All Parameters Summary */}
-                        <div className="mt-5 pt-5 border-t border-indigo-100">
+                        <div className="mt-5 pt-5 border-t border-neutral-200">
                             <p className="text-xs text-neutral-500 uppercase font-semibold mb-3">All Parameters</p>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                 {deviationReport.parameters.map(param => (
                                     <div
                                         key={param.key}
                                         className={`p-2 rounded-lg text-center ${param.status === 'optimal' ? 'bg-emerald-50 border border-emerald-200' :
-                                                param.status === 'warning' ? 'bg-amber-50 border border-amber-200' :
-                                                    'bg-red-50 border border-red-200'
+                                            param.status === 'warning' ? 'bg-amber-50 border border-amber-200' :
+                                                'bg-red-50 border border-red-200'
                                             }`}
                                     >
                                         <p className="text-[10px] text-neutral-500 uppercase">{param.label}</p>
                                         <p className={`text-lg font-bold ${param.status === 'optimal' ? 'text-emerald-600' :
-                                                param.status === 'warning' ? 'text-amber-600' : 'text-red-600'
+                                            param.status === 'warning' ? 'text-amber-600' : 'text-red-600'
                                             }`}>
                                             {param.score}
                                         </p>
@@ -514,18 +524,29 @@ function MetricCard({ icon, label, value, subtext }: {
 }
 
 function MetricBar({ label, value, detail }: { label: string; value: number; detail: string }) {
+    const getColor = (val: number) => {
+        if (val >= 80) return 'text-emerald-600';
+        if (val >= 50) return 'text-amber-600';
+        return 'text-red-600';
+    };
+    const getBarColor = (val: number) => {
+        if (val >= 80) return 'bg-emerald-500';
+        if (val >= 50) return 'bg-amber-500';
+        return 'bg-red-500';
+    };
+
     return (
         <div>
             <div className="flex justify-between items-baseline mb-2">
                 <span className="text-sm font-medium text-neutral-600">{label}</span>
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-neutral-400">{detail}</span>
-                    <span className="text-sm font-bold text-black">{value}%</span>
+                    <span className={`text-sm font-bold ${getColor(value)}`}>{value}%</span>
                 </div>
             </div>
             <div className="h-2 bg-neutral-200 rounded-full overflow-hidden">
                 <div
-                    className="h-full bg-black transition-all duration-700"
+                    className={`h-full ${getBarColor(value)} transition-all duration-700`}
                     style={{ width: `${value}%` }}
                 />
             </div>
