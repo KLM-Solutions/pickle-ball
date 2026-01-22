@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Award, ChevronRight, BarChart3, AlertTriangle, TrendingUp, Play, Lightbulb, Sparkles } from "lucide-react";
+import { ArrowLeft, Award, ChevronRight, BarChart3, AlertTriangle, TrendingUp, Play, Lightbulb, Sparkles, Box } from "lucide-react";
+import Skeleton3DViewer from "../../components/Skeleton3DViewer";
 import VideoPanel from "../../components/VideoPanel";
 import { BiomechanicalMetrics } from "../../components/dashboard/BiomechanicalMetrics";
 import { filterFramesForIssues, getTopIssues, getFilterSummary, getFullRecommendation, FilteredFrame, FilterSummary, CoachingRecommendation } from "@/lib/analysis";
@@ -26,6 +27,7 @@ function PlayerContent() {
     const [activeTab, setActiveTab] = useState<'metrics' | 'issues'>('metrics');
     const [selectedIssue, setSelectedIssue] = useState<string | null>(null);
     const [demoLoading, setDemoLoading] = useState(false);
+    const [show3DSkeleton, setShow3DSkeleton] = useState(false);
 
     useEffect(() => {
         if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
@@ -195,6 +197,18 @@ function PlayerContent() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {/* 3D Skeleton Toggle */}
+                        <button
+                            onClick={() => setShow3DSkeleton(!show3DSkeleton)}
+                            className={`p-2 rounded-lg transition border ${show3DSkeleton
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-neutral-100 text-neutral-600 border-neutral-200 hover:text-black hover:border-neutral-300'
+                                }`}
+                            title="Toggle 3D Skeleton View"
+                        >
+                            <Box className="w-4 h-4" />
+                        </button>
+
                         <button
                             onClick={() => setShowMetrics(!showMetrics)}
                             className={`lg:hidden p-2 rounded-lg transition border ${showMetrics
@@ -223,27 +237,56 @@ function PlayerContent() {
 
                     {/* Video Player */}
                     <div className="lg:col-span-8">
-                        <div className="bg-neutral-100 border border-neutral-200 rounded-xl overflow-hidden">
-                            {isDemo && demoLoading ? (
-                                <div className="aspect-video flex flex-col items-center justify-center bg-neutral-50">
-                                    <div className="w-12 h-12 border-4 border-neutral-200 border-t-black rounded-full animate-spin mb-4"></div>
-                                    <p className="text-neutral-600 font-medium">Loading demo analysis...</p>
-                                    <p className="text-neutral-400 text-sm mt-1">Please wait</p>
+                        <div className={`grid ${show3DSkeleton ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} gap-4`}>
+                            {/* Video Panel */}
+                            <div className="bg-neutral-100 border border-neutral-200 rounded-xl overflow-hidden">
+                                {isDemo && demoLoading ? (
+                                    <div className="aspect-video flex flex-col items-center justify-center bg-neutral-50">
+                                        <div className="w-12 h-12 border-4 border-neutral-200 border-t-black rounded-full animate-spin mb-4"></div>
+                                        <p className="text-neutral-600 font-medium">Loading demo analysis...</p>
+                                        <p className="text-neutral-400 text-sm mt-1">Please wait</p>
+                                    </div>
+                                ) : (
+                                    <VideoPanel
+                                        videoFile={null}
+                                        videoUrl={analysisData?.videoUrl || null}
+                                        onVideoUpload={() => { }}
+                                        analysisData={analysisData}
+                                        isProcessing={false}
+                                        currentTime={currentTime}
+                                        onTimeUpdate={setCurrentTime}
+                                        sideBySide={false}
+                                        showOverlay={true}
+                                        playbackSpeed={playbackSpeed}
+                                        onSpeedChange={setPlaybackSpeed}
+                                    />
+                                )}
+                            </div>
+
+                            {/* 3D Skeleton Viewer */}
+                            {show3DSkeleton && (
+                                <div className="bg-neutral-900 border border-neutral-700 rounded-xl overflow-hidden flex flex-col">
+                                    <div className="p-3 border-b border-neutral-700 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Box className="w-4 h-4 text-emerald-500" />
+                                            <span className="text-sm font-semibold text-white">3D Skeleton View</span>
+                                        </div>
+                                        <span className="text-xs text-neutral-400">
+                                            Frame {currentFrame?.frameIdx ?? '--'}
+                                        </span>
+                                    </div>
+                                    <div className="flex-1 flex items-center justify-center p-4 min-h-[300px] aspect-video">
+                                        <Skeleton3DViewer
+                                            landmarks={currentFrame?.landmarks || null}
+                                            width={400}
+                                            height={350}
+                                            autoRotate={true}
+                                            rotationSpeed={1.5}
+                                            boneColor="#22c55e"
+                                            jointColor="#f97316"
+                                        />
+                                    </div>
                                 </div>
-                            ) : (
-                                <VideoPanel
-                                    videoFile={null}
-                                    videoUrl={analysisData?.videoUrl || null}
-                                    onVideoUpload={() => { }}
-                                    analysisData={analysisData}
-                                    isProcessing={false}
-                                    currentTime={currentTime}
-                                    onTimeUpdate={setCurrentTime}
-                                    sideBySide={false}
-                                    showOverlay={true}
-                                    playbackSpeed={playbackSpeed}
-                                    onSpeedChange={setPlaybackSpeed}
-                                />
                             )}
                         </div>
                     </div>

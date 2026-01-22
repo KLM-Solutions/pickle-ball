@@ -144,6 +144,7 @@ export function analyzeFrames(
       injury_risk: level,
       injury_risks: risks,
       feedback,
+      landmarks: frame.landmarks, // Preserve for 3D skeleton viewer
     };
   });
 

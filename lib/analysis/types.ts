@@ -94,6 +94,7 @@ export interface AnalyzedFrame {
   injury_risk: RiskLevel;
   injury_risks: InjuryRisk[];
   feedback: string[];
+  landmarks?: Landmark[] | null; // Preserved for 3D skeleton viewer
 }
 
 // Analysis summary
