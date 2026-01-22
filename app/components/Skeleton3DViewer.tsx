@@ -111,13 +111,16 @@ interface Skeleton3DViewerProps {
 // Convert MediaPipe coordinates to Three.js world space
 function convertToWorldCoords(landmarks: Landmark[]): THREE.Vector3[] {
     return landmarks.map((lm) => {
-        // MediaPipe uses 0-1 normalized coordinates
-        // Convert to centered coordinates: -1 to +1
-        const x = (lm.x - 0.5) * 2;
-        // Flip Y axis (MediaPipe Y is down, Three.js Y is up)
-        const y = -(lm.y - 0.5) * 2;
-        // Z is depth from camera
-        const z = (lm.z || 0) * 2;
+        // MediaPipe uses 0-1 normalized coordinates (origin at top-left)
+        // X: left-right (0=left, 1=right)
+        // Y: top-bottom (0=top, 1=bottom)  
+        // Z: depth from camera (negative = closer)
+
+        // Convert to Three.js centered coordinates
+        const x = (lm.x - 0.5) * 2;           // X stays the same: left-right
+        const y = -(lm.y - 0.5) * 2;          // Flip Y: MediaPipe Y-down → Three.js Y-up
+        const z = -(lm.z || 0) * 2;           // Flip Z: depth becomes forward/back
+
         return new THREE.Vector3(x, y, z);
     });
 }
