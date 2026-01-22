@@ -144,13 +144,33 @@ def main():
     fps = get_video_fps(original_video)
     log_debug(f"Initial FPS detected (baseline): {fps}")
     yolo_device = (args.device or "cuda:0").strip()
+
+    # GPU DIAGNOSTICS
+    log_debug("=" * 50)
+    log_debug("GPU DIAGNOSTICS")
+    log_debug("=" * 50)
+    log_debug(f"Requested device: {yolo_device}")
+    if torch is not None:
+        log_debug(f"PyTorch version: {torch.__version__}")
+        log_debug(f"CUDA available: {torch.cuda.is_available()}")
+        if torch.cuda.is_available():
+            log_debug(f"CUDA version: {torch.version.cuda}")
+            log_debug(f"GPU count: {torch.cuda.device_count()}")
+            for i in range(torch.cuda.device_count()):
+                log_debug(f"  GPU {i}: {torch.cuda.get_device_name(i)}")
+                mem_total = torch.cuda.get_device_properties(i).total_memory / (1024**3)
+                log_debug(f"    Total memory: {mem_total:.1f} GB")
+    else:
+        log_debug("PyTorch not available!")
+    log_debug("=" * 50)
+
     # Check if CUDA is actually available
     if yolo_device.startswith("cuda"):
         if torch is None or not torch.cuda.is_available():
             log_debug(f"WARNING: requested device {yolo_device} but CUDA is not available. Falling back to cpu.")
             yolo_device = "cpu"
         else:
-            # Normalize 'cuda:0' to just 0 or similar if needed, 
+            # Normalize 'cuda:0' to just 0 or similar if needed,
             # but usually 'cuda:0' works for ultralytics.
             # However, for BoxMOT, it might need specific handling.
             pass
@@ -191,8 +211,14 @@ def main():
                 if os.path.exists(alt):
                     model_path = alt
                 # If neither exists, Ultralytics will auto-download, which is fine.
-            print(f"Loading YOLO model: {model_path}")
+            print(f"Loading YOLO model: {model_path} on device: {yolo_device}")
             model = YOLO(model_path)
+            # Explicitly move model to GPU if CUDA available
+            if yolo_device.startswith("cuda") and torch is not None and torch.cuda.is_available():
+                model.to(yolo_device)
+                print(f"✓ YOLO model moved to GPU: {yolo_device}")
+            else:
+                print(f"⚠ YOLO model running on CPU (device: {yolo_device})")
         except Exception as e:
             print(f"CRITICAL ERROR: Failed to load YOLO model: {e}")
             sys.exit(1) # Stop immediately if we can't load the modern model
@@ -258,6 +284,7 @@ def main():
     # Initialize MediaPipe Pose (optional)
     pose = None
     mp_pose = None
+    log_debug("Initializing MediaPipe Pose...")
     if mp is not None:
         try:
             if not hasattr(mp, 'solutions'):
@@ -269,10 +296,13 @@ def main():
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5,
             )
+            log_debug("✓ MediaPipe Pose initialized successfully")
         except Exception as e:
-            print(f"MediaPipe init failed: {e}. Skipping pose.")
+            log_debug(f"✗ MediaPipe init failed: {e}. Skipping pose.")
             pose = None
             mp_pose = None
+    else:
+        log_debug("✗ MediaPipe module not available - pose detection disabled")
     # Initialize Analysis Modules - ENHANCED
     bio_analyzer = BiomechanicsAnalyzer() if BiomechanicsAnalyzer is not None else None
     classifier = StrokeClassifier() if StrokeClassifier is not None else None
@@ -380,7 +410,15 @@ def main():
     print(f"Processing {len(all_files)} frames (Analysis every {step} steps)...")
     tracker_failed_count = 0
     saved_frame_count = 0
+    frames_with_landmarks = 0
+    frames_without_landmarks = 0
+    gpu_monitoring_enabled = torch is not None and torch.cuda.is_available() and yolo_device.startswith("cuda")
     for i, frame_path in enumerate(all_files):
+        # GPU memory monitoring every 100 frames
+        if gpu_monitoring_enabled and i % 100 == 0:
+            mem_allocated = torch.cuda.memory_allocated(0) / (1024**2)
+            mem_reserved = torch.cuda.memory_reserved(0) / (1024**2)
+            log_debug(f"[GPU] Frame {i}: Allocated={mem_allocated:.0f}MB, Reserved={mem_reserved:.0f}MB")
         # Use original frame index derived from filename so windowing doesn't break timestamps.
         frame_idx = _frame_idx_from_path(frame_path)
         # We update the tracker EVERY frame for stability, but only analyze every 'step'
@@ -793,32 +831,43 @@ def main():
 
         # --- FIXED: Enhanced MediaPipe Pose Estimation on Crop ---
         # ONLY run for analysis frames, and only inside analysis windows (if provided)
+        pose_attempted = False
+        pose_success = False
+
         if is_analysis_frame and found and pose is not None and _in_any_window(frame_idx / fps):
+                pose_attempted = True
                 try:
                     # FIXED: Better padding calculation
                     pad = max(10, int(bbox_h * 0.15))  # At least 10px padding, 15% of height
                     y1_c, y2_c = max(0, int(y1)-pad), min(height, int(y2)+pad)
                     x1_c, x2_c = max(0, int(x1)-pad), min(width, int(x2)+pad)
-                    
+
                     # FIXED: Ensure minimum crop size for pose detection
                     crop_width = x2_c - x1_c
                     crop_height = y2_c - y1_c
-                    
+
                     if crop_width > 50 and crop_height > 80:  # Minimum size for pose detection
                         crop = img[y1_c:y2_c, x1_c:x2_c]
-                        
+
                         # FIXED: Validate crop before processing
                         if crop.size > 0 and len(crop.shape) == 3:
                             crop_rgb = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
                             # Run pose inference
                             pose_results = pose.process(crop_rgb)
+                            if i % 30 == 0:
+                                log_debug(f"Frame {i}: Pose inference completed, crop={crop_width}x{crop_height}")
                         else:
                             pose_results = None
+                            if i % 30 == 0:
+                                log_debug(f"Frame {i}: Invalid crop (empty or wrong shape)")
                     else:
                         pose_results = None
+                        if i % 30 == 0:
+                            log_debug(f"Frame {i}: Crop too small ({crop_width}x{crop_height}), skipping pose")
 
                     # FIXED: Process pose results if available
                     if pose_results is not None and pose_results.pose_landmarks:
+                        pose_success = True
                         # ... Logic continues ...
                         pass # Valid flow
                         crop_h, crop_w = crop.shape[:2]
@@ -913,6 +962,17 @@ def main():
                     import traceback
                     traceback.print_exc()
 
+        # Log pose detection status for debugging
+        if is_analysis_frame and i % 30 == 0:
+            if not found:
+                log_debug(f"Frame {i}: SKIPPED pose - player not found")
+            elif pose is None:
+                log_debug(f"Frame {i}: SKIPPED pose - MediaPipe not initialized")
+            elif pose_attempted and not pose_success:
+                log_debug(f"Frame {i}: Pose attempted but NO LANDMARKS detected")
+            elif pose_success:
+                log_debug(f"Frame {i}: POSE SUCCESS - landmarks extracted")
+
         if not is_analysis_frame:
             continue
             
@@ -932,6 +992,12 @@ def main():
             "landmarks": landmarks_out
         }
         results.append(res_entry)
+
+        # Track landmark extraction success
+        if landmarks_out is not None and len(landmarks_out) > 0:
+            frames_with_landmarks += 1
+        else:
+            frames_without_landmarks += 1
         
         # Write Frame (optional)
         if not args.no_video_output:
@@ -941,7 +1007,22 @@ def main():
                 skeleton_writer.write(skeleton_canvas)
 
     log_debug(f"Final FPS used: {fps}")
-    
+
+    # LANDMARK EXTRACTION SUMMARY
+    log_debug("=" * 50)
+    log_debug("LANDMARK EXTRACTION SUMMARY")
+    log_debug("=" * 50)
+    log_debug(f"Frames WITH landmarks: {frames_with_landmarks}")
+    log_debug(f"Frames WITHOUT landmarks: {frames_without_landmarks}")
+    total_analysis = frames_with_landmarks + frames_without_landmarks
+    if total_analysis > 0:
+        success_rate = (frames_with_landmarks / total_analysis) * 100
+        log_debug(f"Landmark extraction rate: {success_rate:.1f}%")
+    if frames_with_landmarks == 0:
+        log_debug("WARNING: No landmarks extracted! 3D skeleton and stroke detection will NOT work.")
+        log_debug("Possible causes: 1) Player not found, 2) Crop too small, 3) MediaPipe failed")
+    log_debug("=" * 50)
+
     # --- VISION ONLY OUTPUT ---
     final_output = {
         "frames": results, # Per-frame data

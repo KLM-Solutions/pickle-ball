@@ -161,7 +161,8 @@ def run_tracking(
             '--output_dir', output_dir,
             '--results_json', results_json,
             '--stroke_type', stroke_type,
-            '--step', str(step)
+            '--step', str(step),
+            '--device', 'cuda:0'  # Force GPU usage
         ]
         
         if crop_region:
