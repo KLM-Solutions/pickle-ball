@@ -23,7 +23,8 @@ import {
   updateJobFailed
 } from "@/lib/supabase";
 import { analyzeFrames, RawFrame } from "@/lib/analysis";
-import { signStorageUrl } from "@/lib/media-server";
+import { parseStorageUrl } from "@/lib/media";
+import { canAccessUpload, signStorageUrl } from "@/lib/media-server";
 
 export const maxDuration = 300; // This function can run for a maximum of 5 minutes
 
@@ -82,17 +83,27 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    // Validate video URL (must be from Supabase or allowed origins)
-    const allowedOrigins = [
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      "https://", // Allow any HTTPS for flexibility
-    ].filter(Boolean);
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Sign in required" },
+        { status: 401 }
+      );
+    }
 
-    const isValidUrl = allowedOrigins.some(origin => videoUrl.startsWith(origin!));
-    if (!isValidUrl) {
+    // Validate video URL: must be an upload in this project's videos bucket, owned by the caller.
+    // This route signs the link for RunPod, so it must never sign other users' files.
+    const upload = parseStorageUrl(videoUrl);
+    if (!upload || upload.bucket !== "videos") {
       return NextResponse.json(
         { error: "Invalid video URL origin" },
         { status: 400 }
+      );
+    }
+
+    if (!(await canAccessUpload(videoUrl, upload, userId))) {
+      return NextResponse.json(
+        { error: "Not allowed to analyze this video" },
+        { status: 403 }
       );
     }
 

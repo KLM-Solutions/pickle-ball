@@ -15,8 +15,16 @@ export interface StorageObject {
 }
 
 /**
+ * The exact link supabase-js getPublicUrl() produces for an object.
+ */
+export function canonicalStorageUrl({ bucket, path }: StorageObject): string {
+  return encodeURI(`${process.env.NEXT_PUBLIC_SUPABASE_URL}${STORAGE_PUBLIC_PREFIX}${bucket}/${path}`);
+}
+
+/**
  * Parse a Supabase storage link from this project into bucket + path.
- * Returns null for anything else (blob: URLs, other hosts, other buckets).
+ * Returns null for anything else (blob: URLs, other hosts, other buckets), and for
+ * links not in canonical form, so access checks always compare the stored spelling.
  */
 export function parseStorageUrl(url: string | null | undefined): StorageObject | null {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -25,15 +33,22 @@ export function parseStorageUrl(url: string | null | undefined): StorageObject |
   const prefix = `${supabaseUrl}${STORAGE_PUBLIC_PREFIX}`;
   if (!url.startsWith(prefix)) return null;
 
-  const rest = url.slice(prefix.length).split('?')[0];
+  const rest = url.slice(prefix.length);
   const slash = rest.indexOf('/');
   if (slash <= 0) return null;
 
   const bucket = rest.slice(0, slash);
-  const path = decodeURIComponent(rest.slice(slash + 1));
-  if (!MEDIA_BUCKETS.includes(bucket) || !path || path.includes('..')) return null;
+  let path: string;
+  try {
+    path = decodeURI(rest.slice(slash + 1));
+  } catch {
+    return null;
+  }
+  const badPath = !path || /[?#]/.test(path) || path.split('/').some((part) => part === '' || part === '..');
+  if (!MEDIA_BUCKETS.includes(bucket) || badPath) return null;
 
-  return { bucket, path };
+  const object = { bucket, path };
+  return canonicalStorageUrl(object) === url ? object : null;
 }
 
 /**
