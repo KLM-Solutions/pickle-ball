@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, User, Grid3x3, Play, Maximize2, ZoomIn, ZoomOut, RotateCcw, Upload, Info } from 'lucide-react';
+import { mediaUrl } from '@/lib/media';
 
 function CropContent() {
   const router = useRouter();
@@ -422,7 +423,7 @@ function CropContent() {
 
                 <video
                   ref={videoRef}
-                  src={videoUrl}
+                  src={mediaUrl(videoUrl)}
                   className="w-full h-full object-contain pointer-events-none"
                   style={{
                     maxWidth: '100%',

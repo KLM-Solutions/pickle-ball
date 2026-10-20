@@ -23,8 +23,12 @@ import {
   updateJobFailed
 } from "@/lib/supabase";
 import { analyzeFrames, RawFrame } from "@/lib/analysis";
+import { signStorageUrl } from "@/lib/media-server";
 
 export const maxDuration = 300; // This function can run for a maximum of 5 minutes
+
+// Signed link for RunPod must outlive time spent in the RunPod queue
+const RUNPOD_VIDEO_URL_TTL_SEC = 24 * 60 * 60;
 
 type StrokeType =
   | "serve"
@@ -107,9 +111,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     // 2. Update job status to processing
     await updateJobToProcessing(jobId);
 
-    // Build RunPod input
+    // Build RunPod input (storage buckets are private, so send a signed link)
     const runpodInput = {
-      video_url: videoUrl,
+      video_url: await signStorageUrl(videoUrl, RUNPOD_VIDEO_URL_TTL_SEC),
       stroke_type: strokeType as StrokeType,
       crop_region: cropRegion || undefined,
       target_point: targetPoint || undefined,

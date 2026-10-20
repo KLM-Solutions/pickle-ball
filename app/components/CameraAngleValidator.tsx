@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, AlertTriangle, RefreshCw, ChevronRight, Camera, X } from 'lucide-react';
 import { validateCameraAngle, ValidationResult, StrokeType } from '@/lib/analysis/cameraValidation';
+import { mediaUrl } from '@/lib/media';
 
 interface CameraAngleValidatorProps {
     videoFile: File | null;
@@ -37,7 +38,7 @@ export default function CameraAngleValidator({
 
             try {
                 const validationResult = await validateCameraAngle(
-                    videoFile || videoUrl!,
+                    videoFile || mediaUrl(videoUrl!),
                     strokeType
                 );
 

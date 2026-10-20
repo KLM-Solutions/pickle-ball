@@ -6,6 +6,7 @@ import { ArrowLeft, Award, ChevronRight, BarChart3, AlertTriangle, TrendingUp, P
 import VideoPanel from "../../components/VideoPanel";
 import { BiomechanicalMetrics } from "../../components/dashboard/BiomechanicalMetrics";
 import { filterFramesForIssues, getTopIssues, getFilterSummary, getFullRecommendation, FilteredFrame, FilterSummary, CoachingRecommendation } from "@/lib/analysis";
+import { mediaUrl } from "@/lib/media";
 
 // Demo job UUID for fetching pre-analyzed session from database
 const DEMO_JOB_ID = "762644e0-0192-49d9-bf85-a127c3b56449";
@@ -488,7 +489,7 @@ function PlayerContent() {
                                                                             }}
                                                                         >
                                                                             <video
-                                                                                src={analysisData.videoUrl}
+                                                                                src={mediaUrl(analysisData.videoUrl)}
                                                                                 className="w-full h-auto max-h-32 object-cover bg-neutral-200"
                                                                                 muted
                                                                                 playsInline
