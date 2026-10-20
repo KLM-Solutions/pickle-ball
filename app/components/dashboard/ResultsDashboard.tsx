@@ -4,6 +4,7 @@ import VideoPanel from "../VideoPanel";
 import { Activity, AlertTriangle, TrendingUp, User, Layout, List, CheckCircle, ArrowLeft, Zap, Code, Copy, Check, X } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { BiomechanicalMetrics } from "./BiomechanicalMetrics";
+import { mediaUrl } from "@/lib/media";
 
 interface ResultsDashboardProps {
     result: AnalyzeResponse;
@@ -251,7 +252,7 @@ export default function ResultsDashboard({ result, videoFile, onReset }: Results
                                         >
                                             {frameData && frameData.frameFilename ? (
                                                 <img
-                                                    src={frameData.frameFilename.startsWith('http') ? frameData.frameFilename : `/frames/${frameData.frameFilename}`}
+                                                    src={frameData.frameFilename.startsWith('http') ? mediaUrl(frameData.frameFilename) : `/frames/${frameData.frameFilename}`}
                                                     alt={`Frame ${targetFrameIdx}`}
                                                     className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                                                 />

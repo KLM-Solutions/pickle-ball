@@ -3,6 +3,7 @@
 import { Upload, Loader2, Tag, Zap, Play, Pause, SkipBack, SkipForward, CheckCircle, Settings, Volume2, VolumeX, Maximize, AlertTriangle } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { AnalyzeResponse } from "../types";
+import { mediaUrl } from "@/lib/media";
 
 // Extract a frame from video file for tagging UI
 async function extractFrameFromVideo(file: File): Promise<string> {
@@ -163,7 +164,7 @@ export default function VideoPanel({
         } else if (videoUrl) {
             // Fallback for URL-only (though unlikely in upload flow)
             const video = document.createElement('video');
-            video.src = videoUrl;
+            video.src = mediaUrl(videoUrl);
             video.crossOrigin = "anonymous"; // Enable CORS for frame extraction
             video.muted = true; // Mute to prevent sound issues
             video.playsInline = true; // Play inline
@@ -335,7 +336,7 @@ export default function VideoPanel({
         }
     }, [currentTime]);
 
-    const activeSrc = (showOverlay && videoUrl) ? videoUrl : (localVideoUrl || '');
+    const activeSrc = (showOverlay && videoUrl) ? mediaUrl(videoUrl) : (localVideoUrl || '');
 
     // --- Renders ---
 
@@ -607,7 +608,7 @@ export default function VideoPanel({
                                         onClick={() => {
                                             if (!videoUrl) return;
                                             const a = document.createElement('a');
-                                            a.href = videoUrl;
+                                            a.href = mediaUrl(videoUrl);
                                             a.download = `pickleball-analysis-${new Date().getTime()}.mp4`;
                                             document.body.appendChild(a);
                                             a.click();
